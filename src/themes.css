@@ -1,0 +1,27 @@
+:root {
+    --color-bg: #f5f6fa;
+    --color-card: #fff;
+    --color-primary: #007bff;
+    --color-text: #222;
+    --color-border: #e0e0e0;
+    --color-error-bg: #f8d7da;
+    --color-error-text: #721c24;
+}
+
+[data-theme="dark"] {
+    --color-bg: #181a20;
+    --color-card: #23262f;
+    --color-primary: #4f8cff;
+    --color-text: #f5f6fa;
+    --color-border: #2c2f36;
+    --color-error-bg: #3a1a1a;
+    --color-error-text: #ffb4b4;
+}
+
+body, #root {
+    min-height: 100vh;
+    background: var(--color-bg);
+    color: var(--color-text);
+    margin: 0;
+    font-family: 'Inter', Arial, sans-serif;
+}
