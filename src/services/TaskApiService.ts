@@ -12,7 +12,7 @@ import {
     CreateTaskRequestTaskTypeEnum
 } from '../api';
 import type { AxiosResponse } from 'axios';
-import { axiosInstance } from '../axiosInstance.ts';
+import { axiosInstance } from '../instances/axiosInstance.ts';
 import type { Task } from '../context/ContentContext';
 interface ApiTaskContent {
     id: string;

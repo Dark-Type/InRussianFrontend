@@ -1,8 +1,8 @@
 import React, {useState, useEffect} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {UserRoleEnum, UserSystemLanguageEnum} from '../api';
-import {useAuth} from './UseAuth.tsx';
-import {useTheme} from "./UseTheme.tsx";
+import {useAuth} from '../context/UseAuth.tsx';
+import {useTheme} from "../context/UseTheme.tsx";
 
 export const AuthPage: React.FC = () => {
     const [mode, setMode] = useState<'login' | 'register'>('login');

@@ -1,5 +1,5 @@
 import { ContentApi } from '../api';
-import { axiosInstance } from '../axiosInstance.ts';
+import { axiosInstance } from '../instances/axiosInstance.ts';
 import type {
     Course as ApiCourse,
     CreateCourseRequest,

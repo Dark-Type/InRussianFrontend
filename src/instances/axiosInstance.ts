@@ -1,4 +1,5 @@
 import axios from 'axios';
+import {authApi} from "./authApiInstance";
 
 const axiosInstance = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080'
@@ -11,7 +12,7 @@ let failedQueue: Array<{
 }> = [];
 
 const processQueue = (error: unknown, token: string | null = null) => {
-    failedQueue.forEach(({ resolve, reject }) => {
+    failedQueue.forEach(({resolve, reject}) => {
         if (error) {
             reject(error);
         } else {
@@ -24,18 +25,9 @@ const processQueue = (error: unknown, token: string | null = null) => {
 axiosInstance.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('accessToken');
-        console.log('Request interceptor - token:', token ? 'exists' : 'missing');
-        console.log('Request interceptor - URL:', config.url);
-        console.log('Request interceptor - headers before:', config.headers);
-
         if (token && !config.headers.Authorization) {
             config.headers.Authorization = `Bearer ${token}`;
-            console.log('Added Authorization header');
-        } else if (config.headers.Authorization) {
-            console.log('Authorization header already exists');
         }
-
-        console.log('Request interceptor - headers after:', config.headers);
         return config;
     },
     (error) => Promise.reject(error)
@@ -48,7 +40,7 @@ axiosInstance.interceptors.response.use(
         if (error.response?.status === 401 && !originalRequest._retry) {
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
-                    failedQueue.push({ resolve, reject });
+                    failedQueue.push({resolve, reject});
                 }).then((token) => {
                     originalRequest.headers.Authorization = `Bearer ${token}`;
                     return axiosInstance(originalRequest);
@@ -62,11 +54,10 @@ axiosInstance.interceptors.response.use(
 
             if (refreshToken) {
                 try {
-                    const response = await axiosInstance.post('/auth/refresh', {
-                        refreshToken: refreshToken
-                    });
+                    const {data} = await authApi.authRefreshPost({refreshToken});
 
-                    const { accessToken } = response.data;
+                    const accessToken = data;
+
                     localStorage.setItem('accessToken', accessToken);
 
                     processQueue(null, accessToken);
@@ -92,4 +83,4 @@ axiosInstance.interceptors.response.use(
     }
 );
 
-export { axiosInstance };
+export {axiosInstance};

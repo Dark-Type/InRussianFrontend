@@ -1,13 +1,13 @@
 import {BrowserRouter, Routes, Route} from 'react-router-dom';
-import {AuthProvider} from './context/AuthContext.tsx';
-import {AuthPage} from './context/AuthPage';
+import {AuthProvider} from './context/auth/AuthProvider.tsx';
+import {AuthPage} from './components/AuthPage.tsx';
 import {AdminPanel} from './components/AdminPanel';
 import {ExpertPanel} from './components/ExpertPanel';
 import {ContentPanel} from './components/ContentPanel.tsx';
 import {ThemeProvider} from './context/ThemeContext.tsx';
 import {RoleProtectedRoute} from './components/RoleProtectedRoute';
 import {UserRoleEnum} from './api';
-import {ProfileProvider} from "./context/ProfileContext.tsx";
+import {ProfileProvider} from "./context/profile/ProfileProvider.tsx";
 import {ContentProvider} from "./context/ContentContext.tsx";
 import {AdminProvider} from "./context/UseAdmin.tsx";
 import {ExpertProvider} from "./context/UseExpert.tsx";
