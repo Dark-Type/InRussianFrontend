@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {UserRoleEnum, UserSystemLanguageEnum} from '../api';
 import {useAuth} from '../context/UseAuth.tsx';
@@ -20,13 +20,6 @@ export const AuthPage: React.FC = () => {
     const [patronymic, setPatronymic] = useState('');
 
     const navigate = useNavigate();
-
-
-    useEffect(() => {
-        if (user?.role) {
-            redirectToPanel(user.role as UserRoleEnum);
-        }
-    }, [user]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -56,13 +49,15 @@ export const AuthPage: React.FC = () => {
                 redirectToPanel(userRole);
             }
         } catch (err: unknown) {
+            console.error("Auth error:", err);
             setError('Произошла ошибка');
+
         } finally {
             setIsLoading(false);
         }
     };
 
-    const redirectToPanel = (userRole: UserRoleEnum) => {
+    const redirectToPanel = useCallback((userRole: UserRoleEnum) => {
         switch (userRole) {
             case UserRoleEnum.Admin:
                 navigate('/admin');
@@ -76,7 +71,13 @@ export const AuthPage: React.FC = () => {
             default:
                 navigate('/');
         }
-    };
+    }, [navigate]);
+
+    useEffect(() => {
+        if (user?.role) {
+            redirectToPanel(user.role as UserRoleEnum);
+        }
+    }, [redirectToPanel, user]);
 
     return (
         <div style={{

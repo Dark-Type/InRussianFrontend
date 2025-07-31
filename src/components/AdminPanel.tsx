@@ -94,12 +94,12 @@ export const AdminPanel = () => {
                         borderRadius: '4px',
                         fontSize: '0.8rem',
                         fontWeight: 'bold',
-                        background: user.role === 'admin' ? '#ff6b6b' :
-                            user.role === 'staff' ? '#4ecdc4' : '#45b7d1',
+                        background: user.role === 'ADMIN' ? '#ff6b6b' :
+                            user.role === 'EXPERT' ? '#4ecdc4' : '#45b7d1',
                         color: 'white'
                     }}>
-                        {user.role === 'admin' ? 'Администратор' :
-                            user.role === 'staff' ? 'Преподаватель' : 'Студент'}
+                        {user.role === 'ADMIN' ? 'Администратор' :
+                            user.role === 'EXPERT' ? 'Преподаватель' : 'Студент'}
                     </div>
                 </div>
                 <button
@@ -416,7 +416,7 @@ export const AdminPanel = () => {
                         {renderEditField('Телефон', 'phone', editingUser.phone || '')}
                         {renderEditField('Дата рождения', 'birthDate', editingUser.birthDate || '', 'date')}
 
-                        {editingUser.role === 'student' && (
+                        {editingUser.role === 'STUDENT' && (
                             <>
                                 {renderEditField('ID студента', 'studentId', editingUser.studentId || '')}
                                 {renderEditField('Группа', 'group', editingUser.group || '')}
@@ -424,7 +424,7 @@ export const AdminPanel = () => {
                             </>
                         )}
 
-                        {editingUser.role === 'staff' && (
+                        {editingUser.role === 'EXPERT' && (
                             <>
                                 {renderEditField('Кафедра', 'department', editingUser.department || '')}
                                 {renderEditField('Должность', 'position', editingUser.position || '')}

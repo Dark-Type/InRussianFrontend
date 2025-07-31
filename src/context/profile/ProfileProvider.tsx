@@ -1,15 +1,17 @@
 import {type ReactNode} from "react";
 import {
     type CreateStaffProfileRequest,
-    type UpdateStaffProfileRequest,
     type CreateUserProfileRequest,
+    type MediaFileMeta,
+    type StaffProfileResponse,
+    type UpdateStaffProfileRequest,
     type UpdateUserProfileRequest,
     type UserLanguageSkillRequest,
-    type StaffProfileResponse,
     type UserProfileResponse,
 } from "../../api";
 import {ProfileContext} from "./ProfileContext.ts";
 import {profileApi} from "../../instances/profileApiInstance";
+import {mediaService} from "../../services/MediaService.ts";
 
 type ProfileProviderProps = {
     children: ReactNode;
@@ -28,6 +30,11 @@ export type ProfileContextType = {
     updateUserProfile: (data: UpdateUserProfileRequest) => Promise<UserProfileResponse>;
 
     addUserLanguageSkill: (data: UserLanguageSkillRequest) => Promise<string>;
+
+    uploadAvatar: (file: File, userId?: string) => Promise<MediaFileMeta>;
+    getAvatarUrl: (mediaId: string) => string;
+    updateAvatar: (mediaId: string, file: File, userId?: string) => Promise<MediaFileMeta>;
+    deleteAvatar: (mediaId: string, userId?: string) => Promise<void>;
 };
 
 export function ProfileProvider({children}: ProfileProviderProps) {
@@ -83,11 +90,50 @@ export function ProfileProvider({children}: ProfileProviderProps) {
         return data;
     };
 
-    // Language skills
     const addUserLanguageSkill = async (req: UserLanguageSkillRequest) => {
         const {data} = await profileApi.profilesUserUserLanguageSkillsPost(req);
         return data;
     };
+    const uploadAvatar = async (file: File, userId?: string): Promise<MediaFileMeta> => {
+        const fileName = file.name;
+        const mimeType = file.type;
+        const fileSize = file.size;
+        const fileType = "AVATAR";
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("fileName", fileName);
+        formData.append("mimeType", mimeType);
+        formData.append("fileSize", fileSize.toString());
+        formData.append("fileType", fileType);
+
+        return await mediaService.uploadMediaWithMeta(formData, userId);
+    };
+
+    const getAvatarUrl = (mediaId: string): string => {
+        return `${import.meta.env.VITE_API_URL || "http://localhost:8080"}/media/${mediaId}`;
+    };
+
+    const updateAvatar = async (mediaId: string, file: File, userId?: string): Promise<MediaFileMeta> => {
+        const fileName = file.name;
+        const mimeType = file.type;
+        const fileSize = file.size;
+        const fileType = "AVATAR";
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("fileName", fileName);
+        formData.append("mimeType", mimeType);
+        formData.append("fileSize", fileSize.toString());
+        formData.append("fileType", fileType);
+
+        return await mediaService.updateMediaWithMeta(mediaId, formData, userId);
+    };
+
+    const deleteAvatar = async (mediaId: string, userId?: string): Promise<void> => {
+        await mediaService.deleteMedia(mediaId, userId);
+    };
+
 
     return (
         <ProfileContext.Provider
@@ -103,6 +149,10 @@ export function ProfileProvider({children}: ProfileProviderProps) {
                 createUserProfile,
                 updateUserProfile,
                 addUserLanguageSkill,
+                uploadAvatar,
+                getAvatarUrl,
+                updateAvatar,
+                deleteAvatar,
             }}
         >
             {children}
