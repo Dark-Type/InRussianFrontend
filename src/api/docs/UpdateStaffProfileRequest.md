@@ -8,6 +8,10 @@ Name | Type | Description | Notes
 **name** | **string** |  | [optional] [default to undefined]
 **surname** | **string** |  | [optional] [default to undefined]
 **patronymic** | **string** |  | [optional] [default to undefined]
+**passwordHash** | **string** |  | [optional] [default to undefined]
+**systemLanguage** | **string** |  | [optional] [default to undefined]
+**phone** | **string** |  | [optional] [default to undefined]
+**avatarId** | **string** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -18,6 +22,10 @@ const instance: UpdateStaffProfileRequest = {
     name,
     surname,
     patronymic,
+    passwordHash,
+    systemLanguage,
+    phone,
+    avatarId,
 };
 ```
 

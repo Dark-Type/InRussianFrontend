@@ -1,11 +1,33 @@
 import axios from 'axios';
-import {authApi} from "./authApiInstance";
+import {AuthApi, Configuration} from '../api';
 
 const axiosInstance = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080'
 });
 
+export const authApi = new AuthApi(
+    new Configuration({basePath: axiosInstance.defaults.baseURL}),
+    undefined,
+    axiosInstance
+);
+
 let isRefreshing = false;
+
+export function setTokens(accessToken: string | null, refreshToken?: string | null) {
+    if (accessToken) {
+        localStorage.setItem('accessToken', accessToken);
+    } else {
+        localStorage.removeItem('accessToken');
+    }
+    if (refreshToken !== undefined) {
+        if (refreshToken) {
+            localStorage.setItem('refreshToken', refreshToken);
+        } else {
+            localStorage.removeItem('refreshToken');
+        }
+    }
+}
+
 let failedQueue: Array<{
     resolve: (value?: unknown) => void;
     reject: (error?: unknown) => void;
@@ -25,7 +47,8 @@ const processQueue = (error: unknown, token: string | null = null) => {
 axiosInstance.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('accessToken');
-        if (token && !config.headers.Authorization) {
+        const isAuthEndpoint = config.url?.includes('/auth/login') || config.url?.includes('/auth/register');
+        if (token && !isAuthEndpoint && !config.headers.Authorization) {
             config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
@@ -54,10 +77,11 @@ axiosInstance.interceptors.response.use(
 
             if (refreshToken) {
                 try {
-                    const {data} = await authApi.authRefreshPost({refreshToken});
+                    const response = await axiosInstance.post('/auth/refresh', {
+                        refreshToken: refreshToken
+                    });
 
-                    const accessToken = data;
-
+                    const {accessToken} = response.data;
                     localStorage.setItem('accessToken', accessToken);
 
                     processQueue(null, accessToken);
@@ -68,6 +92,7 @@ axiosInstance.interceptors.response.use(
                     processQueue(refreshError, null);
                     localStorage.removeItem('accessToken');
                     localStorage.removeItem('refreshToken');
+                    localStorage.removeItem('userId');
                     return Promise.reject(refreshError);
                 } finally {
                     isRefreshing = false;
@@ -76,6 +101,7 @@ axiosInstance.interceptors.response.use(
                 isRefreshing = false;
                 localStorage.removeItem('accessToken');
                 localStorage.removeItem('refreshToken');
+                localStorage.removeItem('userId');
             }
         }
 

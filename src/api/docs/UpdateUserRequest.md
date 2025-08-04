@@ -9,7 +9,7 @@ Name | Type | Description | Notes
 **role** | **string** |  | [optional] [default to undefined]
 **systemLanguage** | **string** |  | [optional] [default to undefined]
 **avatarId** | **string** |  | [optional] [default to undefined]
-**status** | **string** |  | [default to undefined]
+**status** | **string** |  | [optional] [default to undefined]
 
 ## Example
 

@@ -4,58 +4,12 @@ All URIs are relative to *http://localhost:8080*
 
 |Method | HTTP request | Description|
 |------------- | ------------- | -------------|
-|[**authAdminCreateInitialPost**](#authadmincreateinitialpost) | **POST** /auth/admin/create-initial | |
 |[**authLoginPost**](#authloginpost) | **POST** /auth/login | |
 |[**authLogoutPost**](#authlogoutpost) | **POST** /auth/logout | |
 |[**authMeGet**](#authmeget) | **GET** /auth/me | |
 |[**authRefreshPost**](#authrefreshpost) | **POST** /auth/refresh | |
 |[**authStaffRegisterPost**](#authstaffregisterpost) | **POST** /auth/staff/register | |
 |[**authStudentRegisterPost**](#authstudentregisterpost) | **POST** /auth/student/register | |
-
-# **authAdminCreateInitialPost**
-> AdminCreatedResponse authAdminCreateInitialPost()
-
-
-
-### Example
-
-```typescript
-import {
-    AuthApi,
-    Configuration
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new AuthApi(configuration);
-
-const { status, data } = await apiInstance.authAdminCreateInitialPost();
-```
-
-### Parameters
-This endpoint does not have any parameters.
-
-
-### Return type
-
-**AdminCreatedResponse**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
- - **Accept**: */*
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**201** | Created |  -  |
-|**400** | Bad Request |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **authLoginPost**
 > LoginResponse authLoginPost(loginRequest)

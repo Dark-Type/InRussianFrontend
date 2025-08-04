@@ -1,4 +1,6 @@
-import React, {createContext, ReactNode, useState} from 'react';
+import React, {type ReactNode, useState} from 'react';
+import {ExpertContext} from './ExpertContext';
+import expertService from "../../services/ExpertService.ts";
 import * as XLSX from 'xlsx';
 
 export interface StudentProfile {
@@ -97,177 +99,9 @@ export interface CourseStatistics {
     }[];
 }
 
-interface ExpertContextType {
-    courses: ExpertCourse[];
-    sections: { [courseId: string]: ExpertSection[] };
-    themes: { [sectionId: string]: ExpertTheme[] };
-    studentProgress: StudentProgress[];
-    courseStatistics: { [courseId: string]: CourseStatistics };
-    searchTerm: string;
-    selectedCourse: string;
-    setSearchTerm: (term: string) => void;
-    setSelectedCourse: (courseId: string) => void;
-    loadCourses: () => Promise<void>;
-    loadSections: (courseId: string) => Promise<void>;
-    loadThemes: (sectionId: string) => Promise<void>;
-    loadStudentProgress: (courseId?: string) => Promise<void>;
-    loadCourseStatistics: (courseId: string) => Promise<void>;
-    getFilteredStudentProgress: () => StudentProgress[];
-    exportStudentProgressToExcel: (courseId?: string) => void;
-    exportCourseStatisticsToExcel: (courseId: string) => void;
-}
 
-export const ExpertContext = createContext<ExpertContextType | undefined>(undefined);
 
-// Mock данные
-const mockCourses: ExpertCourse[] = [
-    {
-        id: '1',
-        name: 'Базовый русский язык',
-        description: 'Основы русского языка для начинающих',
-        sectionsCount: 4,
-        themesCount: 12,
-        tasksCount: 48,
-        enrolledStudents: 25
-    },
-    {
-        id: '2',
-        name: 'Продвинутый русский язык',
-        description: 'Углубленное изучение русского языка',
-        sectionsCount: 6,
-        themesCount: 18,
-        tasksCount: 72,
-        enrolledStudents: 15
-    }
-];
-
-const mockSections: { [courseId: string]: ExpertSection[] } = {
-    '1': [
-        {
-            id: 's1',
-            courseId: '1',
-            name: 'Алфавит и произношение',
-            description: 'Изучение русского алфавита',
-            themesCount: 3,
-            tasksCount: 12,
-            averageProgress: 85
-        },
-        {
-            id: 's2',
-            courseId: '1',
-            name: 'Базовая грамматика',
-            description: 'Основы русской грамматики',
-            themesCount: 4,
-            tasksCount: 16,
-            averageProgress: 72
-        }
-    ]
-};
-
-const mockStudentProgress: StudentProgress[] = [
-    {
-        userId: '1',
-        courseId: '1',
-        courseName: 'Базовый русский язык',
-        lastActive: '2024-12-02T10:30:00Z',
-        totalTimeSpent: 450,
-        overallProgress: 78,
-        sectionProgress: [
-            {
-                sectionId: 's1',
-                sectionName: 'Алфавит и произношение',
-                testingProgress: 90,
-                learningProgress: 85
-            },
-            {
-                sectionId: 's2',
-                sectionName: 'Базовая грамматика',
-                testingProgress: 70,
-                learningProgress: 65
-            }
-        ],
-        profile: {
-            userId: '1',
-            surname: 'Петров',
-            name: 'Иван',
-            patronymic: 'Сергеевич',
-            email: 'ivan.petrov@example.com',
-            gender: 'MALE',
-            dob: '1995-03-15',
-            dor: '2024-01-15',
-            citizenship: 'Российская Федерация',
-            nationality: 'русский',
-            countryOfResidence: 'Россия',
-            cityOfResidence: 'Москва',
-            education: 'Высшее',
-            purposeOfRegister: 'Изучение языка'
-        },
-        languageSkills: [
-            {
-                language: 'Английский',
-                understands: true,
-                speaks: true,
-                reads: true,
-                writes: false
-            },
-            {
-                language: 'Хинди',
-                understands: false,
-                speaks: false,
-                reads: false,
-                writes: false
-            }
-        ]
-    },
-    {
-        userId: '2',
-        courseId: '1',
-        courseName: 'Базовый русский язык',
-        lastActive: '2024-12-01T14:20:00Z',
-        totalTimeSpent: 320,
-        overallProgress: 65,
-        sectionProgress: [
-            {
-                sectionId: 's1',
-                sectionName: 'Алфавит и произношение',
-                testingProgress: 80,
-                learningProgress: 75
-            },
-            {
-                sectionId: 's2',
-                sectionName: 'Базовая грамматика',
-                testingProgress: 50,
-                learningProgress: 55
-            }
-        ],
-        profile: {
-            userId: '2',
-            surname: 'Смит',
-            name: 'Джон',
-            email: 'john.smith@example.com',
-            gender: 'MALE',
-            dob: '1992-07-22',
-            dor: '2024-02-01',
-            citizenship: 'США',
-            nationality: 'американец',
-            countryOfResidence: 'США',
-            cityOfResidence: 'Нью-Йорк',
-            education: 'Высшее',
-            purposeOfRegister: 'Деловое общение'
-        },
-        languageSkills: [
-            {
-                language: 'Английский',
-                understands: true,
-                speaks: true,
-                reads: true,
-                writes: true
-            }
-        ]
-    }
-];
-
-export const ExpertProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const ExpertProvider: React.FC<{ children: ReactNode }> = ({children}) => {
     const [courses, setCourses] = useState<ExpertCourse[]>([]);
     const [sections, setSections] = useState<{ [courseId: string]: ExpertSection[] }>({});
     const [themes, setThemes] = useState<{ [sectionId: string]: ExpertTheme[] }>({});
@@ -277,73 +111,67 @@ export const ExpertProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const [selectedCourse, setSelectedCourse] = useState('');
 
     const loadCourses = async () => {
-        setCourses(mockCourses);
+        try {
+            const coursesData = await expertService.getAllCourses();
+            setCourses(coursesData);
+        } catch (error) {
+            console.error('Ошибка загрузки курсов:', error);
+            setCourses([]);
+        }
     };
 
     const loadSections = async (courseId: string) => {
-        setSections(prev => ({
-            ...prev,
-            [courseId]: mockSections[courseId] || []
-        }));
+        try {
+            const sectionsData = await expertService.getSectionsByCourse(courseId);
+            setSections(prev => ({
+                ...prev,
+                [courseId]: sectionsData
+            }));
+        } catch (error) {
+            console.error('Ошибка загрузки секций:', error);
+            setSections(prev => ({
+                ...prev,
+                [courseId]: []
+            }));
+        }
     };
 
     const loadThemes = async (sectionId: string) => {
-        // Mock themes data
-        const mockThemes = [
-            {
-                id: 't1',
-                sectionId,
-                name: 'Согласные буквы',
-                description: 'Изучение согласных звуков',
-                tasksCount: 4,
-                averageProgress: 88,
-                averageTimeSpent: 25
-            }
-        ];
-
-        setThemes(prev => ({
-            ...prev,
-            [sectionId]: mockThemes
-        }));
+        try {
+            const themesData = await expertService.getThemesBySection(sectionId);
+            setThemes(prev => ({
+                ...prev,
+                [sectionId]: themesData
+            }));
+        } catch (error) {
+            console.error('Ошибка загрузки тем:', error);
+            setThemes(prev => ({
+                ...prev,
+                [sectionId]: []
+            }));
+        }
     };
 
     const loadStudentProgress = async (courseId?: string) => {
-        const filtered = courseId
-            ? mockStudentProgress.filter(p => p.courseId === courseId)
-            : mockStudentProgress;
-        setStudentProgress(filtered);
+        try {
+            const progressData = await expertService.getStudentProgress(courseId);
+            setStudentProgress(progressData);
+        } catch (error) {
+            console.error('Ошибка загрузки прогресса студентов:', error);
+            setStudentProgress([]);
+        }
     };
 
     const loadCourseStatistics = async (courseId: string) => {
-        const mockStats: CourseStatistics = {
-            courseId,
-            courseName: mockCourses.find(c => c.id === courseId)?.name || '',
-            totalStudents: 25,
-            activeStudents: 20,
-            averageProgress: 72,
-            averageTimeSpent: 385,
-            completionRate: 32,
-            sections: [
-                {
-                    sectionId: 's1',
-                    sectionName: 'Алфавит и произношение',
-                    averageProgress: 85,
-                    themes: [
-                        {
-                            themeId: 't1',
-                            themeName: 'Согласные буквы',
-                            averageProgress: 88,
-                            averageTimeSpent: 25
-                        }
-                    ]
-                }
-            ]
-        };
-
-        setCourseStatistics(prev => ({
-            ...prev,
-            [courseId]: mockStats
-        }));
+        try {
+            const statsData = await expertService.getCourseStatistics(courseId);
+            setCourseStatistics(prev => ({
+                ...prev,
+                [courseId]: statsData
+            }));
+        } catch (error) {
+            console.error('Ошибка загрузки статистики курса:', error);
+        }
     };
 
     const getFilteredStudentProgress = () => {
@@ -363,7 +191,6 @@ export const ExpertProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
         return filtered;
     };
-
     const exportStudentProgressToExcel = (courseId?: string) => {
         const dataToExport = courseId
             ? studentProgress.filter(p => p.courseId === courseId)

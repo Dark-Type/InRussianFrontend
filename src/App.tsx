@@ -4,13 +4,13 @@ import {AuthPage} from './components/AuthPage.tsx';
 import {AdminPanel} from './components/AdminPanel';
 import {ExpertPanel} from './components/ExpertPanel';
 import {ContentPanel} from './components/ContentPanel.tsx';
-import {ThemeProvider} from './context/ThemeContext.tsx';
+import {ThemeProvider} from './context/theme/ThemeProvider.tsx';
 import {RoleProtectedRoute} from './components/RoleProtectedRoute';
 import {UserRoleEnum} from './api';
 import {ProfileProvider} from "./context/profile/ProfileProvider.tsx";
-import {ContentProvider} from "./context/ContentContext.tsx";
-import {AdminProvider} from "./context/UseAdmin.tsx";
-import {ExpertProvider} from "./context/UseExpert.tsx";
+import {ContentProvider} from "./context/content/ContentProvider.tsx";
+import {AdminProvider} from "./context/admin/AdminProvider.tsx";
+import {ExpertProvider} from "./context/expert/ExpertProvider.tsx";
 
 export const App = () => (
     <ThemeProvider>

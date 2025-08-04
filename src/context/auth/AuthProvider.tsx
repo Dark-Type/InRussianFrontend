@@ -4,8 +4,9 @@ import {
     type StaffRegisterRequest,
     type UserRoleEnum,
 } from "../../api";
+import {setTokens} from '../../instances/axiosInstance';
 import {AuthContext} from "./AuthContext";
-import {authApi} from "../../instances/authApiInstance";
+import {authApi} from "../../instances/axiosInstance.ts";
 import {profileApi} from "../../instances/profileApiInstance";
 
 type AuthUser = {
@@ -36,35 +37,47 @@ export function AuthProvider({children}: AuthProviderProps) {
     const [user, setUser] = useState<AuthUser | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
-    const isAuthenticated = !!token;
+    const isAuthenticated = !!token && !!user;
 
     const setAuthTokens = useCallback(
         (accessToken: string | null, refreshToken?: string | null) => {
-            if (accessToken) {
-                localStorage.setItem("accessToken", accessToken);
-                if (refreshToken) {
-                    localStorage.setItem("refreshToken", refreshToken);
-                }
-            } else {
-                localStorage.removeItem("accessToken");
-                localStorage.removeItem("refreshToken");
-            }
             setToken(accessToken);
+            setTokens(accessToken, refreshToken);
         },
-        [setToken]
+        []
     );
 
+    const logout = useCallback(() => {
+        setAuthTokens(null, null);
+        setUser(null);
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('userId');
+    }, [setAuthTokens]);
+
     useEffect(() => {
-        const storedToken = localStorage.getItem("accessToken");
-        const storedRefreshToken = localStorage.getItem("refreshToken");
-
-        if (storedToken && storedRefreshToken) {
-            setToken(storedToken);
-        } else {
+        const initializeAuth = async () => {
+            const storedToken = localStorage.getItem("accessToken");
+            if (storedToken) {
+                setToken(storedToken);
+                try {
+                    const {data} = await authApi.authMeGet();
+                    setUser({
+                        id: data.user.id,
+                        email: data.user.email,
+                        role: data.user.role as UserRoleEnum,
+                    });
+                    localStorage.setItem('userId', data.user.id);
+                } catch (error) {
+                    console.error("Failed to get user info:", error);
+                    logout();
+                }
+            }
             setLoading(false);
-        }
-    }, []);
+        };
 
+        initializeAuth();
+    }, [logout]);
 
     const login = async (email: string, password: string) => {
         setLoading(true);
@@ -76,6 +89,8 @@ export function AuthProvider({children}: AuthProviderProps) {
                 email: data.user.email,
                 role: data.user.role as UserRoleEnum,
             });
+            // @ts-ignore
+            localStorage.setItem('userId', user.id);
         } catch (error) {
             console.error("Login failed:", error);
             throw error;
@@ -83,11 +98,6 @@ export function AuthProvider({children}: AuthProviderProps) {
             setLoading(false);
         }
     };
-
-    const logout = useCallback(() => {
-        setAuthTokens(null);
-        setUser(null);
-    }, [setAuthTokens, setUser]);
 
     const refreshUser = useCallback(async () => {
         if (!token) return;
@@ -99,21 +109,14 @@ export function AuthProvider({children}: AuthProviderProps) {
                 email: data.user.email,
                 role: data.user.role as UserRoleEnum,
             });
+            localStorage.setItem('userId', user!.id);
         } catch (error) {
-            console.error("Failed to refresh user:", error);
+            console.error("Failed to get user info:", error);
             logout();
         } finally {
             setLoading(false);
         }
-    }, [token, logout, setLoading, setUser]);
-
-    useEffect(() => {
-        if (token) {
-            refreshUser();
-        } else {
-            setLoading(false);
-        }
-    }, [token, refreshUser]);
+    }, [token, logout]);
 
     const registerWithStaffProfile = async (
         userData: StaffRegisterRequest,
@@ -129,7 +132,7 @@ export function AuthProvider({children}: AuthProviderProps) {
                 email: data.user.email,
                 role: data.user.role as UserRoleEnum,
             });
-
+            localStorage.setItem('userId', data.user.id);
             await profileApi.profilesStaffPost(staffProfileData);
 
             return data.user.role as UserRoleEnum;

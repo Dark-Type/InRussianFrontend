@@ -1,8 +1,9 @@
-import {type ReactNode} from "react";
+import {type ReactNode, useCallback} from "react";
 import {
     type CreateStaffProfileRequest,
     type CreateUserProfileRequest,
     type MediaFileMeta,
+    type StaffProfile,
     type StaffProfileResponse,
     type UpdateStaffProfileRequest,
     type UpdateUserProfileRequest,
@@ -18,7 +19,7 @@ type ProfileProviderProps = {
 };
 export type ProfileContextType = {
     getStaffProfiles: () => Promise<StaffProfileResponse>;
-    getStaffProfileById: (id: string) => Promise<StaffProfileResponse>;
+    getStaffProfileById: (id: string) => Promise<StaffProfile>;
     updateStaffProfileById: (id: string, data: UpdateStaffProfileRequest) => Promise<StaffProfileResponse>;
     createStaffProfile: (data: CreateStaffProfileRequest) => Promise<StaffProfileResponse>;
     updateStaffProfile: (data: UpdateStaffProfileRequest) => Promise<StaffProfileResponse>;
@@ -31,6 +32,7 @@ export type ProfileContextType = {
 
     addUserLanguageSkill: (data: UserLanguageSkillRequest) => Promise<string>;
 
+    getAvatarIdByUserId: (userId: string) => Promise<string>;
     uploadAvatar: (file: File, userId?: string) => Promise<MediaFileMeta>;
     getAvatarUrl: (mediaId: string) => string;
     updateAvatar: (mediaId: string, file: File, userId?: string) => Promise<MediaFileMeta>;
@@ -43,12 +45,16 @@ export function ProfileProvider({children}: ProfileProviderProps) {
         const {data} = await profileApi.profilesStaffGet();
         return data;
     };
-
-    const getStaffProfileById = async (id: string) => {
-        const {data} = await profileApi.profilesStaffIdGet(id);
-        return data;
+    const getAvatarIdByUserId = async (userId: string): Promise<string> => {
+        const { data } = await profileApi.profilesAvatarUserIdGet(userId);
+        if (typeof data === "string") return data;
+        return (data as { avatarId?: string })?.avatarId || "";
     };
 
+    const getStaffProfileById = useCallback(async (id: string): Promise<StaffProfile> => {
+        const {data} = await profileApi.profilesStaffIdGet(id);
+        return data.profile;
+    }, []);
     const updateStaffProfileById = async (id: string, req: UpdateStaffProfileRequest) => {
         const {data} = await profileApi.profilesStaffIdPut(id, req);
         return data;
@@ -64,7 +70,6 @@ export function ProfileProvider({children}: ProfileProviderProps) {
         return data;
     };
 
-    // User endpoints
     const getUserProfiles = async () => {
         const {data} = await profileApi.profilesUserGet();
         return data;
@@ -91,7 +96,7 @@ export function ProfileProvider({children}: ProfileProviderProps) {
     };
 
     const addUserLanguageSkill = async (req: UserLanguageSkillRequest) => {
-        const {data} = await profileApi.profilesUserUserLanguageSkillsPost(req);
+        const {data} = await profileApi.profilesUserLanguageSkillsPost(req);
         return data;
     };
     const uploadAvatar = async (file: File, userId?: string): Promise<MediaFileMeta> => {
@@ -153,6 +158,7 @@ export function ProfileProvider({children}: ProfileProviderProps) {
                 getAvatarUrl,
                 updateAvatar,
                 deleteAvatar,
+                getAvatarIdByUserId,
             }}
         >
             {children}

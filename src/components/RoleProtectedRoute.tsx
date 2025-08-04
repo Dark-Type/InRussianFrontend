@@ -1,6 +1,6 @@
 import React from 'react';
 import {Navigate} from 'react-router-dom';
-import {useAuth} from '../context/UseAuth.tsx';
+import {useAuth} from '../context/auth/UseAuth';
 import type {UserRoleEnum} from '../api';
 
 type Props = {

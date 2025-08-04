@@ -1,16 +1,16 @@
-import React, { createContext, useContext, useState, type ReactNode } from 'react';
-import { taskApiService } from '../services/TaskApiService';
-import contentService from '../services/ContentService';
+import React, {useState, type ReactNode} from 'react';
+import contentService from '../../services/ContentService.ts';
+import taskService from "../../services/TaskService.ts";
+import {mediaService} from "../../services/MediaService.ts";
+import {ContentContext} from './ContentContext.ts';
 import type {
-    CreateTaskAnswerOptionRequest,
-    CreateTaskAnswerRequest,
-    CreateTaskContentRequest,
-    CreateTaskRequest,
     UpdateTaskRequest,
     UpdateCourseRequest,
     UpdateSectionRequest,
-    UpdateThemeRequest
-} from '../api';
+    UpdateThemeRequest,
+    CreateTaskAnswerRequestAnswerTypeEnum,
+    CreateTaskContentRequestContentTypeEnum
+} from '../../api';
 
 export interface Course {
     id: string;
@@ -55,61 +55,43 @@ export type AnswerType =
     | 'MATCH_PAIRS';
 
 export interface TaskContent {
-    id: string;
+    id?: string;
     contentType: ContentType;
-    contentId?: string;
     description?: string;
     transcription?: string;
     translation?: string;
-    orderNum: number;
-    file?: File;
-    url?: string;
-    text?: string;
+    orderNum?: number;
+    mediaFile?: File;
 }
 
 export interface AnswerOption {
-    id: string;
-    text: string;
-    audioId?: string;
-    audioFile?: File;
+    id?: string;
+    optionText: string;
     isCorrect: boolean;
-    orderNum: number;
-}
-
-export interface MatchPair {
-    id: string;
-    leftItem: {
-        type: 'TEXT' | 'AUDIO';
-        content: string;
-        audioId?: string;
-    };
-    rightItem: {
-        type: 'TEXT';
-        content: string;
-    };
+    orderNum?: number;
+    mediaFile?: File;
 }
 
 export interface TaskAnswer {
     answerType: AnswerType;
-    correctAnswer: any;
-    options?: AnswerOption[];
-    matchPairs?: MatchPair[];
+    correctAnswer: object;
 }
 
 export interface Task {
-    id: string;
-    themeId: string;
+    id?: string;
+    themeId?: string;
     name: string;
     taskType: TaskType;
     question: string;
     instructions?: string;
     isTraining: boolean;
-    orderNum: number;
+    orderNum?: number;
     contents: TaskContent[];
     answer: TaskAnswer;
+    answerOptions: AnswerOption[];
 }
 
-interface ContentContextType {
+export interface ContentContextType {
     courses: Course[];
     sections: { [courseId: string]: Section[] };
     themes: { [sectionId: string]: Theme[] };
@@ -121,8 +103,8 @@ interface ContentContextType {
     loadTasks: (themeId: string) => Promise<void>;
 
     createCourse: (name: string, description?: string, authorUrl?: string, language?: string, isPublished?: boolean) => Promise<void>;
-    createSection: (courseId: string, name: string, description?: string, orderNum?: number) => Promise<void>;
-    createTheme: (sectionId: string, name: string, description?: string, orderNum?: number) => Promise<void>;
+    createSection: (courseId: string, name: string, description?: string) => Promise<void>;
+    createTheme: (sectionId: string, name: string, description?: string) => Promise<void>;
 
     updateCourse: (id: string, name: string, description?: string) => Promise<void>;
     updateSection: (id: string, name: string, description?: string) => Promise<void>;
@@ -149,8 +131,6 @@ interface ContentContextType {
     isLoadingThemes: boolean;
 }
 
-const ContentContext = createContext<ContentContextType | undefined>(undefined);
-
 const transformApiTaskToTask = (apiTask: any): Task => {
     return {
         id: apiTask.id,
@@ -161,12 +141,28 @@ const transformApiTaskToTask = (apiTask: any): Task => {
         instructions: apiTask.instructions,
         isTraining: apiTask.isTraining,
         orderNum: apiTask.orderNum,
-        contents: apiTask.contents || [],
-        answer: apiTask.answer || { answerType: 'SINGLE_CHOICE', correctAnswer: {}, options: [] }
+        contents: apiTask.contents?.map((content: any) => ({
+            id: content.id,
+            contentType: content.contentType as ContentType,
+            description: content.description,
+            transcription: content.transcription,
+            translation: content.translation,
+            orderNum: content.orderNum
+        })) || [],
+        answer: {
+            answerType: apiTask.answer?.answerType as AnswerType || 'SINGLE_CHOICE',
+            correctAnswer: apiTask.answer?.correctAnswer || {}
+        },
+        answerOptions: apiTask.answerOptions?.map((option: any) => ({
+            id: option.id,
+            optionText: option.optionText,
+            isCorrect: option.isCorrect,
+            orderNum: option.orderNum
+        })) || []
     };
 };
 
-export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const ContentProvider: React.FC<{ children: ReactNode }> = ({children}) => {
     const [courses, setCourses] = useState<Course[]>([]);
     const [sections, setSections] = useState<{ [courseId: string]: Section[] }>({});
     const [themes, setThemes] = useState<{ [sectionId: string]: Theme[] }>({});
@@ -178,6 +174,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
     const [isLoadingSections, setIsLoadingSections] = useState(false);
     const [isLoadingThemes, setIsLoadingThemes] = useState(false);
 
+    // Остальные методы остаются без изменений...
     const loadCourses = async () => {
         setIsLoadingCourses(true);
         try {
@@ -195,10 +192,10 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
         setIsLoadingSections(true);
         try {
             const apiSections = await contentService.getSectionsByCourse(courseId);
-            setSections(prev => ({ ...prev, [courseId]: apiSections }));
+            setSections(prev => ({...prev, [courseId]: apiSections}));
         } catch (error) {
             console.error('Ошибка загрузки секций:', error);
-            setSections(prev => ({ ...prev, [courseId]: [] }));
+            setSections(prev => ({...prev, [courseId]: []}));
         } finally {
             setIsLoadingSections(false);
         }
@@ -208,10 +205,10 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
         setIsLoadingThemes(true);
         try {
             const apiThemes = await contentService.getThemesBySection(sectionId);
-            setThemes(prev => ({ ...prev, [sectionId]: apiThemes }));
+            setThemes(prev => ({...prev, [sectionId]: apiThemes}));
         } catch (error) {
             console.error('Ошибка загрузки тем:', error);
-            setThemes(prev => ({ ...prev, [sectionId]: [] }));
+            setThemes(prev => ({...prev, [sectionId]: []}));
         } finally {
             setIsLoadingThemes(false);
         }
@@ -220,12 +217,12 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
     const loadTasks = async (themeId: string) => {
         setIsLoadingTasks(true);
         try {
-            const apiTasks = await taskApiService.getTasksByTheme(themeId);
+            const apiTasks = await taskService.getTasksByTheme(themeId);
             const transformedTasks: Task[] = apiTasks.map(transformApiTaskToTask);
-            setTasks(prev => ({ ...prev, [themeId]: transformedTasks }));
+            setTasks(prev => ({...prev, [themeId]: transformedTasks}));
         } catch (error) {
             console.error('Ошибка загрузки задач:', error);
-            setTasks(prev => ({ ...prev, [themeId]: [] }));
+            setTasks(prev => ({...prev, [themeId]: []}));
         } finally {
             setIsLoadingTasks(false);
         }
@@ -249,13 +246,9 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
     };
 
-    const createSection = async (courseId: string, name: string, description?: string, orderNum?: number) => {
+    const createSection = async (courseId: string, name: string, description?: string) => {
         try {
-            const newSection = await contentService.createSection(
-                courseId,
-                name,
-                description || '',
-            );
+            const newSection = await contentService.createSection(courseId, name, description || '');
             setSections(prev => ({
                 ...prev,
                 [courseId]: [...(prev[courseId] || []), newSection]
@@ -266,13 +259,9 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
     };
 
-    const createTheme = async (sectionId: string, name: string, description?: string, orderNum?: number) => {
+    const createTheme = async (sectionId: string, name: string, description?: string) => {
         try {
-            const newTheme = await contentService.createTheme(
-                sectionId,
-                name,
-                description || '',
-            );
+            const newTheme = await contentService.createTheme(sectionId, name, description || '');
             setThemes(prev => ({
                 ...prev,
                 [sectionId]: [...(prev[sectionId] || []), newTheme]
@@ -285,15 +274,14 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const updateCourse = async (id: string, name: string, description?: string) => {
         try {
-            const courseData: UpdateCourseRequest = { name, description };
+            const courseData: UpdateCourseRequest = {name, description};
             const apiCourse = await contentService.updateCourse(id, courseData);
 
-            // Преобразуем API курс в курс контекста
             const updatedCourse: Course = {
                 id: apiCourse.id,
                 name: apiCourse.name,
                 description: apiCourse.description,
-                sectionsCount: 0, // будет обновлено при необходимости
+                sectionsCount: 0,
                 themesCount: 0,
                 tasksCount: await contentService.getTasksCountByCourse(id)
             };
@@ -309,10 +297,9 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const updateSection = async (id: string, name: string, description?: string) => {
         try {
-            const sectionData: UpdateSectionRequest = { name, description };
+            const sectionData: UpdateSectionRequest = {name, description};
             const apiSection = await contentService.updateSection(id, sectionData);
 
-            // Преобразуем API секцию в секцию контекста
             const updatedSection: Section = {
                 id: apiSection.id,
                 courseId: apiSection.courseId,
@@ -323,7 +310,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
             };
 
             setSections(prev => {
-                const newSections = { ...prev };
+                const newSections = {...prev};
                 Object.keys(newSections).forEach(courseId => {
                     newSections[courseId] = newSections[courseId].map(section =>
                         section.id === id ? updatedSection : section
@@ -339,10 +326,9 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const updateTheme = async (id: string, name: string, description?: string) => {
         try {
-            const themeData: UpdateThemeRequest = { name, description };
+            const themeData: UpdateThemeRequest = {name, description};
             const apiTheme = await contentService.updateTheme(id, themeData);
 
-            // Преобразуем API тему в тему контекста
             const updatedTheme: Theme = {
                 id: apiTheme.id,
                 sectionId: apiTheme.sectionId,
@@ -352,7 +338,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
             };
 
             setThemes(prev => {
-                const newThemes = { ...prev };
+                const newThemes = {...prev};
                 Object.keys(newThemes).forEach(sectionId => {
                     newThemes[sectionId] = newThemes[sectionId].map(theme =>
                         theme.id === id ? updatedTheme : theme
@@ -371,7 +357,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
             await contentService.deleteCourse(id);
             setCourses(prev => prev.filter(course => course.id !== id));
             setSections(prev => {
-                const newSections = { ...prev };
+                const newSections = {...prev};
                 delete newSections[id];
                 return newSections;
             });
@@ -385,7 +371,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
         try {
             await contentService.deleteSection(id);
             setSections(prev => {
-                const newSections = { ...prev };
+                const newSections = {...prev};
                 Object.keys(newSections).forEach(courseId => {
                     newSections[courseId] = newSections[courseId].filter(section => section.id !== id);
                 });
@@ -401,7 +387,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
         try {
             await contentService.deleteTheme(id);
             setThemes(prev => {
-                const newThemes = { ...prev };
+                const newThemes = {...prev};
                 Object.keys(newThemes).forEach(sectionId => {
                     newThemes[sectionId] = newThemes[sectionId].filter(theme => theme.id !== id);
                 });
@@ -415,9 +401,9 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const deleteTask = async (id: string) => {
         try {
-            await taskApiService.deleteTask(id);
+            await taskService.deleteTask(id);
             setTasks(prev => {
-                const newTasks = { ...prev };
+                const newTasks = {...prev};
                 Object.keys(newTasks).forEach(themeId => {
                     newTasks[themeId] = newTasks[themeId].filter(task => task.id !== id);
                 });
@@ -431,8 +417,33 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const createTask = async (themeId: string, taskData: Omit<Task, 'id' | 'themeId'>): Promise<Task> => {
         try {
-            const fullTaskData = { ...taskData, themeId };
-            const apiTask = await taskApiService.createFullTask(fullTaskData);
+            const userId = localStorage.getItem('userId') || undefined;
+
+            const apiTask = await taskService.createFullTask(
+                themeId,
+                taskData.name,
+                taskData.question,
+                taskData.taskType,
+                taskData.isTraining,
+                taskData.contents.map(content => ({
+                    contentType: content.contentType as CreateTaskContentRequestContentTypeEnum,
+                    description: content.description,
+                    transcription: content.transcription,
+                    translation: content.translation,
+                    mediaFile: content.mediaFile
+                })),
+                taskData.answerOptions.map(option => ({
+                    optionText: option.optionText,
+                    isCorrect: option.isCorrect,
+                    mediaFile: option.mediaFile
+                })),
+                {
+                    answerType: taskData.answer.answerType as CreateTaskAnswerRequestAnswerTypeEnum,
+                    correctAnswer: taskData.answer.correctAnswer
+                },
+                userId
+            );
+
             const finalTask = transformApiTaskToTask(apiTask);
 
             setTasks(prev => ({
@@ -447,7 +458,6 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
     };
 
-
     const updateTask = async (taskId: string, taskData: Partial<Omit<Task, 'id' | 'themeId'>>): Promise<Task> => {
         try {
             const updateRequest: UpdateTaskRequest = {};
@@ -457,11 +467,11 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
             if (taskData.isTraining !== undefined) updateRequest.isTraining = taskData.isTraining;
             if (taskData.orderNum !== undefined) updateRequest.orderNum = taskData.orderNum;
 
-            const apiTask = await taskApiService.updateTask(taskId, updateRequest);
+            const apiTask = await taskService.updateTask(taskId, updateRequest);
             const updatedTask = transformApiTaskToTask(apiTask);
 
             setTasks(prev => {
-                const newTasks = { ...prev };
+                const newTasks = {...prev};
                 Object.keys(newTasks).forEach(themeId => {
                     newTasks[themeId] = newTasks[themeId].map(task =>
                         task.id === taskId ? updatedTask : task
@@ -480,8 +490,11 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
     const uploadMediaFile = async (file: File): Promise<string> => {
         setIsUploadingMedia(true);
         try {
-            const mediaId = await taskApiService.uploadMediaFile(file);
-            return mediaId;
+            const userId = localStorage.getItem('userId') || undefined;
+            const formData = new FormData();
+            formData.append('file', file);
+            const mediaInfo = await mediaService.uploadMediaWithMeta(formData, userId);
+            return mediaInfo.mediaId;
         } catch (error) {
             console.error('Ошибка загрузки медиафайла:', error);
             throw error;
@@ -562,12 +575,4 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({ children })
             {children}
         </ContentContext.Provider>
     );
-};
-
-export const useContent = () => {
-    const context = useContext(ContentContext);
-    if (context === undefined) {
-        throw new Error('useContent must be used within a ContentProvider');
-    }
-    return context;
 };

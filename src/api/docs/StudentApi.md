@@ -9,8 +9,6 @@ All URIs are relative to *http://localhost:8080*
 |[**studentCoursesCourseIdEnrollDelete**](#studentcoursescourseidenrolldelete) | **DELETE** /student/courses/{courseId}/enroll | |
 |[**studentCoursesCourseIdEnrollPost**](#studentcoursescourseidenrollpost) | **POST** /student/courses/{courseId}/enroll | |
 |[**studentCoursesCourseIdProgressGet**](#studentcoursescourseidprogressget) | **GET** /student/courses/{courseId}/progress | |
-|[**studentCoursesCourseIdSectionsGet**](#studentcoursescourseidsectionsget) | **GET** /student/courses/{courseId}/sections | |
-|[**studentCoursesCourseIdThemesGet**](#studentcoursescourseidthemesget) | **GET** /student/courses/{courseId}/themes | |
 |[**studentCoursesGet**](#studentcoursesget) | **GET** /student/courses | |
 |[**studentEnrollmentsGet**](#studentenrollmentsget) | **GET** /student/enrollments | |
 |[**studentSectionsSectionIdProgressGet**](#studentsectionssectionidprogressget) | **GET** /student/sections/{sectionId}/progress | |
@@ -21,19 +19,16 @@ All URIs are relative to *http://localhost:8080*
 |[**studentTaskQueueQueueIdPositionPatch**](#studenttaskqueuequeueidpositionpatch) | **PATCH** /student/task-queue/{queueId}/position | |
 |[**studentTasksTaskIdAnswerGet**](#studenttaskstaskidanswerget) | **GET** /student/tasks/{taskId}/answer | |
 |[**studentTasksTaskIdCompletePost**](#studenttaskstaskidcompletepost) | **POST** /student/tasks/{taskId}/complete | |
-|[**studentTasksTaskIdContentGet**](#studenttaskstaskidcontentget) | **GET** /student/tasks/{taskId}/content | |
 |[**studentTasksTaskIdProgressGet**](#studenttaskstaskidprogressget) | **GET** /student/tasks/{taskId}/progress | |
 |[**studentTasksTaskIdProgressPatch**](#studenttaskstaskidprogresspatch) | **PATCH** /student/tasks/{taskId}/progress | |
 |[**studentTasksTaskIdProgressPost**](#studenttaskstaskidprogresspost) | **POST** /student/tasks/{taskId}/progress | |
 |[**studentTasksTaskIdQueryGet**](#studenttaskstaskidqueryget) | **GET** /student/tasks/{taskId}/query | |
 |[**studentTasksTaskIdReportPost**](#studenttaskstaskidreportpost) | **POST** /student/tasks/{taskId}/report | |
-|[**studentTasksTaskIdVariantsGet**](#studenttaskstaskidvariantsget) | **GET** /student/tasks/{taskId}/variants | |
-|[**studentThemesThemeIdTasksGet**](#studentthemesthemeidtasksget) | **GET** /student/themes/{themeId}/tasks | |
 
 # **studentBadgesGet**
 > Array<Badge> studentBadgesGet()
 
-Обновить query задачи (PATCH) <br> Получить бейджи пользователя
+
 
 ### Example
 
@@ -131,7 +126,7 @@ No authorization required
 # **studentCoursesCourseIdEnrollDelete**
 > boolean studentCoursesCourseIdEnrollDelete()
 
-Отписаться от курса
+
 
 ### Example
 
@@ -185,7 +180,7 @@ No authorization required
 # **studentCoursesCourseIdEnrollPost**
 > boolean studentCoursesCourseIdEnrollPost()
 
-Записаться на курс
+
 
 ### Example
 
@@ -239,7 +234,7 @@ No authorization required
 # **studentCoursesCourseIdProgressGet**
 > CourseProgressItem studentCoursesCourseIdProgressGet()
 
-Получить прогресс курса
+
 
 ### Example
 
@@ -290,116 +285,10 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **studentCoursesCourseIdSectionsGet**
-> Array<Section> studentCoursesCourseIdSectionsGet()
-
-
-
-### Example
-
-```typescript
-import {
-    StudentApi,
-    Configuration
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new StudentApi(configuration);
-
-let courseId: string; // (default to undefined)
-
-const { status, data } = await apiInstance.studentCoursesCourseIdSectionsGet(
-    courseId
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **courseId** | [**string**] |  | defaults to undefined|
-
-
-### Return type
-
-**Array<Section>**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
- - **Accept**: */*
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**400** | Bad Request |  -  |
-|**200** | OK |  -  |
-|**500** | Internal Server Error |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **studentCoursesCourseIdThemesGet**
-> Array<Theme> studentCoursesCourseIdThemesGet()
-
-Получить темы курса
-
-### Example
-
-```typescript
-import {
-    StudentApi,
-    Configuration
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new StudentApi(configuration);
-
-let courseId: string; // (default to undefined)
-
-const { status, data } = await apiInstance.studentCoursesCourseIdThemesGet(
-    courseId
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **courseId** | [**string**] |  | defaults to undefined|
-
-
-### Return type
-
-**Array<Theme>**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
- - **Accept**: */*
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**400** | Bad Request |  -  |
-|**200** | OK |  -  |
-|**500** | Internal Server Error |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
 # **studentCoursesGet**
 > Array<Course> studentCoursesGet()
 
-Получить курсы с языком, совпадающим с системным языком пользователя
+
 
 ### Example
 
@@ -444,7 +333,7 @@ No authorization required
 # **studentEnrollmentsGet**
 > Array<UserCourseEnrollmentItem> studentEnrollmentsGet()
 
-Получить все курсы пользователя
+
 
 ### Example
 
@@ -490,7 +379,7 @@ No authorization required
 # **studentSectionsSectionIdProgressGet**
 > SectionProgressItem studentSectionsSectionIdProgressGet()
 
-Получить прогресс секции
+
 
 ### Example
 
@@ -544,7 +433,7 @@ No authorization required
 # **studentTaskQueueGet**
 > Array<UserTaskQueueItem> studentTaskQueueGet()
 
-Получить очередь задач пользователя
+
 
 ### Example
 
@@ -589,7 +478,7 @@ No authorization required
 # **studentTaskQueueNextGet**
 > UserTaskQueueItem studentTaskQueueNextGet()
 
-Получить следующую задачу в очереди
+
 
 ### Example
 
@@ -688,7 +577,7 @@ No authorization required
 # **studentTaskQueueQueueIdDelete**
 > boolean studentTaskQueueQueueIdDelete()
 
-Удалить задачу из очереди
+
 
 ### Example
 
@@ -741,7 +630,7 @@ No authorization required
 # **studentTaskQueueQueueIdPositionPatch**
 > boolean studentTaskQueueQueueIdPositionPatch(body)
 
-Обновить позицию задачи в очереди
+
 
 ### Example
 
@@ -797,7 +686,7 @@ No authorization required
 # **studentTasksTaskIdAnswerGet**
 > TaskAnswerItem studentTasksTaskIdAnswerGet()
 
-Получить ответ задачи
+
 
 ### Example
 
@@ -851,7 +740,7 @@ No authorization required
 # **studentTasksTaskIdCompletePost**
 > UserTaskProgressItem studentTasksTaskIdCompletePost(body)
 
-Отметить задачу как выполненную
+
 
 ### Example
 
@@ -905,63 +794,10 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **studentTasksTaskIdContentGet**
-> Array<TaskContentItem> studentTasksTaskIdContentGet()
-
-Получить весь контент задачи
-
-### Example
-
-```typescript
-import {
-    StudentApi,
-    Configuration
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new StudentApi(configuration);
-
-let taskId: string; // (default to undefined)
-
-const { status, data } = await apiInstance.studentTasksTaskIdContentGet(
-    taskId
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **taskId** | [**string**] |  | defaults to undefined|
-
-
-### Return type
-
-**Array<TaskContentItem>**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
- - **Accept**: */*
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**400** | Bad Request |  -  |
-|**200** | OK |  -  |
-|**500** | Internal Server Error |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
 # **studentTasksTaskIdProgressGet**
 > UserTaskProgressItem studentTasksTaskIdProgressGet()
 
-Получить прогресс задачи
+
 
 ### Example
 
@@ -1015,7 +851,7 @@ No authorization required
 # **studentTasksTaskIdProgressPatch**
 > UserTaskProgressItem studentTasksTaskIdProgressPatch(updateTaskProgressRequest)
 
-Обновить прогресс задачи
+
 
 ### Example
 
@@ -1073,7 +909,7 @@ No authorization required
 # **studentTasksTaskIdProgressPost**
 > UserTaskProgressItem studentTasksTaskIdProgressPost()
 
-Создать прогресс задачи
+
 
 ### Example
 
@@ -1127,7 +963,7 @@ No authorization required
 # **studentTasksTaskIdQueryGet**
 > TaskWithDetails studentTasksTaskIdQueryGet()
 
-Получить query задачи
+
 
 ### Example
 
@@ -1230,112 +1066,6 @@ No authorization required
 |**400** | Bad Request |  -  |
 |**200** | OK |  -  |
 |**404** | Not Found |  -  |
-|**500** | Internal Server Error |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **studentTasksTaskIdVariantsGet**
-> Array<TaskAnswerOptionItem> studentTasksTaskIdVariantsGet()
-
-Получить варианты задачи
-
-### Example
-
-```typescript
-import {
-    StudentApi,
-    Configuration
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new StudentApi(configuration);
-
-let taskId: string; // (default to undefined)
-
-const { status, data } = await apiInstance.studentTasksTaskIdVariantsGet(
-    taskId
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **taskId** | [**string**] |  | defaults to undefined|
-
-
-### Return type
-
-**Array<TaskAnswerOptionItem>**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
- - **Accept**: */*
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**400** | Bad Request |  -  |
-|**200** | OK |  -  |
-|**500** | Internal Server Error |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **studentThemesThemeIdTasksGet**
-> Array<TaskWithDetails> studentThemesThemeIdTasksGet()
-
-Получить задачи темы
-
-### Example
-
-```typescript
-import {
-    StudentApi,
-    Configuration
-} from './api';
-
-const configuration = new Configuration();
-const apiInstance = new StudentApi(configuration);
-
-let themeId: string; // (default to undefined)
-
-const { status, data } = await apiInstance.studentThemesThemeIdTasksGet(
-    themeId
-);
-```
-
-### Parameters
-
-|Name | Type | Description  | Notes|
-|------------- | ------------- | ------------- | -------------|
-| **themeId** | [**string**] |  | defaults to undefined|
-
-
-### Return type
-
-**Array<TaskWithDetails>**
-
-### Authorization
-
-No authorization required
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
- - **Accept**: */*
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-|**400** | Bad Request |  -  |
-|**200** | OK |  -  |
 |**500** | Internal Server Error |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

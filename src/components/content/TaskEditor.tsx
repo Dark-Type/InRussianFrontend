@@ -1,8 +1,8 @@
 import React, {useState, useEffect} from 'react';
-import type {Task, TaskType, TaskContent, TaskAnswer, AnswerType} from '../../context/ContentContext';
+import type {Task, TaskType, TaskContent, TaskAnswer, AnswerType} from '../../context/content/ContentContext.tsx';
 import {ContentEditor} from './task-editor/ContentEditor';
 import {AnswerEditor} from './task-editor/AnswerEditor';
-import {useContent} from '../../context/ContentContext';
+import {useContent} from '../../context/content/UseContent.ts';
 
 interface TaskEditorProps {
     isOpen: boolean;

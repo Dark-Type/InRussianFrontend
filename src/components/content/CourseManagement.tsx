@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useContent, type Task } from '../../context/ContentContext';
+import { useContent, type Task } from '../../context/content/UseContent.ts';
 import { CreateEditModal } from './CreateEditModal';
 import { TaskEditor } from './TaskEditor';
 

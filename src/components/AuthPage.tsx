@@ -1,8 +1,8 @@
 import React, {useState, useEffect, useCallback} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {UserRoleEnum, UserSystemLanguageEnum} from '../api';
-import {useAuth} from '../context/UseAuth.tsx';
-import {useTheme} from "../context/UseTheme.tsx";
+import {useAuth} from '../context/auth/UseAuth';
+import {useTheme} from "../context/theme/UseTheme.tsx";
 
 export const AuthPage: React.FC = () => {
     const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -74,6 +74,7 @@ export const AuthPage: React.FC = () => {
     }, [navigate]);
 
     useEffect(() => {
+        console.log("AuthPage user:", user);
         if (user?.role) {
             redirectToPanel(user.role as UserRoleEnum);
         }

@@ -1,5 +1,6 @@
 import {useContext} from "react";
-import { ExpertContext } from "./UseExpert.tsx";
+import {ExpertContext} from "./ExpertContext.ts";
+
 export const useExpert = () => {
     const context = useContext(ExpertContext);
     if (context === undefined) {

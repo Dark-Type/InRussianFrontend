@@ -19,7 +19,6 @@ export const mediaService = {
             })
         ).data;
     },
-
     async updateMediaWithMeta(mediaId: string, formData: FormData, userId?: string): Promise<MediaFileMeta> {
         return (
             await mediaApi.mediaMediaIdPut(mediaId, userId, {

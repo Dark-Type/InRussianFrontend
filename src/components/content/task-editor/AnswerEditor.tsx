@@ -1,4 +1,4 @@
-import type {TaskAnswer, AnswerType, AnswerOption, MatchPair} from '../../../context/ContentContext';
+import type {TaskAnswer, AnswerType, AnswerOption, MatchPair} from '../../../context/content/ContentContext.tsx';
 
 interface AnswerEditorProps {
     answer: TaskAnswer;

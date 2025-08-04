@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import type {TaskContent, ContentType} from '../../../context/ContentContext.tsx';
+import type {TaskContent, ContentType} from '../../../context/content/ContentContext.tsx';
 
 interface ContentEditorProps {
     contents: TaskContent[];
