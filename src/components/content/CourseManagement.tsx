@@ -183,6 +183,12 @@ export const CoursesManagement: React.FC = () => {
                 break;
         }
     };
+    const handleDeleteTask = async (taskId: string) => {
+        const confirmed = window.confirm('Вы уверены, что хотите удалить эту задачу?');
+        if (confirmed) {
+            await deleteTask(taskId);
+        }
+    };
     const getDeleteWarning = (type: 'course' | 'section' | 'theme', item: any): string => {
         switch (type) {
             case 'course':
@@ -477,9 +483,7 @@ export const CoursesManagement: React.FC = () => {
                                                                         <div>
                                                                             <span>{task.name}</span>
                                                                             <button
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                }}
+                                                                                onClick={() => handleDeleteTask(task.id)}
                                                                                 style={{
                                                                                     background: '#dc3545',
                                                                                     color: 'white',

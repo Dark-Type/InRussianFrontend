@@ -8,22 +8,67 @@ import {
     type UpdateUserProfileRequest,
     type UpdateUserRequest,
     type UserStatusEnum,
+    type UserSystemLanguageEnum,
     type UserLanguageSkillRequest,
 } from '../api';
 import {profileApi} from '../instances/profileApiInstance.ts';
-import { axiosInstance } from "../instances/axiosInstance.ts";
+import {axiosInstance} from "../instances/axiosInstance.ts";
 
 const adminApi = new AdminApi(
-    new Configuration({ basePath: axiosInstance.defaults.baseURL }),
+    new Configuration({basePath: axiosInstance.defaults.baseURL}),
     undefined,
     axiosInstance
 );
 
-
+const validateSystemLanguage = (language: string): UserSystemLanguageEnum => {
+    const validLanguages = ['RUSSIAN', 'UZBEK', 'CHINESE', 'HINDI', 'TAJIK', 'ENGLISH'];
+    if (validLanguages.includes(language)) {
+        return language as UserSystemLanguageEnum;
+    }
+    return 'RUSSIAN' as UserSystemLanguageEnum; // Значение по умолчанию
+};
 
 export const AdminService = {
     getCourseStatistics(courseId: string) {
         return adminApi.adminStatisticsCourseCourseIdGet(courseId);
+    },
+    async getStudentProfile(userId: string): Promise<UserProfile | null> {
+        try {
+            const response = await profileApi.profilesUserIdGet(userId);
+            return response.data?.profile || null;
+        } catch (error) {
+            console.error(`Ошибка загрузки профиля студента ${userId}:`, error);
+            return null;
+        }
+    },
+
+    async getStudentLanguageSkills(userId: string): Promise<UserLanguageSkill[]> {
+        try {
+            const response = await profileApi.profilesUserLanguageSkillsGet(userId);
+
+            if (!response.data) {
+                return [];
+            }
+
+            if (Array.isArray(response.data)) {
+                return response.data;
+            }
+
+            if (typeof response.data === 'string') {
+                try {
+                    const parsed = JSON.parse(response.data);
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch (parseError) {
+                    console.error(`Ошибка парсинга языковых навыков студента ${userId}:`, parseError);
+                    return [];
+                }
+            }
+
+            return [];
+        } catch (error) {
+            console.error(`Ошибка загрузки языковых навыков студента ${userId}:`, error);
+            return [];
+        }
     },
     getOverallStatistics() {
         return adminApi.adminStatisticsOverallGet();
@@ -55,6 +100,9 @@ export const AdminService = {
         return profileApi.profilesUserBasePut(updateUserRequest, targetUserId);
     },
     updateUser(userId: string, updateUserRequest: UpdateUserRequest) {
+        if (updateUserRequest.systemLanguage) {
+            updateUserRequest.systemLanguage = validateSystemLanguage(updateUserRequest.systemLanguage);
+        }
         return this.updateUserBase(updateUserRequest, userId);
     },
 
@@ -121,8 +169,17 @@ export const AdminService = {
         return this.updateUserProfile(userId, updateUserProfileRequest);
     },
 
-    /** @deprecated Используйте changeUserStatus */
-    updateUserStatus(userId: string, status: string) {
-        return this.changeUserStatus(userId, status as UserStatusEnum);
+    async updateUserStatus(userId: string, status: string): Promise<void> {
+        try {
+            const validStatuses = ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING'];
+            const validatedStatus = validStatuses.includes(status) ? status : 'PENDING';
+
+            const statusRequest = { status: validatedStatus };
+
+            await adminApi.adminUsersUserIdStatusPut(userId, statusRequest);
+        } catch (error) {
+            console.error(`Ошибка обновления статуса пользователя ${userId}:`, error);
+            throw error;
+        }
     }
 };

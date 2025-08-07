@@ -12,9 +12,19 @@ interface UserListProps {
 
 interface UserWithProfile extends User {
     staffProfile?: StaffProfile;
+    userProfile?: UserProfile;
+    languageSkills?: UserLanguageSkill[];
     avatarUrl?: string;
 }
 
+interface UserLanguageSkill {
+    id?: string;
+    language: string;
+    understands: boolean;
+    speaks: boolean;
+    reads: boolean;
+    writes: boolean;
+}
 export const UserList: React.FC<UserListProps> = ({ searchTerm, onEditUser }) => {
     const [users, setUsers] = useState<UserWithProfile[]>([]);
     const [loading, setLoading] = useState(false);
@@ -31,7 +41,16 @@ export const UserList: React.FC<UserListProps> = ({ searchTerm, onEditUser }) =>
                 const enrichedUser: UserWithProfile = { ...user };
 
                 try {
-                    if (user.role !== 'STUDENT') {
+                    if (user.role === 'STUDENT') {
+                        // Загружаем профиль и языковые навыки для студентов
+                        const [userProfile, languageSkills] = await Promise.all([
+                            AdminService.getStudentProfile(user.id).catch(() => null),
+                            AdminService.getStudentLanguageSkills(user.id).catch(() => [])
+                        ]);
+
+                        enrichedUser.userProfile = userProfile;
+                        enrichedUser.languageSkills = languageSkills;
+                    } else {
                         enrichedUser.staffProfile = await getStaffProfileById(user.id);
                     }
 

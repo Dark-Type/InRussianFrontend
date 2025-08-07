@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import expertService from '../../services/ExpertService';
 import { useProfile } from '../../context/profile/UseProfile';
 import type { User, UserProfile } from '../../api';
-
+import * as XLSX from 'xlsx';
 interface UserLanguageSkill {
     language: string;
     understands: boolean;
@@ -94,14 +94,13 @@ export const StudentsSection = () => {
 
     const exportToExcel = useCallback(() => {
         try {
-            // Подготовка данных для экспорта
             const exportData = students.map(student => ({
                 'Email': student.email || '',
                 'Имя': student.profile?.name || '',
                 'Фамилия': student.profile?.surname || '',
                 'Отчество': student.profile?.patronymic || '',
                 'Статус': student.status || '',
-                'Дата рождения': student.profile?.dateOfBirth || '',
+                'Дата рождения': student.profile?.dateOfBirth ? formatDate(student.profile.dateOfBirth) : '',
                 'Пол': student.profile?.gender || '',
                 'Гражданство': student.profile?.citizenship || '',
                 'Национальность': student.profile?.nationality || '',
@@ -120,26 +119,17 @@ export const StudentsSection = () => {
                 ).join('; ') || ''
             }));
 
-            // Создание CSV контента
-            const headers = Object.keys(exportData[0] || {});
-            const csvContent = [
-                headers.join(','),
-                ...exportData.map(row =>
-                    headers.map(header => `"${(row as any)[header]}"`).join(',')
-                )
-            ].join('\n');
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(exportData);
 
-            // Создание и скачивание файла
-            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', `students_export_${new Date().toISOString().split('T')[0]}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+            const colWidths = Object.keys(exportData[0] || {}).map(key => ({
+                wch: Math.max(key.length, ...exportData.map(row => String((row as any)[key]).length))
+            }));
+            ws['!cols'] = colWidths;
+
+            XLSX.utils.book_append_sheet(wb, ws, 'Студенты');
+
+            XLSX.writeFile(wb, `students_export_${new Date().toISOString().split('T')[0]}.xlsx`);
         } catch (error) {
             console.error('Ошибка экспорта:', error);
         }
@@ -194,7 +184,14 @@ export const StudentsSection = () => {
     }, [loading, hasMore, searchTerm]);
 
     const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleString('ru-RU');
+        if (!dateString) return '';
+
+        if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            const [year, month, day] = dateString.split('-');
+            return `${day}.${month}.${year}`;
+        }
+
+        return new Date(dateString).toLocaleDateString('ru-RU');
     };
 
     const renderStudentCard = (student: StudentWithProfile, index: number) => {
@@ -267,7 +264,12 @@ export const StudentsSection = () => {
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                             <div>
                                 <strong>Личные данные:</strong>
-                                <p>Дата рождения: {student.profile?.dateOfBirth || 'Не указана'}</p>
+                                {student.profile?.dateOfBirth && (
+                                    <div>
+                                        <span style={{ fontWeight: '500' }}>Дата рождения:</span>
+                                        {formatDate(student.profile.dateOfBirth)}
+                                    </div>
+                                )}
                                 <p>Гражданство: {student.profile?.citizenship || 'Не указано'}</p>
                                 <p>Национальность: {student.profile?.nationality || 'Не указано'}</p>
                                 <p>Страна проживания: {student.profile?.countryOfResidence || 'Не указано'}</p>
@@ -346,7 +348,7 @@ export const StudentsSection = () => {
                     disabled={students.length === 0}
                     style={{
                         padding: '12px 16px',
-                        background: students.length > 0 ? 'var(--color-success)' : 'var(--color-border)',
+                        background: students.length > 0 ? '#28a745' : 'var(--color-border)', // Зеленый цвет
                         color: students.length > 0 ? 'white' : 'var(--color-text-secondary)',
                         border: 'none',
                         borderRadius: '6px',

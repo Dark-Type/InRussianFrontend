@@ -61,15 +61,17 @@ export interface TaskContent {
     transcription?: string;
     translation?: string;
     orderNum?: number;
-    mediaFile?: File;
+    text?: string;
+    file?: File;
+    url?: string;
 }
 
 export interface AnswerOption {
-    id?: string;
-    optionText: string;
+    id: string;
+    text: string;
     isCorrect: boolean;
-    orderNum?: number;
-    mediaFile?: File;
+    orderNum: number;
+    audioId?: string;
 }
 
 export interface TaskAnswer {
@@ -174,7 +176,6 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({children}) =
     const [isLoadingSections, setIsLoadingSections] = useState(false);
     const [isLoadingThemes, setIsLoadingThemes] = useState(false);
 
-    // Остальные методы остаются без изменений...
     const loadCourses = async () => {
         setIsLoadingCourses(true);
         try {
@@ -217,7 +218,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({children}) =
     const loadTasks = async (themeId: string) => {
         setIsLoadingTasks(true);
         try {
-            const apiTasks = await taskService.getTasksByTheme(themeId);
+            const apiTasks = await contentService.getTasksByTheme(themeId);
             const transformedTasks: Task[] = apiTasks.map(transformApiTaskToTask);
             setTasks(prev => ({...prev, [themeId]: transformedTasks}));
         } catch (error) {
@@ -417,41 +418,32 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({children}) =
 
     const createTask = async (themeId: string, taskData: Omit<Task, 'id' | 'themeId'>): Promise<Task> => {
         try {
-            const userId = localStorage.getItem('userId') || undefined;
+            console.log('Получены данные задачи:', taskData);
 
-            const apiTask = await taskService.createFullTask(
-                themeId,
-                taskData.name,
-                taskData.question,
-                taskData.taskType,
-                taskData.isTraining,
-                taskData.contents.map(content => ({
-                    contentType: content.contentType as CreateTaskContentRequestContentTypeEnum,
-                    description: content.description,
-                    transcription: content.transcription,
-                    translation: content.translation,
-                    mediaFile: content.mediaFile
-                })),
-                taskData.answerOptions.map(option => ({
-                    optionText: option.optionText,
-                    isCorrect: option.isCorrect,
-                    mediaFile: option.mediaFile
-                })),
-                {
-                    answerType: taskData.answer.answerType as CreateTaskAnswerRequestAnswerTypeEnum,
-                    correctAnswer: taskData.answer.correctAnswer
-                },
-                userId
-            );
+            const processedTaskData = {
+                name: taskData.name,
+                question: taskData.question,
+                taskType: taskData.taskType,
+                instructions: taskData.instructions || '',
+                isTraining: taskData.isTraining || false,
+                contents: taskData.contents || [],
+                answer: taskData.answer || {
+                    answerType: 'SINGLE_CHOICE',
+                    correctAnswer: {},
+                    options: []
+                }
+            };
 
-            const finalTask = transformApiTaskToTask(apiTask);
+            const createdTask = await contentService.createTask(themeId, processedTaskData);
+            const fullTask = await contentService.getTaskById(createdTask.id);
+            const transformedTask = transformApiTaskToTask(fullTask);
 
             setTasks(prev => ({
                 ...prev,
-                [themeId]: [...(prev[themeId] || []), finalTask]
+                [themeId]: [...(prev[themeId] || []), transformedTask]
             }));
 
-            return finalTask;
+            return transformedTask;
         } catch (error) {
             console.error('Ошибка создания задачи:', error);
             throw error;

@@ -133,7 +133,7 @@ export const AdminPanel = () => {
             boxSizing: 'border-box'
         }}>
             <CommonHeader
-                user={user}
+                user={user as User | null}
                 logout={logout}
                 displayName={displayName}
                 avatarUrl={avatarUrl}

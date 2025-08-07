@@ -1,10 +1,10 @@
 import {
     ExpertApi,
     ContentApi,
+    ProfileApi,
     Configuration,
     type User,
     type UserProfile,
-    type UserLanguageSkillRequest,
     type Course,
     type Section,
     type Theme,
@@ -12,22 +12,13 @@ import {
     type CountStats,
     type Report,
     type CreateReportRequest,
+    type UserLanguageSkillRequest,
 } from '../api';
-import { axiosInstance } from '../instances/axiosInstance.ts';
-import {profileApi} from "../instances/profileApiInstance.ts";
-
-interface UserLanguageSkill {
-    id?: string;
-    language: string;
-    understands: boolean;
-    speaks: boolean;
-    reads: boolean;
-    writes: boolean;
-}
+import {axiosInstance} from '../instances/axiosInstance.ts';
 
 interface StudentWithProfile extends User {
     profile?: UserProfile;
-    languageSkills?: UserLanguageSkill[];
+    languageSkills?: UserLanguageSkillRequest[];
     avatarUrl?: string;
 }
 
@@ -37,41 +28,66 @@ class ExpertService {
     private contentApi: ContentApi;
 
     constructor() {
-        const config = new Configuration({ basePath: axiosInstance.defaults.baseURL });
+        const config = new Configuration({basePath: axiosInstance.defaults.baseURL});
         this.expertApi = new ExpertApi(config, undefined, axiosInstance);
-        this.profileApi = profileApi;
+        this.profileApi = new ProfileApi(config, undefined, axiosInstance);
         this.contentApi = new ContentApi(config, undefined, axiosInstance);
     }
 
-    // ============ STUDENTS ============
+    // ============ STUDENTS ============ (без изменений)
     async getAllStudents(page?: number, size?: number, sortBy?: string, sortOrder?: string, createdFrom?: string, createdTo?: string): Promise<User[]> {
-        const response = await this.expertApi.expertStudentsGet(page, size, sortBy, sortOrder, createdFrom, createdTo);
-        return response.data;
+        try {
+            const response = await this.expertApi.expertStudentsGet(page, size, sortBy, sortOrder, createdFrom, createdTo);
+            return response.data;
+        } catch (error) {
+            console.error('Ошибка загрузки студентов:', error);
+            return [];
+        }
     }
 
     async getStudentsCount(createdFrom?: string, createdTo?: string): Promise<number> {
-        const response = await this.expertApi.expertStudentsCountGet(createdFrom, createdTo);
-        return parseInt(response.data, 10) || 0;
+        try {
+            const response = await this.expertApi.expertStudentsCountGet(createdFrom, createdTo);
+            return parseInt(response.data, 10) || 0;
+        } catch (error) {
+            console.error('Ошибка загрузки количества студентов:', error);
+            return 0;
+        }
     }
 
-    // ============ STUDENT PROFILES ============
+    // ============ STUDENT PROFILES ============ (без изменений)
     async getStudentProfile(userId: string): Promise<UserProfile | null> {
         try {
             const response = await this.profileApi.profilesUserIdGet(userId);
-            return response.data;
+            return response.data?.profile || null;
         } catch (error) {
             console.error(`Ошибка загрузки профиля студента ${userId}:`, error);
             return null;
         }
     }
 
-    async getStudentLanguageSkills(userId: string): Promise<UserLanguageSkill[]> {
+    async getStudentLanguageSkills(userId: string): Promise<UserLanguageSkillRequest[]> {
         try {
             const response = await this.profileApi.profilesUserLanguageSkillsGet(userId);
-            if (response.data) {
-                // Парсим строку JSON в массив, как в AdminService
-                return JSON.parse(response.data as string) || [];
+
+            if (!response.data) {
+                return [];
             }
+
+            if (Array.isArray(response.data)) {
+                return response.data;
+            }
+
+            if (typeof response.data === 'string') {
+                try {
+                    const parsed = JSON.parse(response.data);
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch (parseError) {
+                    console.error(`Ошибка парсинга языковых навыков студента ${userId}:`, parseError);
+                    return [];
+                }
+            }
+
             return [];
         } catch (error) {
             console.error(`Ошибка загрузки языковых навыков студента ${userId}:`, error);
@@ -79,28 +95,22 @@ class ExpertService {
         }
     }
 
-    // ============ STUDENTS WITH PROFILES ============
     async getStudentsWithProfiles(page?: number, size?: number): Promise<StudentWithProfile[]> {
         try {
             const students = await this.getAllStudents(page, size);
 
             const studentsWithProfiles = await Promise.all(
                 students.map(async (student) => {
-                    const enrichedStudent: StudentWithProfile = { ...student };
+                    const [profile, languageSkills] = await Promise.all([
+                        this.getStudentProfile(student.id).catch(() => null),
+                        this.getStudentLanguageSkills(student.id).catch(() => [])
+                    ]);
 
-                    try {
-                        const [profile, languageSkills] = await Promise.all([
-                            this.getStudentProfile(student.id),
-                            this.getStudentLanguageSkills(student.id)
-                        ]);
-
-                        enrichedStudent.profile = profile || undefined;
-                        enrichedStudent.languageSkills = languageSkills;
-                    } catch (error) {
-                        console.error(`Ошибка загрузки данных студента ${student.id}:`, error);
-                    }
-
-                    return enrichedStudent;
+                    return {
+                        ...student,
+                        profile,
+                        languageSkills
+                    };
                 })
             );
 
@@ -111,83 +121,134 @@ class ExpertService {
         }
     }
 
-    // ============ COURSES ============
+    // ============ CONTENT ============
     async getAllCourses(): Promise<Course[]> {
-        const response = await this.contentApi.contentCoursesGet();
-        return response.data;
+        try {
+            const response = await this.contentApi.contentCoursesGet();
+            console.log('Курсы загружены:', response.data);
+            return response.data || [];
+        } catch (error) {
+            console.error('Ошибка загрузки курсов:', error);
+            return [];
+        }
     }
 
-    async getCourseById(courseId: string): Promise<Course> {
-        const response = await this.contentApi.contentCoursesCourseIdGet(courseId);
-        return response.data;
-    }
-
-    // ============ SECTIONS ============
     async getSectionsByCourse(courseId: string): Promise<Section[]> {
-        const response = await this.contentApi.contentSectionsByCourseCourseIdGet(courseId);
-        return response.data;
+        try {
+            const response = await this.contentApi.contentSectionsByCourseCourseIdGet(courseId);
+            return response.data || [];
+        } catch (error) {
+            console.error(`Ошибка загрузки разделов курса ${courseId}:`, error);
+            return [];
+        }
     }
 
-    async getSectionById(sectionId: string): Promise<Section> {
-        const response = await this.contentApi.contentSectionsSectionIdGet(sectionId);
-        return response.data;
-    }
-
-    // ============ THEMES ============
     async getThemesBySection(sectionId: string): Promise<Theme[]> {
-        const response = await this.contentApi.contentThemesBySectionSectionIdGet(sectionId);
-        return response.data;
-    }
-
-    async getThemeById(themeId: string): Promise<Theme> {
-        const response = await this.contentApi.contentThemesThemeIdGet(themeId);
-        return response.data;
+        try {
+            const response = await this.contentApi.contentThemesBySectionSectionIdGet(sectionId);
+            return response.data || [];
+        } catch (error) {
+            console.error(`Ошибка загрузки тем раздела ${sectionId}:`, error);
+            return [];
+        }
     }
 
     async getTasksByTheme(themeId: string): Promise<TaskWithDetails[]> {
-        const response = await this.contentApi.contentThemesThemeIdTasksGet(themeId);
-        return response.data;
+        try {
+            // Используем правильный endpoint для получения задач по теме
+            const response = await this.contentApi.contentTasksGet();
+            const allTasks = response.data || [];
+
+            // Фильтруем задачи по themeId
+            const themeTasks = allTasks.filter(task => task.themeId === themeId);
+            return themeTasks;
+        } catch (error) {
+            console.error(`Ошибка загрузки задач темы ${themeId}:`, error);
+            return [];
+        }
     }
 
-    // ============ TASKS ============
-    async getTaskById(taskId: string): Promise<TaskWithDetails> {
-        const response = await this.contentApi.contentTasksTaskIdGet(taskId);
-        return response.data;
+    async getTaskById(taskId: string): Promise<TaskWithDetails | null> {
+        try {
+            const response = await this.contentApi.contentTasksTaskIdGet(taskId);
+            return response.data;
+        } catch (error) {
+            console.error(`Ошибка загрузки задачи ${taskId}:`, error);
+            return null;
+        }
     }
 
-    // ============ CONTENT STATISTICS ============
-    async getContentStats(): Promise<CountStats> {
-        const response = await this.contentApi.contentStatsGet();
-        return response.data;
+    async getAllTasks(): Promise<TaskWithDetails[]> {
+        try {
+            const response = await this.contentApi.contentTasksGet();
+            return response.data || [];
+        } catch (error) {
+            console.error('Ошибка загрузки всех задач:', error);
+            return [];
+        }
     }
 
-    async getCourseTasksCount(courseId: string): Promise<number> {
-        const response = await this.contentApi.contentStatsCourseCourseIdTasksCountGet(courseId);
-        return parseInt(response.data, 10) || 0;
+    // ============ STATISTICS ============
+    async getContentStats(): Promise<CountStats | null> {
+        try {
+            const response = await this.contentApi.contentStatsGet();
+            return response.data;
+        } catch (error) {
+            console.error('Ошибка загрузки статистики контента:', error);
+            return null;
+        }
     }
 
-    async getSectionTasksCount(sectionId: string): Promise<number> {
-        const response = await this.contentApi.contentStatsSectionSectionIdTasksCountGet(sectionId);
-        return parseInt(response.data, 10) || 0;
+    async getTasksByTheme(themeId: string): Promise<TaskWithDetails[]> {
+        try {
+            const response = await this.contentApi.contentThemesThemeIdTasksGet(themeId);
+            return response.data || [];
+        } catch (error) {
+            console.error(`Ошибка загрузки задач темы ${themeId}:`, error);
+            return [];
+        }
     }
 
-    async getThemeTasksCount(themeId: string): Promise<number> {
-        const response = await this.contentApi.contentStatsThemeThemeIdTasksCountGet(themeId);
-        return parseInt(response.data, 10) || 0;
+    async getTasksCountBySection(sectionId: string): Promise<number> {
+        try {
+            const themes = await this.getThemesBySection(sectionId);
+            let totalTasks = 0;
+            for (const theme of themes) {
+                const taskCount = await this.getTasksCountByTheme(theme.id);
+                totalTasks += taskCount;
+            }
+            return totalTasks;
+        } catch (error) {
+            console.error(`Ошибка подсчета задач раздела ${sectionId}:`, error);
+            return 0;
+        }
+    }
+    async getTasksCountByTheme(themeId: string): Promise<number> {
+        try {
+            const response = await this.contentApi.contentStatsThemeThemeIdTasksCountGet(themeId);
+            return parseInt(response.data, 10) || 0;
+        } catch (error) {
+            const tasks = await this.getTasksByTheme(themeId);
+            return tasks.length;
+        }
     }
 
-    // ============ REPORTS ============
-    async createReport(createReportRequest: CreateReportRequest): Promise<Report> {
-        const response = await this.contentApi.contentReportsPost(createReportRequest);
-        return response.data;
+    async getTasksCountByCourse(courseId: string): Promise<number> {
+        try {
+            const sections = await this.getSectionsByCourse(courseId);
+            let totalTasks = 0;
+            for (const section of sections) {
+                const taskCount = await this.getTasksCountBySection(section.id);
+                totalTasks += taskCount;
+            }
+            return totalTasks;
+        } catch (error) {
+            console.error(`Ошибка подсчета задач курса ${courseId}:`, error);
+            return 0;
+        }
     }
 
-    async getReportById(reportId: string): Promise<Report> {
-        const response = await this.contentApi.contentReportsReportIdGet(reportId);
-        return response.data;
-    }
 
-    // ============ EXPERT STATISTICS ============
     async getOverallAverageProgress(): Promise<number> {
         const response = await this.expertApi.expertStatisticsOverallAverageProgressGet();
         return parseFloat(response.data) || 0;
@@ -208,75 +269,29 @@ class ExpertService {
         return parseFloat(response.data) || 0;
     }
 
-    async getStudentsOverallCount(): Promise<number> {
-        const response = await this.expertApi.expertStatisticsStudentsOverallGet();
-        return parseInt(response.data, 10) || 0;
-    }
-
-    async getStudentsCountByCourse(courseId: string): Promise<number> {
+    async getCourseStudentsCount(courseId: string): Promise<number> {
         const response = await this.expertApi.expertStatisticsCourseCourseIdStudentsCountGet(courseId);
         return parseInt(response.data, 10) || 0;
     }
 
-    // ============ COMPLEX DATA METHODS ============
-    async getCourseWithSections(courseId: string): Promise<Course & { sections: Section[] }> {
-        const [course, sections] = await Promise.all([
-            this.getCourseById(courseId),
-            this.getSectionsByCourse(courseId)
-        ]);
-
-        return { ...course, sections };
+    async getStudentsOverallStats(): Promise<string> {
+        const response = await this.expertApi.expertStatisticsStudentsOverallGet();
+        return response.data;
     }
 
-    async getSectionWithThemes(sectionId: string): Promise<Section & { themes: Theme[] }> {
-        const [section, themes] = await Promise.all([
-            this.getSectionById(sectionId),
-            this.getThemesBySection(sectionId)
-        ]);
-
-        return { ...section, themes };
+    // ============ REPORTS ============
+    async createReport(reportData: CreateReportRequest): Promise<Report> {
+        const response = await this.contentApi.contentReportsPost(reportData);
+        return response.data;
     }
 
-    async getThemeWithTasks(themeId: string): Promise<Theme & { tasks: TaskWithDetails[] }> {
-        const [theme, tasks] = await Promise.all([
-            this.getThemeById(themeId),
-            this.getTasksByTheme(themeId)
-        ]);
-
-        return { ...theme, tasks };
+    async getAllReports(): Promise<Report[]> {
+        const response = await this.contentApi.contentReportsGet();
+        return response.data;
     }
 
-    async getCourseStructure(courseId: string): Promise<Course & {
-        sections: (Section & {
-            themes: (Theme & {
-                tasks: TaskWithDetails[]
-            })[]
-        })[]
-    }> {
-        const course = await this.getCourseById(courseId);
-        const sections = await this.getSectionsByCourse(courseId);
-
-        const sectionsWithThemes = await Promise.all(
-            sections.map(async (section) => {
-                const themes = await this.getThemesBySection(section.id);
-
-                const themesWithTasks = await Promise.all(
-                    themes.map(async (theme) => {
-                        const tasks = await this.getTasksByTheme(theme.id);
-                        return { ...theme, tasks };
-                    })
-                );
-
-                return { ...section, themes: themesWithTasks };
-            })
-        );
-
-        return { ...course, sections: sectionsWithThemes };
-    }
-
-    // ============ АВАТАРЫ ============
-    getStudentAvatar(userId: string) {
-        return this.profileApi.profilesAvatarUserIdGet(userId);
+    async deleteReport(reportId: string): Promise<void> {
+        await this.contentApi.contentReportsReportIdDelete(reportId);
     }
 }
 

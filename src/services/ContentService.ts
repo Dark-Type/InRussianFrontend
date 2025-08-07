@@ -1,32 +1,89 @@
-import {ContentApi} from '../api';
+import {ContentApi, ContentManagerApi, type MediaFileMeta} from '../api';
 import {axiosInstance} from '../instances/axiosInstance.ts';
 
-import type {
-    Course as ApiCourse,
-    CreateCourseRequest,
-    UpdateCourseRequest,
-    CreateSectionRequest,
-    UpdateSectionRequest,
-    CreateThemeRequest,
-    UpdateThemeRequest,
-    Section as ApiSection,
-    Theme as ApiTheme,
-    CreateReportRequest,
-    Report
-} from '../api';
+import {
+    CreateTaskContentRequestContentTypeEnum,
+    type Course as ApiCourse,
+    type CreateCourseRequest,
+    type UpdateCourseRequest,
+    type CreateSectionRequest,
+    type UpdateSectionRequest,
+    type CreateThemeRequest,
+    type UpdateThemeRequest,
+    type Section as ApiSection,
+    type Theme as ApiTheme,
+    type CreateReportRequest,
+    type Report,
+    CreateTaskAnswerRequestAnswerTypeEnum} from '../api';
 import type {AxiosResponse} from 'axios';
-import type {Course, Section, Theme} from '../context/content/ContentContext.tsx';
+import {mediaService} from "./MediaService";
+import type {Course, Section, Theme} from '../context/content/ContentProvider';
 
 class ContentService {
-    private api: ContentApi;
+    private contentApi: ContentApi;
+    private managerApi: ContentManagerApi;
+
+    get contentApiInstance() {
+        return this.contentApi;
+    }
 
     constructor() {
-        this.api = new ContentApi(undefined, undefined, axiosInstance);
+        this.contentApi = new ContentApi(undefined, undefined, axiosInstance);
+        this.managerApi = new ContentManagerApi(undefined, undefined, axiosInstance);
+    }
+
+    private mapFileTypeToContentType(fileType: string): CreateTaskContentRequestContentTypeEnum {
+        switch (fileType.toUpperCase()) {
+            case 'AUDIO':
+                return CreateTaskContentRequestContentTypeEnum.Audio;
+            case 'VIDEO':
+                return CreateTaskContentRequestContentTypeEnum.Video;
+            case 'IMAGE':
+                return CreateTaskContentRequestContentTypeEnum.Image;
+            default:
+                return CreateTaskContentRequestContentTypeEnum.Text;
+        }
+    }
+
+    private mapAnswerTypeToBackend(answerType: string): CreateTaskAnswerRequestAnswerTypeEnum {
+        switch (answerType) {
+            case 'SINGLE_CHOICE':
+                return CreateTaskAnswerRequestAnswerTypeEnum.SingleChoiceShort;
+            case 'MULTI_CHOICE':
+                return CreateTaskAnswerRequestAnswerTypeEnum.MultipleChoiceShort;
+            case 'ORDER_WORDS':
+                return CreateTaskAnswerRequestAnswerTypeEnum.WordOrder;
+            case 'SELECT_WORDS':
+                return CreateTaskAnswerRequestAnswerTypeEnum.WordSelection;
+            default:
+                return CreateTaskAnswerRequestAnswerTypeEnum.TextInput;
+        }
+    }
+
+    async uploadMediaFile(file: File): Promise<MediaFileMeta> {
+        const userId = localStorage.getItem('userId') || undefined;
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('fileName', file.name);
+        formData.append('mimeType', file.type);
+        formData.append('fileSize', file.size.toString());
+
+        let fileType = 'CONTENT';
+        if (file.type.startsWith('image/')) {
+            fileType = 'IMAGE';
+        } else if (file.type.startsWith('audio/')) {
+            fileType = 'AUDIO';
+        } else if (file.type.startsWith('video/')) {
+            fileType = 'VIDEO';
+        }
+        formData.append('fileType', fileType);
+
+        return await mediaService.uploadMediaWithMeta(formData, userId);
     }
 
     // ============ COURSES ============
     async getAllCourses(): Promise<Course[]> {
-        const response: AxiosResponse<ApiCourse[]> = await this.api.contentCoursesGet();
+        const response: AxiosResponse<ApiCourse[]> = await this.contentApi.contentCoursesGet();
         const apiCourses = response.data;
 
         const courses: Course[] = await Promise.all(
@@ -44,7 +101,7 @@ class ContentService {
     }
 
     async getCourseById(courseId: string): Promise<Course> {
-        const response: AxiosResponse<ApiCourse> = await this.api.contentCoursesCourseIdGet(courseId);
+        const response: AxiosResponse<ApiCourse> = await this.contentApi.contentCoursesCourseIdGet(courseId);
         const apiCourse = response.data;
 
         return {
@@ -57,6 +114,16 @@ class ContentService {
         };
     }
 
+    async getTasksByTheme(themeId: string): Promise<unknown[]> {
+        try {
+            const response = await this.contentApi.contentThemesThemeIdTasksGet(themeId);
+            return response.data || [];
+        } catch (error) {
+            console.error(`Ошибка загрузки задач темы ${themeId}:`, error);
+            return [];
+        }
+    }
+
     async createCourse(name: string, description: string = '', authorUrl: string, language: string = 'RUSSIAN', isPublished: boolean = false): Promise<Course> {
         const courseData: CreateCourseRequest = {
             name,
@@ -65,7 +132,7 @@ class ContentService {
             language,
             isPublished,
         };
-        const response: AxiosResponse<ApiCourse> = await this.api.contentCoursesPost(courseData);
+        const response: AxiosResponse<ApiCourse> = await this.managerApi.contentCoursesPost(courseData);
         const apiCourse = response.data;
 
         return {
@@ -79,17 +146,17 @@ class ContentService {
     }
 
     async updateCourse(courseId: string, courseData: UpdateCourseRequest): Promise<ApiCourse> {
-        const response: AxiosResponse<ApiCourse> = await this.api.contentCoursesCourseIdPut(courseId, courseData);
+        const response: AxiosResponse<ApiCourse> = await this.managerApi.contentCoursesCourseIdPut(courseId, courseData);
         return response.data;
     }
 
     async deleteCourse(courseId: string): Promise<void> {
-        await this.api.contentCoursesCourseIdDelete(courseId);
+        await this.managerApi.contentCoursesCourseIdDelete(courseId);
     }
 
     // ============ SECTIONS ============
     async getSectionsByCourse(courseId: string): Promise<Section[]> {
-        const response: AxiosResponse<ApiSection[]> = await this.api.contentSectionsByCourseCourseIdGet(courseId);
+        const response: AxiosResponse<ApiSection[]> = await this.contentApi.contentSectionsByCourseCourseIdGet(courseId);
         const apiSections = response.data;
 
         const sections: Section[] = await Promise.all(
@@ -107,7 +174,7 @@ class ContentService {
     }
 
     async getSectionById(sectionId: string): Promise<ApiSection> {
-        const response: AxiosResponse<ApiSection> = await this.api.contentSectionsSectionIdGet(sectionId);
+        const response: AxiosResponse<ApiSection> = await this.contentApi.contentSectionsSectionIdGet(sectionId);
         return response.data;
     }
 
@@ -121,7 +188,7 @@ class ContentService {
             courseId,
             orderNum
         };
-        const response: AxiosResponse<ApiSection> = await this.api.contentSectionsPost(sectionData);
+        const response: AxiosResponse<ApiSection> = await this.managerApi.contentSectionsPost(sectionData);
         const apiSection = response.data;
 
         return {
@@ -135,17 +202,17 @@ class ContentService {
     }
 
     async updateSection(sectionId: string, sectionData: UpdateSectionRequest): Promise<ApiSection> {
-        const response: AxiosResponse<ApiSection> = await this.api.contentSectionsSectionIdPut(sectionId, sectionData);
+        const response: AxiosResponse<ApiSection> = await this.managerApi.contentSectionsSectionIdPut(sectionId, sectionData);
         return response.data;
     }
 
     async deleteSection(sectionId: string): Promise<void> {
-        await this.api.contentSectionsSectionIdDelete(sectionId);
+        await this.managerApi.contentSectionsSectionIdDelete(sectionId);
     }
 
     // ============ THEMES ============
     async getThemesBySection(sectionId: string): Promise<Theme[]> {
-        const response: AxiosResponse<ApiTheme[]> = await this.api.contentThemesBySectionSectionIdGet(sectionId);
+        const response: AxiosResponse<ApiTheme[]> = await this.contentApi.contentThemesBySectionSectionIdGet(sectionId);
         const apiThemes = response.data;
 
         const themes: Theme[] = await Promise.all(
@@ -162,7 +229,7 @@ class ContentService {
     }
 
     async getThemeById(themeId: string): Promise<ApiTheme> {
-        const response: AxiosResponse<ApiTheme> = await this.api.contentThemesThemeIdGet(themeId);
+        const response: AxiosResponse<ApiTheme> = await this.contentApi.contentThemesThemeIdGet(themeId);
         return response.data;
     }
 
@@ -176,7 +243,7 @@ class ContentService {
             sectionId,
             orderNum
         };
-        const response: AxiosResponse<ApiTheme> = await this.api.contentThemesPost(themeData);
+        const response: AxiosResponse<ApiTheme> = await this.managerApi.contentThemesPost(themeData);
         const apiTheme = response.data;
 
         return {
@@ -189,59 +256,84 @@ class ContentService {
     }
 
     async updateTheme(themeId: string, themeData: UpdateThemeRequest): Promise<ApiTheme> {
-        const response: AxiosResponse<ApiTheme> = await this.api.contentThemesThemeIdPut(themeId, themeData);
+        const response: AxiosResponse<ApiTheme> = await this.managerApi.contentThemesThemeIdPut(themeId, themeData);
         return response.data;
     }
 
     async deleteTheme(themeId: string): Promise<void> {
-        await this.api.contentThemesThemeIdDelete(themeId);
+        await this.managerApi.contentThemesThemeIdDelete(themeId);
     }
 
     // ============ REPORTS ============
     async getAllReports(): Promise<Report[]> {
-        const response: AxiosResponse<Report[]> = await this.api.contentReportsGet();
+        const response: AxiosResponse<Report[]> = await this.contentApi.contentReportsGet();
         return response.data;
     }
 
     async getReportById(reportId: string): Promise<Report> {
-        const response: AxiosResponse<Report> = await this.api.contentReportsReportIdGet(reportId);
+        const response: AxiosResponse<Report> = await this.contentApi.contentReportsReportIdGet(reportId);
         return response.data;
     }
 
     async createReport(reportData: CreateReportRequest): Promise<Report> {
-        const response: AxiosResponse<Report> = await this.api.contentReportsPost(reportData);
+        const response: AxiosResponse<Report> = await this.contentApi.contentReportsPost(reportData);
         return response.data;
     }
 
     async deleteReport(reportId: string): Promise<void> {
-        await this.api.contentReportsReportIdDelete(reportId);
+        await this.managerApi.contentR (reportId);
     }
 
     // ============ STATS ============
     async getContentStats(): Promise<unknown> {
-        const response: AxiosResponse<unknown> = await this.api.contentStatsGet();
+        const response: AxiosResponse<unknown> = await this.contentApi.contentStatsGet();
         return response.data;
     }
 
     async getTasksCountByCourse(courseId: string): Promise<number> {
-        const response: AxiosResponse<{
-            count: number
-        }> = await this.api.contentStatsCourseCourseIdTasksCountGet(courseId);
-        return response.data.count;
+        try {
+            const response: AxiosResponse<{
+                count: number
+            }> = await this.contentApi.contentStatsCourseCourseIdTasksCountGet(courseId);
+            console.log(`Tasks count for course ${courseId}:`, response.data);
+            return response.data.count || 0;
+        } catch (error) {
+            console.error(`Ошибка получения количества задач курса ${courseId}:`, error);
+            return 0;
+        }
     }
 
     async getTasksCountBySection(sectionId: string): Promise<number> {
-        const response: AxiosResponse<{
-            count: number
-        }> = await this.api.contentStatsSectionSectionIdTasksCountGet(sectionId);
-        return response.data.count;
+        try {
+            const response: AxiosResponse<{
+                count: number
+            }> = await this.contentApi.contentStatsSectionSectionIdTasksCountGet(sectionId);
+            console.log(`Tasks count for section ${sectionId}:`, response.data);
+            return response.data.count || 0;
+        } catch (error) {
+            console.error(`Ошибка получения количества задач секции ${sectionId}:`, error);
+            return 0;
+        }
     }
 
     async getTasksCountByTheme(themeId: string): Promise<number> {
-        const response: AxiosResponse<{
-            count: number
-        }> = await this.api.contentStatsThemeThemeIdTasksCountGet(themeId);
-        return response.data.count;
+        try {
+            const response: AxiosResponse<{
+                count: number
+            }> = await this.contentApi.contentStatsThemeThemeIdTasksCountGet(themeId);
+            console.log(`Tasks count for theme ${themeId}:`, response.data);
+            return response.data.count || 0;
+        } catch (error) {
+            console.log(`Fallback: counting tasks manually for theme ${themeId}`);
+            try {
+                const tasks = await this.getTasksByTheme(themeId);
+                console.log(`Manual count for theme ${themeId}:`, tasks.length);
+                return tasks.length;
+            } catch {
+                console.error(`Ошибка получения количества задач темы ${themeId}:`, error);
+                return 0;
+            }
+        }
     }
 
     private async getSectionsCountByCourse(courseId: string): Promise<number> {
@@ -262,6 +354,99 @@ class ContentService {
     private async getThemesCountBySection(sectionId: string): Promise<number> {
         const themes = await this.getThemesBySection(sectionId);
         return themes.length;
+    }
+
+    // ============ TASKS ============
+    async deleteTask(taskId: string): Promise<void> {
+        await this.managerApi.contentTasksTaskIdDelete(taskId);
+    }
+
+
+
+    async createTask(themeId: string, taskData: {
+        name: string;
+        question: string;
+        taskType: string;
+        instructions?: string;
+        isTraining?: boolean;
+        contents?: Array<{
+            id: string;
+            contentType: string;
+            description?: string;
+            transcription?: string;
+            translation?: string;
+            text?: string;
+            file?: File;
+            orderNum: number;
+        }>;
+        answer?: {
+            answerType: string;
+            correctAnswer: any;
+            options?: Array<{
+                id: string;
+                text: string;
+                isCorrect: boolean;
+                orderNum: number;
+            }>;
+        };
+    }): Promise<unknown> {
+        try {
+            // Получаем правильный orderNum
+            const existingTasks = await this.getTasksByTheme(themeId);
+            const orderNum = Array.isArray(existingTasks) ? existingTasks.length + 1 : 1;
+
+            const createTaskRequest = {
+                themeId,
+                name: taskData.name,
+                question: taskData.question,
+                taskType: taskData.taskType,
+                instructions: taskData.instructions || '',
+                isTraining: taskData.isTraining || false,
+                orderNum
+            };
+
+            const {data: createdTask} = await this.managerApi.contentTasksPost(createTaskRequest);
+
+            for (const content of taskData.contents || []) {
+                let mediaId: string | undefined;
+
+                if (content.file) {
+                    const mediaInfo = await this.uploadMediaFile(content.file);
+                    mediaId = mediaInfo.mediaId;
+                }
+
+                await this.managerApi.contentTasksTaskIdContentPost(createdTask.id, {
+                    contentType: this.mapFileTypeToContentType(content.contentType),
+                    description: content.description,
+                    transcription: content.transcription,
+                    translation: content.translation,
+                    text: content.text,
+                    mediaId,
+                    orderNum: content.orderNum
+                });
+            }
+
+            // Создание вариантов ответов и ответа
+            if (taskData.answer?.options?.length) {
+                for (const option of taskData.answer.options) {
+                    await this.managerApi.contentTasksTaskIdAnswerOptionsPost(createdTask.id, {
+                        optionText: option.text,
+                        isCorrect: option.isCorrect,
+                        orderNum: option.orderNum
+                    });
+                }
+
+                await this.managerApi.contentTasksTaskIdAnswerPost(createdTask.id, {
+                    answerType: this.mapAnswerTypeToBackend(taskData.answer.answerType),
+                    correctAnswer: taskData.answer.correctAnswer || {}
+                });
+            }
+
+            return createdTask;
+        } catch (error) {
+            console.error('Ошибка создания задачи:', error);
+            throw error;
+        }
     }
 }
 

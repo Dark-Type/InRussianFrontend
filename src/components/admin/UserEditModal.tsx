@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { AdminService } from '../../services/AdminService';
-import { ProfileApi } from '../../api';
+import React, {useState, useEffect} from 'react';
+import {AdminService} from '../../services/AdminService';
+import {profileApi} from '../../instances/profileApiInstance.ts'
 import type {
     User,
     UserRoleEnum,
@@ -28,7 +28,7 @@ interface UserLanguageSkill {
     writes: boolean;
 }
 
-export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onSave }) => {
+export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSave}) => {
     const [userData, setUserData] = useState({
         email: '',
         phone: '',
@@ -42,8 +42,6 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
     const [languageSkills, setLanguageSkills] = useState<UserLanguageSkill[]>([]);
     const [loading, setLoading] = useState(false);
     const [loadingData, setLoadingData] = useState(false);
-
-    const profileApi = new ProfileApi();
 
     useEffect(() => {
         if (user) {
@@ -62,15 +60,16 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
         setLoadingData(true);
         try {
             if (userData.role === 'STUDENT') {
-                const profileResponse = await profileApi.profilesUserIdGet(userData.id);
-                if (profileResponse.data.success) {
-                    setUserProfile(profileResponse.data.profile);
+                const [profileData, skillsData] = await Promise.all([
+                    AdminService.getStudentProfile(userData.id),
+                    AdminService.getStudentLanguageSkills(userData.id)
+                ]);
+
+                if (profileData) {
+                    setUserProfile(profileData);
                 }
 
-                const skillsResponse = await profileApi.profilesUserLanguageSkillsGet(userData.id);
-                if (skillsResponse.data) {
-                    setLanguageSkills(JSON.parse(skillsResponse.data as string) || []);
-                }
+                setLanguageSkills(skillsData || []);
             } else {
                 const profileResponse = await profileApi.profilesStaffIdGet(userData.id);
                 if (profileResponse.data.success) {
@@ -84,23 +83,32 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
         }
     };
 
+    const formatDate = (dateString: string) => {
+        if (!dateString) return '';
+        if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            return dateString;
+        }
+        return new Date(dateString).toISOString().split('T')[0];
+    };
+
+
     const handleUserDataChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setUserData(prev => ({ ...prev, [name]: value }));
+        const {name, value} = e.target;
+        setUserData(prev => ({...prev, [name]: value}));
     };
 
     const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
+        const {name, value} = e.target;
         if (userData.role === 'STUDENT') {
-            setUserProfile(prev => ({ ...prev, [name]: value }));
+            setUserProfile(prev => ({...prev, [name]: value}));
         } else {
-            setStaffProfile(prev => ({ ...prev, [name]: value }));
+            setStaffProfile(prev => ({...prev, [name]: value}));
         }
     };
 
     const handleLanguageSkillChange = (index: number, field: keyof UserLanguageSkill, value: string | boolean) => {
         setLanguageSkills(prev => prev.map((skill, i) =>
-            i === index ? { ...skill, [field]: value } : skill
+            i === index ? {...skill, [field]: value} : skill
         ));
     };
 
@@ -124,7 +132,15 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
 
         setLoading(true);
         try {
-            await AdminService.updateUser(user.id, userData);
+            const validLanguages = ['RUSSIAN', 'UZBEK', 'CHINESE', 'HINDI', 'TAJIK', 'ENGLISH'];
+            const validatedUserData = {
+                ...userData,
+                systemLanguage: validLanguages.includes(userData.systemLanguage)
+                    ? userData.systemLanguage
+                    : 'RUSSIAN'
+            };
+
+            await AdminService.updateUser(user.id, validatedUserData);
 
             if (userData.role === 'STUDENT') {
                 if (Object.keys(userProfile).length > 0) {
@@ -133,44 +149,26 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                         name: userProfile.name,
                         patronymic: userProfile.patronymic,
                         gender: userProfile.gender,
-                        dob: userProfile.dob,
+                        dateOfBirth: userProfile.dateOfBirth,
                         dor: userProfile.dor,
                         citizenship: userProfile.citizenship,
                         nationality: userProfile.nationality,
                         countryOfResidence: userProfile.countryOfResidence,
                         cityOfResidence: userProfile.cityOfResidence,
-                        countryDuringEducation: userProfile.countryDuringEducation,
-                        periodSpent: userProfile.periodSpent,
-                        kindOfActivity: userProfile.kindOfActivity,
                         education: userProfile.education,
                         purposeOfRegister: userProfile.purposeOfRegister
                     };
-                    await profileApi.profilesUserIdPut(user.id, updateRequest);
+                    await AdminService.updateUserProfile(user.id, updateRequest);
                 }
 
-                for (const skill of languageSkills) {
-                    const skillRequest: UserLanguageSkillRequest = {
-                        language: skill.language,
-                        understands: skill.understands,
-                        speaks: skill.speaks,
-                        reads: skill.reads,
-                        writes: skill.writes
-                    };
-
-                    if (skill.id) {
-                        await profileApi.profilesUserLanguageSkillsSkillIdPut(skill.id, skillRequest, user.id);
-                    } else {
-                        await profileApi.profilesUserLanguageSkillsPost(skillRequest, user.id);
-                    }
-                }
             } else {
                 if (Object.keys(staffProfile).length > 0) {
                     const updateRequest: UpdateStaffProfileRequest = {
                         name: staffProfile.name,
                         surname: staffProfile.surname,
                         patronymic: staffProfile.patronymic,
-                        phone: userData.phone,
-                        systemLanguage: userData.systemLanguage
+                        phone: validatedUserData.phone,
+                        systemLanguage: validatedUserData.systemLanguage
                     };
                     await profileApi.profilesStaffIdPut(user.id, updateRequest);
                 }
@@ -209,18 +207,18 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                 maxHeight: '90vh',
                 overflow: 'auto'
             }}>
-                <h3 style={{ margin: '0 0 20px 0' }}>Редактирование пользователя</h3>
+                <h3 style={{margin: '0 0 20px 0'}}>Редактирование пользователя</h3>
 
                 {loadingData ? (
-                    <div style={{ textAlign: 'center', padding: '40px' }}>Загрузка данных...</div>
+                    <div style={{textAlign: 'center', padding: '40px'}}>Загрузка данных...</div>
                 ) : (
                     <form onSubmit={handleSubmit}>
                         {/* Основные данные пользователя */}
-                        <div style={{ marginBottom: '24px' }}>
+                        <div style={{marginBottom: '24px'}}>
                             <h4>Основные данные</h4>
 
-                            <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px' }}>Email:</label>
+                            <div style={{marginBottom: '16px'}}>
+                                <label style={{display: 'block', marginBottom: '4px'}}>Email:</label>
                                 <input
                                     type="email"
                                     name="email"
@@ -236,8 +234,8 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                                 />
                             </div>
 
-                            <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px' }}>Телефон:</label>
+                            <div style={{marginBottom: '16px'}}>
+                                <label style={{display: 'block', marginBottom: '4px'}}>Телефон:</label>
                                 <input
                                     type="tel"
                                     name="phone"
@@ -252,9 +250,9 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                                 />
                             </div>
 
-                            <div style={{ display: 'flex', gap: '16px' }}>
-                                <div style={{ flex: 1 }}>
-                                    <label style={{ display: 'block', marginBottom: '4px' }}>Роль:</label>
+                            <div style={{display: 'flex', gap: '16px'}}>
+                                <div style={{flex: 1}}>
+                                    <label style={{display: 'block', marginBottom: '4px'}}>Роль:</label>
                                     <select
                                         name="role"
                                         value={userData.role}
@@ -273,8 +271,30 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                                     </select>
                                 </div>
 
-                                <div style={{ flex: 1 }}>
-                                    <label style={{ display: 'block', marginBottom: '4px' }}>Статус:</label>
+                                <div style={{flex: 1}}>
+                                    <label style={{display: 'block', marginBottom: '4px'}}>Системный язык:</label>
+                                    <select
+                                        name="systemLanguage"
+                                        value={userData.systemLanguage}
+                                        onChange={handleUserDataChange}
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px',
+                                            borderRadius: '4px',
+                                            border: '1px solid var(--color-border)'
+                                        }}
+                                    >
+                                        <option value="RUSSIAN">Русский</option>
+                                        <option value="UZBEK">Узбекский</option>
+                                        <option value="CHINESE">Китайский</option>
+                                        <option value="HINDI">Хинди</option>
+                                        <option value="TAJIK">Таджикский</option>
+                                        <option value="ENGLISH">Английский</option>
+                                    </select>
+                                </div>
+
+                                <div style={{flex: 1}}>
+                                    <label style={{display: 'block', marginBottom: '4px'}}>Статус:</label>
                                     <select
                                         name="status"
                                         value={userData.status}
@@ -295,14 +315,14 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                         </div>
 
                         {/* Профиль */}
-                        <div style={{ marginBottom: '24px' }}>
+                        <div style={{marginBottom: '24px'}}>
                             <h4>Профиль</h4>
 
                             {userData.role === 'STUDENT' ? (
                                 <div>
-                                    <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ display: 'block', marginBottom: '4px' }}>Фамилия*:</label>
+                                    <div style={{display: 'flex', gap: '16px', marginBottom: '16px'}}>
+                                        <div style={{flex: 1}}>
+                                            <label style={{display: 'block', marginBottom: '4px'}}>Фамилия*:</label>
                                             <input
                                                 type="text"
                                                 name="surname"
@@ -317,8 +337,8 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                                                 required
                                             />
                                         </div>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ display: 'block', marginBottom: '4px' }}>Имя*:</label>
+                                        <div style={{flex: 1}}>
+                                            <label style={{display: 'block', marginBottom: '4px'}}>Имя*:</label>
                                             <input
                                                 type="text"
                                                 name="name"
@@ -333,8 +353,8 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                                                 required
                                             />
                                         </div>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ display: 'block', marginBottom: '4px' }}>Отчество:</label>
+                                        <div style={{flex: 1}}>
+                                            <label style={{display: 'block', marginBottom: '4px'}}>Отчество:</label>
                                             <input
                                                 type="text"
                                                 name="patronymic"
@@ -351,9 +371,9 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                                     </div>
 
                                     {/* Дополнительные поля для студентов */}
-                                    <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ display: 'block', marginBottom: '4px' }}>Пол*:</label>
+                                    <div style={{display: 'flex', gap: '16px', marginBottom: '16px'}}>
+                                        <div style={{flex: 1}}>
+                                            <label style={{display: 'block', marginBottom: '4px'}}>Пол*:</label>
                                             <select
                                                 name="gender"
                                                 value={userProfile.gender || ''}
@@ -371,12 +391,13 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                                                 <option value="FEMALE">Женский</option>
                                             </select>
                                         </div>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ display: 'block', marginBottom: '4px' }}>Дата рождения*:</label>
+                                        <div style={{flex: 1}}>
+                                            <label style={{display: 'block', marginBottom: '4px'}}>Дата
+                                                рождения*:</label>
                                             <input
                                                 type="date"
-                                                name="dob"
-                                                value={userProfile.dob || ''}
+                                                name="dateOfBirth"
+                                                value={formatDate(userProfile.dateOfBirth || '')}
                                                 onChange={handleProfileChange}
                                                 style={{
                                                     width: '100%',
@@ -387,8 +408,9 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                                                 required
                                             />
                                         </div>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ display: 'block', marginBottom: '4px' }}>Дата регистрации*:</label>
+                                        <div style={{flex: 1}}>
+                                            <label style={{display: 'block', marginBottom: '4px'}}>Дата
+                                                регистрации*:</label>
                                             <input
                                                 type="date"
                                                 name="dor"
@@ -406,9 +428,14 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                                     </div>
 
                                     {/* Языковые навыки */}
-                                    <div style={{ marginTop: '20px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                            <h5 style={{ margin: 0 }}>Языковые навыки</h5>
+                                    <div style={{marginTop: '20px'}}>
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            marginBottom: '12px'
+                                        }}>
+                                            <h5 style={{margin: 0}}>Языковые навыки</h5>
                                             <button
                                                 type="button"
                                                 onClick={addLanguageSkill}
@@ -433,7 +460,12 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                                                 padding: '12px',
                                                 marginBottom: '8px'
                                             }}>
-                                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '8px' }}>
+                                                <div style={{
+                                                    display: 'flex',
+                                                    gap: '12px',
+                                                    alignItems: 'center',
+                                                    marginBottom: '8px'
+                                                }}>
                                                     <input
                                                         type="text"
                                                         placeholder="Язык"
@@ -462,15 +494,19 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                                                     </button>
                                                 </div>
 
-                                                <div style={{ display: 'flex', gap: '16px' }}>
+                                                <div style={{display: 'flex', gap: '16px'}}>
                                                     {(['understands', 'speaks', 'reads', 'writes'] as const).map(skillType => (
-                                                        <label key={skillType} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <label key={skillType} style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
+                                                        }}>
                                                             <input
                                                                 type="checkbox"
                                                                 checked={skill[skillType]}
                                                                 onChange={(e) => handleLanguageSkillChange(index, skillType, e.target.checked)}
                                                             />
-                                                            <span style={{ fontSize: '12px' }}>
+                                                            <span style={{fontSize: '12px'}}>
                                                                 {skillType === 'understands' ? 'Понимает' :
                                                                     skillType === 'speaks' ? 'Говорит' :
                                                                         skillType === 'reads' ? 'Читает' : 'Пишет'}
@@ -483,9 +519,9 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                                     </div>
                                 </div>
                             ) : (
-                                <div style={{ display: 'flex', gap: '16px' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ display: 'block', marginBottom: '4px' }}>Фамилия*:</label>
+                                <div style={{display: 'flex', gap: '16px'}}>
+                                    <div style={{flex: 1}}>
+                                        <label style={{display: 'block', marginBottom: '4px'}}>Фамилия*:</label>
                                         <input
                                             type="text"
                                             name="surname"
@@ -500,8 +536,8 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                                             required
                                         />
                                     </div>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ display: 'block', marginBottom: '4px' }}>Имя*:</label>
+                                    <div style={{flex: 1}}>
+                                        <label style={{display: 'block', marginBottom: '4px'}}>Имя*:</label>
                                         <input
                                             type="text"
                                             name="name"
@@ -516,8 +552,8 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                                             required
                                         />
                                     </div>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ display: 'block', marginBottom: '4px' }}>Отчество:</label>
+                                    <div style={{flex: 1}}>
+                                        <label style={{display: 'block', marginBottom: '4px'}}>Отчество:</label>
                                         <input
                                             type="text"
                                             name="patronymic"
@@ -535,7 +571,7 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({ user, onClose, onS
                             )}
                         </div>
 
-                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                        <div style={{display: 'flex', gap: '12px', justifyContent: 'flex-end'}}>
                             <button
                                 type="button"
                                 onClick={onClose}

@@ -6,6 +6,7 @@ All URIs are relative to *http://localhost:8080*
 |------------- | ------------- | -------------|
 |[**contentCoursesCourseIdGet**](#contentcoursescourseidget) | **GET** /content/courses/{courseId} | |
 |[**contentCoursesGet**](#contentcoursesget) | **GET** /content/courses | |
+|[**contentReportsGet**](#contentreportsget) | **GET** /content/reports | |
 |[**contentReportsPost**](#contentreportspost) | **POST** /content/reports | |
 |[**contentReportsReportIdGet**](#contentreportsreportidget) | **GET** /content/reports/{reportId} | |
 |[**contentSectionsByCourseCourseIdGet**](#contentsectionsbycoursecourseidget) | **GET** /content/sections/by-course/{courseId} | |
@@ -101,6 +102,51 @@ This endpoint does not have any parameters.
 ### Return type
 
 **Array<Course>**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: */*
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | OK |  -  |
+|**500** | Internal Server Error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **contentReportsGet**
+> Array<Report> contentReportsGet()
+
+
+
+### Example
+
+```typescript
+import {
+    ContentApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new ContentApi(configuration);
+
+const { status, data } = await apiInstance.contentReportsGet();
+```
+
+### Parameters
+This endpoint does not have any parameters.
+
+
+### Return type
+
+**Array<Report>**
 
 ### Authorization
 

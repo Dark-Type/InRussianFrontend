@@ -3798,6 +3798,35 @@ export const ContentApiAxiosParamCreator = function (configuration?: Configurati
         },
         /**
          * 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        contentReportsGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/content/reports`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @param {CreateReportRequest} createReportRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -4332,6 +4361,17 @@ export const ContentApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async contentReportsGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<Report>>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.contentReportsGet(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ContentApi.contentReportsGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
          * @param {CreateReportRequest} createReportRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -4540,6 +4580,14 @@ export const ContentApiFactory = function (configuration?: Configuration, basePa
         },
         /**
          * 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        contentReportsGet(options?: RawAxiosRequestConfig): AxiosPromise<Array<Report>> {
+            return localVarFp.contentReportsGet(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @param {CreateReportRequest} createReportRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -4703,6 +4751,16 @@ export class ContentApi extends BaseAPI {
      */
     public contentCoursesGet(options?: RawAxiosRequestConfig) {
         return ContentApiFp(this.configuration).contentCoursesGet(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ContentApi
+     */
+    public contentReportsGet(options?: RawAxiosRequestConfig) {
+        return ContentApiFp(this.configuration).contentReportsGet(options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -4981,6 +5039,39 @@ export const ContentManagerApiAxiosParamCreator = function (configuration?: Conf
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = serializeDataIfNeeded(createCourseRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @param {string} reportId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        contentReportsReportIdDelete: async (reportId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'reportId' is not null or undefined
+            assertParamExists('contentReportsReportIdDelete', 'reportId', reportId)
+            const localVarPath = `/content/reports/{reportId}`
+                .replace(`{${"reportId"}}`, encodeURIComponent(String(reportId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -5706,6 +5797,18 @@ export const ContentManagerApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
+         * @param {string} reportId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async contentReportsReportIdDelete(reportId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.contentReportsReportIdDelete(reportId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ContentManagerApi.contentReportsReportIdDelete']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
          * @param {CreateSectionRequest} createSectionRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -5973,6 +6076,15 @@ export const ContentManagerApiFactory = function (configuration?: Configuration,
         },
         /**
          * 
+         * @param {string} reportId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        contentReportsReportIdDelete(reportId: string, options?: RawAxiosRequestConfig): AxiosPromise<string> {
+            return localVarFp.contentReportsReportIdDelete(reportId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @param {CreateSectionRequest} createSectionRequest 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -6188,6 +6300,17 @@ export class ContentManagerApi extends BaseAPI {
      */
     public contentCoursesPost(createCourseRequest: CreateCourseRequest, options?: RawAxiosRequestConfig) {
         return ContentManagerApiFp(this.configuration).contentCoursesPost(createCourseRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @param {string} reportId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ContentManagerApi
+     */
+    public contentReportsReportIdDelete(reportId: string, options?: RawAxiosRequestConfig) {
+        return ContentManagerApiFp(this.configuration).contentReportsReportIdDelete(reportId, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

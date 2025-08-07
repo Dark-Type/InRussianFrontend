@@ -12,11 +12,15 @@ interface UserCardProps {
     user: UserWithProfile;
     onEdit: (user: User) => void;
     onStatusChanged?: () => void;
+    onStatusChange?: (userId: string, newStatus: UserStatusEnum) => void;
 }
+
 
 export const UserCard: React.FC<UserCardProps> = ({ user, onEdit, onStatusChanged }) => {
     const [showStatusMenu, setShowStatusMenu] = useState(false);
     const [changingStatus, setChangingStatus] = useState(false);
+    const [currentStatus, setCurrentStatus] = useState<UserStatusEnum>(user.status);
+    const [statusLoading, setStatusLoading] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -78,16 +82,23 @@ export const UserCard: React.FC<UserCardProps> = ({ user, onEdit, onStatusChange
         return user.email;
     };
 
-    const handleStatusChange = async (newStatus: UserStatusEnum) => {
-        setChangingStatus(true);
+    const handleStatusChange = async (newStatus: string) => {
         try {
-            await AdminService.changeUserStatus(user.id, newStatus);
+            setStatusLoading(true);
             setShowStatusMenu(false);
-            onStatusChanged?.();
+
+            await AdminService.updateUserStatus(user.id, newStatus);
+
+            setCurrentStatus(newStatus as UserStatusEnum);
+
+            if (onStatusChanged) {
+                onStatusChanged();
+            }
         } catch (error) {
             console.error('Ошибка изменения статуса:', error);
+            setCurrentStatus(user.status);
         } finally {
-            setChangingStatus(false);
+            setStatusLoading(false);
         }
     };
 
@@ -217,29 +228,25 @@ export const UserCard: React.FC<UserCardProps> = ({ user, onEdit, onStatusChange
                                 marginTop: '4px'
                             }}>
                                 {getAvailableStatuses().map(status => (
-                                    <button
+                                    <div
                                         key={status.value}
                                         onClick={() => handleStatusChange(status.value)}
                                         style={{
-                                            width: '100%',
                                             padding: '8px 12px',
-                                            border: 'none',
-                                            background: 'transparent',
-                                            color: status.color,
                                             cursor: 'pointer',
                                             fontSize: '0.8rem',
-                                            textAlign: 'left',
-                                            transition: 'background-color 0.2s'
+                                            color: status.color,
+                                            borderBottom: '1px solid var(--color-border-light)'
                                         }}
                                         onMouseEnter={(e) => {
-                                            e.currentTarget.style.backgroundColor = 'var(--color-border)';
+                                            e.currentTarget.style.background = 'var(--color-bg)';
                                         }}
                                         onMouseLeave={(e) => {
-                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                            e.currentTarget.style.background = 'transparent';
                                         }}
                                     >
                                         {status.label}
-                                    </button>
+                                    </div>
                                 ))}
                             </div>
                         )}
