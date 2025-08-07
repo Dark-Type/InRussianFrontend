@@ -171,8 +171,8 @@ export const AdminService = {
 
     async updateUserStatus(userId: string, status: string): Promise<void> {
         try {
-            const validStatuses = ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING'];
-            const validatedStatus = validStatuses.includes(status) ? status : 'PENDING';
+            const validStatuses = ['ACTIVE', 'DEACTIVATED', 'SUSPENDED', 'PENDING_VERIFICATION'];
+            const validatedStatus = validStatuses.includes(status) ? status : 'PENDING_VERIFICATION';
 
             const statusRequest = { status: validatedStatus };
 

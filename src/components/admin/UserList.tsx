@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AdminService } from '../../services/AdminService';
 import { UserCard } from './UserCard';
-import type { User, StaffProfile } from '../../api';
+import type { User, StaffProfile, UserProfile } from '../../api'
 import { useProfile } from '../../context/profile/UseProfile';
 import { mediaService } from '../../services/MediaService';
 

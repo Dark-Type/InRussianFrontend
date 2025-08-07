@@ -176,7 +176,7 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
                         right: 0,
                         top: "100%",
                         zIndex: 10,
-                        background: "#fff",
+                        background: "var(--color-card)",
                         border: "1px solid #ddd",
                         borderRadius: 8,
                         padding: 24,

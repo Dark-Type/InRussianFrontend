@@ -307,8 +307,8 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSa
                                         }}
                                     >
                                         <option value="ACTIVE">Активен</option>
-                                        <option value="INACTIVE">Неактивен</option>
-                                        <option value="BANNED">Заблокирован</option>
+                                        <option value="DEACTIVATED">Неактивен</option>
+                                        <option value="SUSPENDED">Заблокирован</option>
                                     </select>
                                 </div>
                             </div>
