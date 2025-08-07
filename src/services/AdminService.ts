@@ -9,10 +9,11 @@ import {
     type UpdateUserRequest,
     type UserStatusEnum,
     type UserSystemLanguageEnum,
-    type UserLanguageSkillRequest,
-} from '../api';
+    type UserLanguageSkillRequest, type UserProfile,
+} from '../api'
 import {profileApi} from '../instances/profileApiInstance.ts';
 import {axiosInstance} from "../instances/axiosInstance.ts";
+import type { UserLanguageSkill } from '../context/expert/ExpertProvider.tsx'
 
 const adminApi = new AdminApi(
     new Configuration({basePath: axiosInstance.defaults.baseURL}),

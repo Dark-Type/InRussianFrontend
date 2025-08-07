@@ -248,9 +248,11 @@ export const AdminStatistics = () => {
             }}>
                 <SectionHeader title="Фильтры" description="Настройте параметры для детального анализа" />
                 <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                    gap: '20px'
+                  display: 'flex',
+                  gap: '4rem',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap'
                 }}>
                     <div>
                         <label style={{
@@ -266,7 +268,6 @@ export const AdminStatistics = () => {
                             value={selectedRole}
                             onChange={(e) => setSelectedRole(e.target.value)}
                             style={{
-                                width: '100%',
                                 padding: '12px 16px',
                                 border: '1px solid var(--color-border)',
                                 borderRadius: '8px',
@@ -348,7 +349,6 @@ export const AdminStatistics = () => {
                             value={selectedCourse}
                             onChange={(e) => setSelectedCourse(e.target.value)}
                             style={{
-                                width: '100%',
                                 padding: '12px 16px',
                                 border: '1px solid var(--color-border)',
                                 borderRadius: '8px',

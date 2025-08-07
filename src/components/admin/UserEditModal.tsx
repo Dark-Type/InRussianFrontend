@@ -149,17 +149,38 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSa
                         name: userProfile.name,
                         patronymic: userProfile.patronymic,
                         gender: userProfile.gender,
-                        dateOfBirth: userProfile.dateOfBirth,
+                        dob: userProfile.dob,
                         dor: userProfile.dor,
                         citizenship: userProfile.citizenship,
                         nationality: userProfile.nationality,
                         countryOfResidence: userProfile.countryOfResidence,
                         cityOfResidence: userProfile.cityOfResidence,
                         education: userProfile.education,
-                        purposeOfRegister: userProfile.purposeOfRegister
+                        purposeOfRegister: userProfile.purposeOfRegister,
+                        periodSpent: userProfile.periodSpent,
+                        countryDuringEducation: userProfile.countryDuringEducation,
+                        kindOfActivity: userProfile.kindOfActivity,
                     };
                     await AdminService.updateUserProfile(user.id, updateRequest);
                 }
+
+              const existingSkills = await AdminService.getStudentLanguageSkills(user.id);
+              for (const _ of existingSkills) {
+                // как их удалить если у них нет айди )))))))))))))))))))
+                console.log(_);
+              }
+
+              const validSkills = languageSkills.filter(skill => skill.language.trim() !== '');
+              for (const skill of validSkills) {
+                // BAD REQUEST ))))
+                await AdminService.createUserLanguageSkill({
+                  language: skill.language,
+                  understands: skill.understands,
+                  speaks: skill.speaks,
+                  reads: skill.reads,
+                  writes: skill.writes
+                }, user.id);
+              }
 
             } else {
                 if (Object.keys(staffProfile).length > 0) {
@@ -184,6 +205,13 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSa
     };
 
     if (!user) return null;
+
+    const inputStyle = {
+        width: '100%',
+        padding: '8px',
+        borderRadius: '4px',
+        border: '1px solid var(--color-border)'
+    };
 
     return (
         <div style={{
@@ -224,12 +252,7 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSa
                                     name="email"
                                     value={userData.email}
                                     onChange={handleUserDataChange}
-                                    style={{
-                                        width: '100%',
-                                        padding: '8px',
-                                        borderRadius: '4px',
-                                        border: '1px solid var(--color-border)'
-                                    }}
+                                    style={inputStyle}
                                     required
                                 />
                             </div>
@@ -241,12 +264,7 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSa
                                     name="phone"
                                     value={userData.phone}
                                     onChange={handleUserDataChange}
-                                    style={{
-                                        width: '100%',
-                                        padding: '8px',
-                                        borderRadius: '4px',
-                                        border: '1px solid var(--color-border)'
-                                    }}
+                                    style={inputStyle}
                                 />
                             </div>
 
@@ -257,12 +275,7 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSa
                                         name="role"
                                         value={userData.role}
                                         onChange={handleUserDataChange}
-                                        style={{
-                                            width: '100%',
-                                            padding: '8px',
-                                            borderRadius: '4px',
-                                            border: '1px solid var(--color-border)'
-                                        }}
+                                        style={inputStyle}
                                     >
                                         <option value="STUDENT">Студент</option>
                                         <option value="EXPERT">Преподаватель</option>
@@ -277,12 +290,7 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSa
                                         name="systemLanguage"
                                         value={userData.systemLanguage}
                                         onChange={handleUserDataChange}
-                                        style={{
-                                            width: '100%',
-                                            padding: '8px',
-                                            borderRadius: '4px',
-                                            border: '1px solid var(--color-border)'
-                                        }}
+                                        style={inputStyle}
                                     >
                                         <option value="RUSSIAN">Русский</option>
                                         <option value="UZBEK">Узбекский</option>
@@ -299,12 +307,7 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSa
                                         name="status"
                                         value={userData.status}
                                         onChange={handleUserDataChange}
-                                        style={{
-                                            width: '100%',
-                                            padding: '8px',
-                                            borderRadius: '4px',
-                                            border: '1px solid var(--color-border)'
-                                        }}
+                                        style={inputStyle}
                                     >
                                         <option value="ACTIVE">Активен</option>
                                         <option value="DEACTIVATED">Неактивен</option>
@@ -328,12 +331,7 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSa
                                                 name="surname"
                                                 value={userProfile.surname || ''}
                                                 onChange={handleProfileChange}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px',
-                                                    borderRadius: '4px',
-                                                    border: '1px solid var(--color-border)'
-                                                }}
+                                                style={inputStyle}
                                                 required
                                             />
                                         </div>
@@ -344,12 +342,7 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSa
                                                 name="name"
                                                 value={userProfile.name || ''}
                                                 onChange={handleProfileChange}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px',
-                                                    borderRadius: '4px',
-                                                    border: '1px solid var(--color-border)'
-                                                }}
+                                                style={inputStyle}
                                                 required
                                             />
                                         </div>
@@ -360,12 +353,7 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSa
                                                 name="patronymic"
                                                 value={userProfile.patronymic || ''}
                                                 onChange={handleProfileChange}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px',
-                                                    borderRadius: '4px',
-                                                    border: '1px solid var(--color-border)'
-                                                }}
+                                                style={inputStyle}
                                             />
                                         </div>
                                     </div>
@@ -378,12 +366,7 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSa
                                                 name="gender"
                                                 value={userProfile.gender || ''}
                                                 onChange={handleProfileChange}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px',
-                                                    borderRadius: '4px',
-                                                    border: '1px solid var(--color-border)'
-                                                }}
+                                                style={inputStyle}
                                                 required
                                             >
                                                 <option value="">Выберите пол</option>
@@ -397,14 +380,9 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSa
                                             <input
                                                 type="date"
                                                 name="dateOfBirth"
-                                                value={formatDate(userProfile.dateOfBirth || '')}
+                                                value={formatDate(userProfile.dob || '')}
                                                 onChange={handleProfileChange}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px',
-                                                    borderRadius: '4px',
-                                                    border: '1px solid var(--color-border)'
-                                                }}
+                                                style={inputStyle}
                                                 required
                                             />
                                         </div>
@@ -416,18 +394,117 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSa
                                                 name="dor"
                                                 value={userProfile.dor || ''}
                                                 onChange={handleProfileChange}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px',
-                                                    borderRadius: '4px',
-                                                    border: '1px solid var(--color-border)'
-                                                }}
+                                                style={inputStyle}
                                                 required
                                             />
                                         </div>
                                     </div>
 
-                                    {/* Языковые навыки */}
+                                  <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+                                    <div style={{ flex: 1 }}>
+                                      <label style={{ display: 'block', marginBottom: '4px' }}>Гражданство:</label>
+                                      <input
+                                        type="text"
+                                        name="citizenship"
+                                        value={userProfile.citizenship || ''}
+                                        onChange={handleProfileChange}
+                                        style={inputStyle}
+                                      />
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                      <label style={{ display: 'block', marginBottom: '4px' }}>Национальность:</label>
+                                      <input
+                                        type="text"
+                                        name="nationality"
+                                        value={userProfile.nationality || ''}
+                                        onChange={handleProfileChange}
+                                        style={inputStyle}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+                                    <div style={{ flex: 1 }}>
+                                      <label style={{ display: 'block', marginBottom: '4px' }}>Страна проживания:</label>
+                                      <input
+                                        type="text"
+                                        name="countryOfResidence"
+                                        value={userProfile.countryOfResidence || ''}
+                                        onChange={handleProfileChange}
+                                        style={inputStyle}
+                                      />
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                      <label style={{ display: 'block', marginBottom: '4px' }}>Город проживания:</label>
+                                      <input
+                                        type="text"
+                                        name="cityOfResidence"
+                                        value={userProfile.cityOfResidence || ''}
+                                        onChange={handleProfileChange}
+                                        style={inputStyle}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div style={{ display: 'flex', gap: '2rem', marginBottom: '16px', justifyContent: 'space-between'}}>
+                                    <div style={{ flex: 1 }}>
+                                      <label style={{ display: 'block', marginBottom: '4px' }}>Страна во время обучения:</label>
+                                      <input
+                                        type="text"
+                                        name="countryDuringEducation"
+                                        value={userProfile.countryDuringEducation || ''}
+                                        onChange={handleProfileChange}
+                                        style={inputStyle}
+                                      />
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                      <label style={{ display: 'block', marginBottom: '4px' }}>periodSpent:</label>
+                                      <input
+                                        type="text"
+                                        name="periodSpent"
+                                        value={userProfile.periodSpent || ''}
+                                        onChange={handleProfileChange}
+                                        style={inputStyle}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div style={{ display: 'flex', gap: '2rem', marginBottom: '16px', justifyContent: 'space-between'}}>
+                                    <div style={{ flex: 1 }}>
+                                      <label style={{ display: 'block', marginBottom: '4px' }}>Образование:</label>
+                                      <input
+                                        type="text"
+                                        name="education"
+                                        value={userProfile.education || ''}
+                                        onChange={handleProfileChange}
+                                        style={inputStyle}
+                                      />
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                      <label style={{ display: 'block', marginBottom: '4px' }}>Цель регистрации:</label>
+                                      <input
+                                        type="text"
+                                        name="purposeOfRegister"
+                                        value={userProfile.purposeOfRegister || ''}
+                                        onChange={handleProfileChange}
+                                        style={inputStyle}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div style={{ marginBottom: '16px' }}>
+                                    <label style={{ display: 'block', marginBottom: '4px' }}>Вид деятельности:</label>
+                                    <input
+                                      type="text"
+                                      name="kindOfActivity"
+                                      value={userProfile.kindOfActivity || ''}
+                                      onChange={handleProfileChange}
+                                      style={inputStyle}
+                                    />
+                                  </div>
+
+
+                                  {/* Языковые навыки */}
                                     <div style={{marginTop: '20px'}}>
                                         <div style={{
                                             display: 'flex',
