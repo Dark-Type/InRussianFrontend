@@ -115,7 +115,7 @@ export const ExpertPanel = () => {
             boxSizing: 'border-box'
         }}>
             <CommonHeader
-                panelName="Панель эксперта"
+                panelName="Эксперт"
                 displayName={displayName}
                 theme={theme}
                 toggleTheme={toggle}

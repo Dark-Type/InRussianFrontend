@@ -25,7 +25,7 @@ export const CommonHeader: React.FC<CommonHeaderProps> = ({
                                                               onAvatarUpdate,
                                                               theme,
                                                               toggleTheme,
-                                                              panelName = "Панель администратора"
+                                                              panelName = "InRussian"
                                                           }) => {
     return (
         <header

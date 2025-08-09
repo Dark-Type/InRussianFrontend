@@ -147,7 +147,7 @@ export const AdminPanel = () => {
                 onAvatarUpdate={reloadAvatar}
                 theme={theme}
                 toggleTheme={toggle}
-                panelName="Консоль"
+                panelName="Администратор"
             />
 
             <div style={{

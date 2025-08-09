@@ -141,56 +141,56 @@ export const Statistics: React.FC = () => {
 
                 {/* Основная статистика */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-xl text-white shadow-lg transform hover:scale-105 transition-transform">
+                    <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-lg transform hover:scale-105 transition-transform">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-blue-100 text-sm font-medium">Курсы</p>
-                                <p className="text-3xl font-bold">{totalCourses}</p>
+                                <p className="text-gray-600 text-sm font-medium">Курсы</p>
+                                <p className="text-3xl font-bold text-gray-900">{totalCourses}</p>
                             </div>
-                            <div className="bg-blue-400 bg-opacity-30 p-3 rounded-lg">
-                                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <div className="bg-gray-200 bg-opacity-30 p-3 rounded-lg">
+                                <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                                     <path fillRule="evenodd" d="M10.496 2.132a1 1 0 00-.992 0l-7 4A1 1 0 003 8v7a1 1 0 100 2h14a1 1 0 100-2V8a1 1 0 00.496-1.868l-7-4zM6 9a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/>
                                 </svg>
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-xl text-white shadow-lg transform hover:scale-105 transition-transform">
+                    <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-lg transform hover:scale-105 transition-transform">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-green-100 text-sm font-medium">Секции</p>
-                                <p className="text-3xl font-bold">{totalSections}</p>
+                                <p className="text-gray-600 text-sm font-medium">Секции</p>
+                                <p className="text-3xl font-bold text-gray-900">{totalSections}</p>
                             </div>
-                            <div className="bg-green-400 bg-opacity-30 p-3 rounded-lg">
-                                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <div className="bg-gray-200 bg-opacity-30 p-3 rounded-lg">
+                                <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                                     <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd"/>
                                 </svg>
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 p-6 rounded-xl text-white shadow-lg transform hover:scale-105 transition-transform">
+                    <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-lg transform hover:scale-105 transition-transform">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-yellow-100 text-sm font-medium">Темы</p>
-                                <p className="text-3xl font-bold">{totalThemes}</p>
+                                <p className="text-gray-600 text-sm font-medium">Темы</p>
+                                <p className="text-3xl font-bold text-gray-900">{totalThemes}</p>
                             </div>
-                            <div className="bg-yellow-400 bg-opacity-30 p-3 rounded-lg">
-                                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <div className="bg-gray-200 bg-opacity-30 p-3 rounded-lg">
+                                <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                                     <path fillRule="evenodd" d="M9.504 1.132a1 1 0 01.992 0l1.75 1a1 1 0 11-.992 1.736L10 3.152l-1.254.716a1 1 0 11-.992-1.736l1.75-1zM5.618 4.504a1 1 0 01-.372 1.364L5.016 6l.23.132a1 1 0 11-.992 1.736L3 7.347V8a1 1 0 01-2 0V6a.996.996 0 01.52-.878l1.734-.99a1 1 0 011.364.372zm8.764 0a1 1 0 011.364-.372l1.734.99A.996.996 0 0118 6v2a1 1 0 11-2 0v-.653l-1.254.521a1 1 0 11-.992-1.736L14.984 6l-.23-.132a1 1 0 01-.372-1.364zm-7 4a1 1 0 011.364-.372L10 8.848l1.254-.716a1 1 0 11.992 1.736L11 10.653V12a1 1 0 11-2 0v-1.347l-1.246-.785a1 1 0 01-.372-1.364zM3 11a1 1 0 011 1v1.347l1.254.716a1 1 0 11-.992 1.736l-1.75-1A1 1 0 012 14v-2a1 1 0 011-1zm14 0a1 1 0 011 1v2a1 1 0 01-.504.868l-1.75 1a1 1 0 11-.992-1.736L16 13.347V12a1 1 0 011-1zm-9.618 5.504a1 1 0 011.364-.372l.254.145V16a1 1 0 112 0v.277l.254-.145a1 1 0 11.992 1.736l-1.735.992a.995.995 0 01-1.022 0l-1.735-.992a1 1 0 01-.372-1.364z" clipRule="evenodd"/>
                                 </svg>
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-6 rounded-xl text-white shadow-lg transform hover:scale-105 transition-transform">
+                    <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-lg transform hover:scale-105 transition-transform">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-purple-100 text-sm font-medium">Задачи</p>
-                                <p className="text-3xl font-bold">{totalTasks}</p>
+                                <p className="text-gray-600 text-sm font-medium">Задачи</p>
+                                <p className="text-3xl font-bold text-gray-900">{totalTasks}</p>
                             </div>
-                            <div className="bg-purple-400 bg-opacity-30 p-3 rounded-lg">
-                                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <div className="bg-gray-200 bg-opacity-30 p-3 rounded-lg">
+                                <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                                     <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/>
                                 </svg>
                             </div>
