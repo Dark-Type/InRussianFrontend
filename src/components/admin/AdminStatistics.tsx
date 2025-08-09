@@ -1,5 +1,6 @@
-import  { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AdminService } from "../../services/AdminService.ts";
+import ContentService from '../../services/ContentService.ts';
 
 export const AdminStatistics = () => {
     const [overallStats, setOverallStats] = useState<any>(null);
@@ -7,15 +8,21 @@ export const AdminStatistics = () => {
     const [studentsOverallStats, setStudentsOverallStats] = useState<any>(null);
     const [courseStudentsStats, setCourseStudentsStats] = useState<any>(null);
     const [usersCount, setUsersCount] = useState<any>(null);
+    const [courses, setCourses] = useState<any[]>([]);
+
     const [selectedCourse, setSelectedCourse] = useState('');
     const [selectedRole, setSelectedRole] = useState('');
     const [startDate, setStartDate] = useState('2025-01-01');
     const [endDate, setEndDate] = useState('2025-12-31');
     const [loading, setLoading] = useState(false);
+    const [coursesLoading, setCoursesLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [courseFilter, setCourseFilter] = useState('');
 
     useEffect(() => {
+        // initial load
         loadAllStatistics();
+        loadCourses();
     }, []);
 
     const loadAllStatistics = async () => {
@@ -29,11 +36,33 @@ export const AdminStatistics = () => {
             setStudentsOverallStats(studentsOverallResponse.data);
 
             await loadUsersCount();
-        } catch (error) {
-            console.error('Ошибка загрузки статистики:', error);
+        } catch (err) {
+            console.error('Ошибка загрузки статистики:', err);
             setError('Ошибка загрузки статистики');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadCourses = async () => {
+        setCoursesLoading(true);
+        try {
+            const apiCourses = await ContentService.getAllCourses();
+            // Ожидаем, что res.data — массив курсов с полями id и title/name
+            const normalized = Array.isArray(apiCourses)
+            ? apiCourses.map(c => ({
+                id: c.id,
+                title: c.name ?? String(c.id),
+                raw: c
+            }))
+            : [];
+
+        setCourses(normalized);
+        } catch (err) {
+            console.error('Ошибка загрузки списка курсов:', err);
+            setError('Не удалось загрузить список курсов');
+        } finally {
+            setCoursesLoading(false);
         }
     };
 
@@ -45,23 +74,27 @@ export const AdminStatistics = () => {
                 endDate || undefined
             );
             setUsersCount(countResponse.data);
-        } catch (error) {
-            console.error('Ошибка загрузки количества пользователей:', error);
+        } catch (err) {
+            console.error('Ошибка загрузки количества пользователей:', err);
         }
     };
 
-    const loadCourseStatistics = async () => {
-        if (!selectedCourse) return;
+    const loadCourseStatistics = async (courseId?: string) => {
+        if (!courseId) {
+            setCourseStats(null);
+            setCourseStudentsStats(null);
+            return;
+        }
 
         setLoading(true);
         try {
-            const courseStatsResponse = await AdminService.getCourseStatistics(selectedCourse);
+            const courseStatsResponse = await AdminService.getCourseStatistics(courseId);
             setCourseStats(courseStatsResponse.data);
 
-            const courseStudentsResponse = await AdminService.getCourseStudentsStatistics(selectedCourse);
+            const courseStudentsResponse = await AdminService.getCourseStudentsStatistics(courseId);
             setCourseStudentsStats(courseStudentsResponse.data);
-        } catch (error) {
-            console.error('Ошибка загрузки статистики курса:', error);
+        } catch (err) {
+            console.error('Ошибка загрузки статистики курса:', err);
             setError('Ошибка загрузки статистики курса');
         } finally {
             setLoading(false);
@@ -74,7 +107,10 @@ export const AdminStatistics = () => {
 
     useEffect(() => {
         if (selectedCourse) {
-            loadCourseStatistics();
+            loadCourseStatistics(selectedCourse);
+        } else {
+            setCourseStats(null);
+            setCourseStudentsStats(null);
         }
     }, [selectedCourse]);
 
@@ -205,6 +241,15 @@ export const AdminStatistics = () => {
         );
     }
 
+    const filteredCourses = courseFilter
+        ? courses.filter(c => {
+            const title = (c.title || c.name || c.id || '').toString().toLowerCase();
+            return title.includes(courseFilter.toLowerCase());
+        })
+        : courses;
+
+    const selectedCourseTitle = courses.find(c => c.id === selectedCourse)?.title || selectedCourse;
+
     return (
         <div>
             <style>
@@ -250,7 +295,7 @@ export const AdminStatistics = () => {
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                    gap: '20px'
+                    gap: '12px'
                 }}>
                     <div>
                         <label style={{
@@ -266,7 +311,7 @@ export const AdminStatistics = () => {
                             value={selectedRole}
                             onChange={(e) => setSelectedRole(e.target.value)}
                             style={{
-                                width: '100%',
+                                width: '77%',
                                 padding: '12px 16px',
                                 border: '1px solid var(--color-border)',
                                 borderRadius: '8px',
@@ -282,6 +327,43 @@ export const AdminStatistics = () => {
                             <option value="ADMIN">Администраторы</option>
                         </select>
                     </div>
+
+                    <div>
+                        <label style={{
+                            display: 'block',
+                            marginBottom: '8px',
+                            fontWeight: '600',
+                            fontSize: '0.9rem',
+                            color: 'var(--color-text)'
+                        }}>
+                            Аналитика по курсу
+                        </label>
+                        <div>
+                            {coursesLoading ? (
+                                <div style={{ color: 'var(--color-text-secondary)' }}>Загрузка курсов...</div>
+                            ) : (
+                                <select
+                                    value={selectedCourse}
+                                    onChange={(e) => setSelectedCourse(e.target.value)}
+                                    style={{
+                                        width: '70%',
+                                        padding: '12px 16px',
+                                        border: '1px solid var(--color-border)',
+                                        borderRadius: '8px',
+                                        fontSize: '0.95rem',
+                                        background: 'var(--color-bg)',
+                                        color: 'var(--color-text)'
+                                    }}
+                                >
+                                    <option value="">Все курсы</option>
+                                    {filteredCourses.map((c) => (
+                                        <option key={c.id} value={c.id}>{c.title || c.name || c.id}</option>
+                                    ))}
+                                </select>
+                            )}
+                        </div>
+                    </div>
+
                     <div>
                         <label style={{
                             display: 'block',
@@ -297,7 +379,7 @@ export const AdminStatistics = () => {
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
                             style={{
-                                width: '100%',
+                                width: '70%',
                                 padding: '12px 16px',
                                 border: '1px solid var(--color-border)',
                                 borderRadius: '8px',
@@ -322,33 +404,7 @@ export const AdminStatistics = () => {
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
                             style={{
-                                width: '100%',
-                                padding: '12px 16px',
-                                border: '1px solid var(--color-border)',
-                                borderRadius: '8px',
-                                fontSize: '0.95rem',
-                                background: 'var(--color-bg)',
-                                color: 'var(--color-text)'
-                            }}
-                        />
-                    </div>
-                    <div>
-                        <label style={{
-                            display: 'block',
-                            marginBottom: '8px',
-                            fontWeight: '600',
-                            fontSize: '0.9rem',
-                            color: 'var(--color-text)'
-                        }}>
-                            ID курса для детального анализа
-                        </label>
-                        <input
-                            type="text"
-                            placeholder="Введите ID курса"
-                            value={selectedCourse}
-                            onChange={(e) => setSelectedCourse(e.target.value)}
-                            style={{
-                                width: '100%',
+                                width: '70%',
                                 padding: '12px 16px',
                                 border: '1px solid var(--color-border)',
                                 borderRadius: '8px',
@@ -415,7 +471,7 @@ export const AdminStatistics = () => {
             {courseStats && (
                 <div style={{ marginBottom: '32px' }}>
                     <SectionHeader
-                        title={`Статистика курса ${selectedCourse}`}
+                        title={`Статистика курса ${selectedCourseTitle}`}
                         description="Детальная аналитика по выбранному курсу"
                     />
                     <div style={{
@@ -435,37 +491,49 @@ export const AdminStatistics = () => {
                             borderRadius: '8px',
                             overflow: 'auto'
                         }}>
-                            {JSON.stringify(courseStats, null, 2)}
-                        </pre>
-                    </div>
-                </div>
-            )}
+                            <ol style={{ margin: 0, paddingLeft: '18px' }}>
+                            {(() => {
+                                const elements: any[] = [];
 
-            {/* Статистика студентов по курсу */}
-            {courseStudentsStats && (
-                <div style={{ marginBottom: '32px' }}>
-                    <SectionHeader
-                        title={`Статистика студентов курса ${selectedCourse}`}
-                        description="Успеваемость и активность студентов"
-                    />
-                    <div style={{
-                        background: 'var(--color-card)',
-                        padding: '24px',
-                        borderRadius: '12px',
-                        border: '1px solid var(--color-border)',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-                    }}>
-                        <pre style={{
-                            whiteSpace: 'pre-wrap',
-                            fontSize: '0.9rem',
-                            margin: 0,
-                            color: 'var(--color-text)',
-                            background: 'var(--color-bg)',
-                            padding: '16px',
-                            borderRadius: '8px',
-                            overflow: 'auto'
-                        }}>
-                            {JSON.stringify(courseStudentsStats, null, 2)}
+                                const known: { k: string; label: string; fmt?: (v: any) => any }[] = [
+                                    { k: 'studentsCount', label: 'Количество студентов', fmt: (v: any) => (v === null || v === undefined ? 'Нет данных' : v) },
+                                    { k: 'averageTimeSpentSeconds', label: 'Среднее время', fmt: (v: any) => (v === null || v === undefined ? 'Нет данных' : formatTime(v)) },
+                                    { k: 'averageProgressPercentage', label: 'Средний прогресс', fmt: (v: any) => (v === null || v === undefined ? 'Нет данных' : formatPercentage(v)) },
+                                ];
+
+                                const usedKeys = new Set<string>();
+
+                                known.forEach(f => {
+                                    usedKeys.add(f.k);
+                                    elements.push(
+                                        <li key={f.k} style={{ marginBottom: 8 }}>
+                                            <strong style={{ display: 'inline-block', width: 200, color: 'var(--color-text-secondary)' }}>{f.label}:</strong>
+                                            <span>{f.fmt ? f.fmt(courseStats[f.k]) : (courseStats[f.k] ?? 'Нет данных')}</span>
+                                        </li>
+                                    );
+                                });
+
+                                Object.keys(courseStats || {}).forEach(k => {
+                                    if (usedKeys.has(k)) return;
+                                    const val = courseStats[k];
+                                    let display = 'Нет данных';
+                                    if (val !== null && val !== undefined) {
+                                        if (Array.isArray(val)) display = `${val.length} элементов`;
+                                        else if (typeof val === 'object') {
+                                            try { display = JSON.stringify(val); } catch { display = String(val); }
+                                        } else display = String(val);
+                                    }
+                                    elements.push(
+                                        <li key={k} style={{ marginBottom: 8 }}>
+                                            <strong style={{ display: 'inline-block', width: 200, color: 'var(--color-text-secondary)' }}>{k}:</strong>
+                                            <span>{display}</span>
+                                        </li>
+                                    );
+                                });
+
+                                return elements;
+                            })()}
+                        </ol>
                         </pre>
                     </div>
                 </div>
@@ -494,3 +562,5 @@ export const AdminStatistics = () => {
         </div>
     );
 };
+
+export default AdminStatistics;

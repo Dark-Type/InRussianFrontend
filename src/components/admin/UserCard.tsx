@@ -86,14 +86,9 @@ export const UserCard: React.FC<UserCardProps> = ({ user, onEdit, onStatusChange
         try {
             setStatusLoading(true);
             setShowStatusMenu(false);
-
             await AdminService.updateUserStatus(user.id, newStatus);
-
             setCurrentStatus(newStatus as UserStatusEnum);
-
-            if (onStatusChanged) {
-                onStatusChanged();
-            }
+            window.location.reload();
         } catch (error) {
             console.error('Ошибка изменения статуса:', error);
             setCurrentStatus(user.status);
