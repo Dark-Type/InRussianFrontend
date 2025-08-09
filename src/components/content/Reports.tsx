@@ -108,7 +108,7 @@ export const Reports = () => {
                                 <div className="flex gap-2 ml-4">
                                     <button
                                         onClick={() => setSelectedReport(report)}
-                                        className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                                        className="px-3 py-1 text-sm bg-blue-200 text-blue-700 rounded hover:bg-blue-200 transition-colors"
                                     >
                                         Подробнее
                                     </button>

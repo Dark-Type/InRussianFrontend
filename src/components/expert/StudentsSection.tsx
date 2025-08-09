@@ -3,6 +3,7 @@ import expertService from '../../services/ExpertService';
 import { useProfile } from '../../context/profile/UseProfile';
 import type { User, UserProfile } from '../../api';
 import * as XLSX from 'xlsx';
+
 interface UserLanguageSkill {
     language: string;
     understands: boolean;
@@ -17,6 +18,24 @@ interface StudentWithProfile extends User {
     avatarUrl?: string;
 }
 
+const exportCategories = [
+  { key: 'Email', label: 'Email' },
+  { key: 'Имя', label: 'Имя' },
+  { key: 'Фамилия', label: 'Фамилия' },
+  { key: 'Отчество', label: 'Отчество' },
+  { key: 'Статус', label: 'Статус' },
+  { key: 'Дата рождения', label: 'Дата рождения' },
+  { key: 'Пол', label: 'Пол' },
+  { key: 'Гражданство', label: 'Гражданство' },
+  { key: 'Национальность', label: 'Национальность' },
+  { key: 'Страна проживания', label: 'Страна проживания' },
+  { key: 'Город проживания', label: 'Город проживания' },
+  { key: 'Образование', label: 'Образование' },
+  { key: 'Цель регистрации', label: 'Цель регистрации' },
+  { key: 'Дата регистрации', label: 'Дата регистрации' },
+  { key: 'Языковые навыки', label: 'Языковые навыки' },
+];
+
 export const StudentsSection = () => {
     const [students, setStudents] = useState<StudentWithProfile[]>([]);
     const [loading, setLoading] = useState(false);
@@ -26,9 +45,31 @@ export const StudentsSection = () => {
     const [searchLoading, setSearchLoading] = useState(false);
     const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
     const [totalLoaded, setTotalLoaded] = useState(0);
+    const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
 
     const observerRef = useRef<IntersectionObserver | null>(null);
     const { getAvatarIdByUserId } = useProfile();
+
+    const toggleCategory = (key: string) => {
+      setSelectedCategories(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(key)) newSet.delete(key);
+        else newSet.add(key);
+        return newSet;
+      });
+    };
+
+    const getPrimaryColorWithOpacity = (opacity: number) => {
+      const hex = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#007bff';
+      const hexToRgb = (hex: string) => {
+        let c = hex.startsWith('#') ? hex.substring(1) : hex;
+        if (c.length === 3) c = c.split('').map(x => x + x).join('');
+        const bigint = parseInt(c, 16);
+        return [ (bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255 ];
+      };
+      const [r, g, b] = hexToRgb(hex);
+      return `rgba(${r},${g},${b},${opacity})`;
+    };
 
     const loadStudents = useCallback(async (pageNum: number, reset = false) => {
         if (loading || (!hasMore && !reset)) return;
@@ -119,10 +160,25 @@ export const StudentsSection = () => {
                 ).join('; ') || ''
             }));
 
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.json_to_sheet(exportData);
+            const filteredData = exportData.map(row => {
+                if (selectedCategories.size === 0) return {};
+                const filteredRow: Record<string, string> = {};
+                selectedCategories.forEach(key => {
+                    filteredRow[key] = row[key as keyof typeof row] || '';
+                });
+                return filteredRow;
+            });
 
-            const colWidths = Object.keys(exportData[0] || {}).map(key => ({
+            if (filteredData.length === 0 || filteredData.every(row => Object.keys(row).length === 0)) {
+              alert('Выберите хотя бы один столбец для экспорта');
+              return;
+            }
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(filteredData);
+
+            const keysToMeasure = Array.from(selectedCategories);
+            const colWidths = keysToMeasure.map(key => ({
                 wch: Math.max(key.length, ...exportData.map(row => String((row as any)[key]).length))
             }));
             ws['!cols'] = colWidths;
@@ -133,7 +189,7 @@ export const StudentsSection = () => {
         } catch (error) {
             console.error('Ошибка экспорта:', error);
         }
-    }, [students]);
+    }, [students, selectedCategories]);
 
     useEffect(() => {
         loadStudents(0, true);
@@ -194,6 +250,43 @@ export const StudentsSection = () => {
         return new Date(dateString).toLocaleDateString('ru-RU');
     };
 
+    const renderCategoryToggles = () => {
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#007bff';
+    const primaryColorTransparent = getPrimaryColorWithOpacity(0.3);
+
+    return (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+            {exportCategories.map(({ key, label }) => {
+                const selected = selectedCategories.has(key);
+                return (
+                    <button
+                        key={key}
+                        type="button"
+                        onClick={() => toggleCategory(key)}
+                        style={{
+                            cursor: 'pointer',
+                            padding: '6px 14px',
+                            fontSize: '0.9rem',
+                            borderRadius: 6,
+                            border: selected ? `2px solid ${primaryColor}` : 'transparent',
+                            backgroundColor: selected ? primaryColorTransparent : 'transparent',
+                            color: selected ? primaryColor : 'var(--color-text, #000)',
+                            userSelect: 'none',
+                            transition: 'all 0.3s ease',
+                            fontWeight: 500,
+                            outline: 'none',
+                        }}
+                        aria-pressed={selected}
+                    >
+                        {label}
+                    </button>
+                );
+            })}
+        </div>
+    );
+};
+
+
     const renderStudentCard = (student: StudentWithProfile, index: number) => {
         const isLast = index === students.length - 1 && hasMore && !searchTerm;
 
@@ -229,7 +322,11 @@ export const StudentsSection = () => {
                         {student.profile && (
                             <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
                                 <span style={{ fontSize: '0.9rem' }}>
-                                    Пол: {student.profile.gender || 'Не указан'}
+                                    Пол: {
+                                        student.profile.gender === 'MALE' ? 'Мужской' :
+                                        student.profile.gender === 'FEMALE' ? 'Женский' :
+                                        'Не указан'
+                                        }
                                 </span>
                                 <span style={{ fontSize: '0.9rem' }}>
                                     Образование: {student.profile.education || 'Не указано'}
@@ -314,21 +411,9 @@ export const StudentsSection = () => {
         );
     };
 
-    if (students.length === 0 && !loading && !searchLoading) {
-        return (
-            <div style={{
-                textAlign: 'center',
-                padding: '40px',
-                color: 'var(--color-text-secondary)'
-            }}>
-                {searchTerm ? 'Студенты не найдены' : 'Нет студентов'}
-            </div>
-        );
-    }
-
     return (
         <div>
-            <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '16px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <input
                     type="text"
                     placeholder="Поиск студентов..."
@@ -336,30 +421,33 @@ export const StudentsSection = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     style={{
                         padding: '12px',
-                        border: '1px solid var(--color-border)',
+                        background: 'var(--text-color)',
+                        border: '2px solid var(--color-border)',
                         borderRadius: '6px',
                         fontSize: '1rem',
-                        flex: 1,
+                        flex: '1 1 300px',
                         maxWidth: '400px'
                     }}
                 />
                 <button
                     onClick={exportToExcel}
-                    disabled={students.length === 0}
                     style={{
                         padding: '12px 16px',
-                        background: students.length > 0 ? '#28a745' : 'var(--color-border)', // Зеленый цвет
-                        color: students.length > 0 ? 'white' : 'var(--color-text-secondary)',
+                        background: 'var(--color-success, #28a745)',
+                        color: 'white',
                         border: 'none',
                         borderRadius: '6px',
-                        cursor: students.length > 0 ? 'pointer' : 'not-allowed',
+                        cursor: 'pointer',
                         fontSize: '1rem',
                         fontWeight: '500'
                     }}
+                    title="Экспорт выбранных полей в Excel"
                 >
-                    📊 Экспорт в Excel
+                    Экспорт в Excel
                 </button>
             </div>
+
+            {renderCategoryToggles()}
 
             <div>
                 {students.map((student, index) => renderStudentCard(student, index))}
@@ -389,7 +477,18 @@ export const StudentsSection = () => {
                     color: 'var(--color-text-secondary)',
                     fontSize: '0.9rem'
                 }}>
-                    Загружено {students.length} студентов
+                    Загружено студентов: {students.length}
+                </div>
+            )}
+
+            {(!loading && students.length === 0) && (
+                <div style={{
+                    textAlign: 'center',
+                    padding: '20px',
+                    color: 'var(--color-text-secondary)',
+                    fontSize: '1rem'
+                }}>
+                    Студенты не найдены
                 </div>
             )}
         </div>
