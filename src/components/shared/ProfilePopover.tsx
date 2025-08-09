@@ -42,6 +42,14 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
     const { user } = useAuth();
 
     useEffect(() => {
+    if (avatarUrl) {
+        setAvatarPreview(avatarUrl);
+    } else {
+        setAvatarPreview("/public/assets/images/default-avatar.svg");
+    }
+    }, [avatarUrl]);
+
+    useEffect(() => {
         if (!open || !user) return;
 
         const userId = user.id;
@@ -177,7 +185,7 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
                                 title="Change avatar"
                             >
                                 <img
-                                    src={avatarUrl}
+                                    src={avatarPreview}
                                     alt="avatar"
                                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                 />
