@@ -19,14 +19,14 @@ export const AdminPanel = () => {
     const [activeSection, setActiveSection] = useState<Section>('users');
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [profilePopoverOpen, setProfilePopoverOpen] = useState(false);
-    const [avatarUrl, setAvatarUrl] = useState<string>('/default-avatar.png');
+    const [avatarUrl, setAvatarUrl] = useState<string>('/public/assets/images/default-avatar.svg');
     const [displayName, setDisplayName] = useState('Гость');
     const [searchTerm, setSearchTerm] = useState('');
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     const loadUserData = useCallback(async () => {
         if (!user?.id) {
-            setAvatarUrl('/default-avatar.png');
+            setAvatarUrl('/public/assets/images/default-avatar.svg');
             setDisplayName('Гость');
             return;
         }

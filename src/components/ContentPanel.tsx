@@ -15,7 +15,7 @@ export const ContentPanel = () => {
     const {user, logout} = useAuth();
     const {theme, toggle} = useTheme();
     const [activeSection, setActiveSection] = useState<Section>('courses');
-    const [avatarUrl, setAvatarUrl] = useState<string>('/default-avatar.png');
+    const [avatarUrl, setAvatarUrl] = useState<string>('/public/assets/images/default-avatar.svg');
     const [profilePopoverOpen, setProfilePopoverOpen] = useState(false);
 
     const displayName = useUserDisplayName();
@@ -23,7 +23,7 @@ export const ContentPanel = () => {
 
     const loadAvatar = useCallback(async () => {
         if (!user?.id) {
-            setAvatarUrl('/default-avatar.png');
+            setAvatarUrl('/public/assets/images/default-avatar.svg');
             return;
         }
         try {

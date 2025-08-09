@@ -67,13 +67,14 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
 
             getAvatarIdByUserId(userId).then(async avatarId => {
                 setUserForm(prev => ({ ...prev, avatarId }));
-                const url = await resolveAvatarUrl(avatarId, avatarUrl);
+                const url = await resolveAvatarUrl(avatarId, "/public/assets/images/default-avatar.svg");
                 setAvatarPreview(url);
             });
         });
     }, [open, user, getStaffProfileById, getAvatarIdByUserId, avatarUrl]);
 
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        console.log("change")
         const file = e.target.files?.[0];
         if (file) {
             setAvatarFile(file);
@@ -120,7 +121,6 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
         onSave();
         setOpen(false);
     };
-
     return (
         <div style={{ 
             position: "relative", 
@@ -140,7 +140,7 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
                 onClick={() => setOpen(true)}
             >
                 <img
-                    src={avatarUrl || "/public/assets/images/default-avatar.svg"}
+                    src={avatarPreview}
                     alt="avatar"
                     style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }}
                 />
@@ -154,7 +154,6 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
                         right: 0,
                         top: "100%",
                         zIndex: 10,
-                        // background: "#fff",
                         border: "1px solid #ddd",
                         borderRadius: 8,
                         padding: 24,

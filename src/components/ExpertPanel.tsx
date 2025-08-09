@@ -19,12 +19,12 @@ export const ExpertPanel = () => {
 
     const [activeSection, setActiveSection] = useState<Section>('students');
     const [profilePopoverOpen, setProfilePopoverOpen] = useState(false);
-    const [avatarUrl, setAvatarUrl] = useState<string>('/default-avatar.png');
+    const [avatarUrl, setAvatarUrl] = useState<string>('/public/assets/images/default-avatar.svg');
     const [displayName, setDisplayName] = useState('Гость');
 
     const loadUserData = useCallback(async () => {
         if (!user?.id) {
-            setAvatarUrl('/default-avatar.png');
+            setAvatarUrl('/public/assets/images/default-avatar.svg');
             setDisplayName('Гость');
             return;
         }
@@ -40,18 +40,18 @@ export const ExpertPanel = () => {
                 const objectUrl = URL.createObjectURL(blob);
                 setAvatarUrl(objectUrl);
             } else {
-                setAvatarUrl('/default-avatar.png');
+                setAvatarUrl('/public/assets/images/default-avatar.svg');
             }
         } catch (error) {
             console.error('Ошибка загрузки данных пользователя:', error);
-            setAvatarUrl('/default-avatar.png');
+            setAvatarUrl('/public/assets/images/default-avatar.svg');
             setDisplayName(user.email || 'Пользователь');
         }
     }, [user?.id, getAvatarIdByUserId, getStaffProfileById]);
 
     const reloadAvatar = useCallback(async () => {
         if (!user?.id) {
-            setAvatarUrl('/default-avatar.png');
+            setAvatarUrl('/public/assets/images/default-avatar.svg');
             return;
         }
         try {
@@ -61,11 +61,11 @@ export const ExpertPanel = () => {
                 const objectUrl = URL.createObjectURL(blob);
                 setAvatarUrl(objectUrl);
             } else {
-                setAvatarUrl('/default-avatar.png');
+                setAvatarUrl('/public/assets/images/default-avatar.svg');
             }
         } catch (error) {
             console.error('Ошибка загрузки аватара:', error);
-            setAvatarUrl('/default-avatar.png');
+            setAvatarUrl('/public/assets/images/default-avatar.svg');
         }
     }, [user?.id, getAvatarIdByUserId]);
 
