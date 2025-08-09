@@ -45,14 +45,15 @@ export const AdminPanel = () => {
                 setAvatarUrl(objectUrl);
             }
         } catch (error) {
-            console.error('Ошибка загрузки данных пользователя:', error);
+            // console.error('Ошибка загрузки данных пользователя:', error);
+            setAvatarUrl('/public/assets/images/default-avatar.svg');
             setDisplayName(user?.email || 'Пользователь');
         }
     }, [user, getAvatarIdByUserId, getStaffProfileById]);
 
     const reloadAvatar = useCallback(async () => {
         if (!user?.id) {
-            setAvatarUrl('/default-avatar.png');
+            setAvatarUrl('/public/assets/images/default-avatar.svg');
             return;
         }
         try {
@@ -63,7 +64,8 @@ export const AdminPanel = () => {
                 setAvatarUrl(objectUrl);
             }
         } catch (error) {
-            console.error('Ошибка загрузки аватара:', error);
+            setAvatarUrl('/public/assets/images/default-avatar.svg');
+            // console.error('Ошибка загрузки аватара:', error);
         }
     }, [user, getAvatarIdByUserId]);
 
@@ -103,6 +105,8 @@ export const AdminPanel = () => {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     style={{
+                        background: 'var(--color-card)',
+                        color: 'var(--color-text)',
                         padding: '8px 12px',
                         borderRadius: '4px',
                         border: '1px solid var(--color-border)',
@@ -114,6 +118,7 @@ export const AdminPanel = () => {
                 searchTerm={searchTerm}
                 onEditUser={handleEditUser}
                 key={refreshTrigger}
+                excludedUserId={user?.id ?? ''}
             />
         </div>
     );
@@ -142,7 +147,7 @@ export const AdminPanel = () => {
                 onAvatarUpdate={reloadAvatar}
                 theme={theme}
                 toggleTheme={toggle}
-                panelName="Панель администратора"
+                panelName="Консоль"
             />
 
             <div style={{

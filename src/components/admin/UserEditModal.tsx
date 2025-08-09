@@ -177,6 +177,7 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSa
             onSave();
             onClose();
         } catch (error) {
+            onClose();
             console.error('Ошибка сохранения:', error);
         } finally {
             setLoading(false);
@@ -579,7 +580,8 @@ export const UserEditModal: React.FC<UserEditModalProps> = ({user, onClose, onSa
                                     padding: '8px 16px',
                                     borderRadius: '4px',
                                     border: '1px solid var(--color-border)',
-                                    background: 'transparent',
+                                    background: 'var(--color-card)',
+                                    color: 'var(--color-text)',
                                     cursor: 'pointer'
                                 }}
                             >

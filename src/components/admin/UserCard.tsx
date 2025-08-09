@@ -53,9 +53,9 @@ export const UserCard: React.FC<UserCardProps> = ({ user, onEdit, onStatusChange
         switch (status) {
             case 'ACTIVE':
                 return { color: '#28a745', label: 'Активен' };
-            case 'INACTIVE':
+            case 'SUSPENDED':
                 return { color: '#6c757d', label: 'Неактивен' };
-            case 'BANNED':
+            case 'DEACTIVATED':
                 return { color: '#dc3545', label: 'Заблокирован' };
             case 'PENDING_VERIFICATION':
                 return { color: '#ffa726', label: 'Ожидает подтверждения' };
@@ -105,15 +105,15 @@ export const UserCard: React.FC<UserCardProps> = ({ user, onEdit, onStatusChange
     const getAvailableStatuses = (): { value: UserStatusEnum; label: string; color: string }[] => {
         const allStatuses = [
             { value: 'ACTIVE' as UserStatusEnum, label: 'Активировать', color: '#28a745' },
-            { value: 'INACTIVE' as UserStatusEnum, label: 'Деактивировать', color: '#6c757d' },
-            { value: 'BANNED' as UserStatusEnum, label: 'Заблокировать', color: '#dc3545' }
+            { value: 'SUSPENDED' as UserStatusEnum, label: 'Деактивировать', color: '#6c757d' },
+            { value: 'DEACTIVATED' as UserStatusEnum, label: 'Заблокировать', color: '#dc3545' }
         ];
 
-        return allStatuses.filter(status => status.value !== user.status);
+        return allStatuses.filter(status => status.value !== currentStatus);
     };
 
     const roleInfo = getRoleInfo(user.role);
-    const statusInfo = getStatusInfo(user.status);
+    const statusInfo = getStatusInfo(currentStatus);
 
     return (
         <div style={{

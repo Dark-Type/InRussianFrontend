@@ -83,7 +83,7 @@ export const ContentPanel = () => {
                 onAvatarUpdate={loadAvatar}
                 theme={theme}
                 toggleTheme={toggle}
-                panelName="Панель контент-менеджера"
+                panelName="Менеджер"
             />
 
             <div style={{

@@ -10,14 +10,14 @@ interface AvatarProps {
     style?: React.CSSProperties;
 }
 
-export const Avatar: React.FC<AvatarProps> = ({
+export const Avatar = ({
                                                   src,
                                                   alt = 'Аватар пользователя',
                                                   size = 60,
                                                   userRole,
                                                   className,
                                                   style
-                                              }) => {
+                                              }: AvatarProps) => {
     const [imgSrc, setImgSrc] = useState(src || getDefaultAvatarUrl(userRole));
     const [hasError, setHasError] = useState(false);
 

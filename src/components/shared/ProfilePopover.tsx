@@ -1,8 +1,8 @@
-import React, {useEffect, useRef, useState} from "react";
-import {useProfile} from "../../context/profile/UseProfile.tsx";
-import {useAuth} from "../../context/auth/UseAuth.ts";
-import type {StaffProfile, User, UserSystemLanguageEnum} from "../../api";
-import { mediaService } from "../../services/MediaService";
+import React, { useEffect, useRef, useState } from "react";
+import { useProfile } from "../../context/profile/UseProfile.tsx";
+import { useAuth } from "../../context/auth/UseAuth.ts";
+import type { StaffProfile, User, UserSystemLanguageEnum } from "../../api";
+import { resolveAvatarUrl } from "../../utils/avatarResolver";
 
 type ProfilePopoverProps = {
     onSave: () => void;
@@ -12,11 +12,11 @@ type ProfilePopoverProps = {
 };
 
 export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
-                                                                  onSave,
-                                                                  avatarUrl,
-                                                                  open,
-                                                                  setOpen
-                                                              }) => {
+    onSave,
+    avatarUrl,
+    open,
+    setOpen
+}) => {
     const {
         getStaffProfileById,
         updateStaffProfileById,
@@ -35,42 +35,24 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
         systemLanguage: "RUSSIAN" as UserSystemLanguageEnum,
         avatarId: "",
     });
-    const [avatarPreview, setAvatarPreview] = useState<string | undefined>(avatarUrl || "/default-avatar.png");
+    const [avatarPreview, setAvatarPreview] = useState<string>(avatarUrl || "/public/assets/images/default-avatar.svg");
     const [avatarFile, setAvatarFile] = useState<File | undefined>(undefined);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const {user} = useAuth();
-
-    // Синхронизируем превью с переданным avatarUrl
-    useEffect(() => {
-        if (!open) return;
-        setAvatarPreview(avatarUrl || "/default-avatar.png");
-    }, [avatarUrl, open]);
-
-    const loadAvatarPreview = async (avatarId?: string) => {
-        if (avatarId) {
-            try {
-                console.log("Пытаюсь загрузить Blob для avatarId:", avatarId);
-                const blob = await mediaService.getMediaById(avatarId);
-                const objectUrl = URL.createObjectURL(blob);
-                setAvatarPreview(objectUrl);
-            } catch (e) {
-                console.error("Ошибка загрузки Blob:", e);
-                setAvatarPreview(avatarUrl || "/default-avatar.png");
-            }
-        } else {
-            setAvatarPreview(avatarUrl || "/default-avatar.png");
-        }
-    };
+    const { user } = useAuth();
 
     useEffect(() => {
         if (!open || !user) return;
+
         const userId = user.id;
+
         setUserForm({
             email: user.email,
             phone: "",
             systemLanguage: "RUSSIAN",
             avatarId: "",
         });
+
         getStaffProfileById(userId).then(profile => {
             setStaffForm({
                 name: profile.name,
@@ -82,18 +64,14 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
                 phone: (profile as any).phone || "",
                 systemLanguage: (profile as any).systemLanguage as UserSystemLanguageEnum,
             }));
-            getAvatarIdByUserId(userId).then(avatarId => {
-                console.log("Получен avatarId:", avatarId, "Тип:", typeof avatarId);
-                setUserForm(prev => ({
-                    ...prev,
-                    avatarId,
-                }));
-                if (avatarId) {
-                    loadAvatarPreview(avatarId);
-                }
+
+            getAvatarIdByUserId(userId).then(async avatarId => {
+                setUserForm(prev => ({ ...prev, avatarId }));
+                const url = await resolveAvatarUrl(avatarId, avatarUrl);
+                setAvatarPreview(url);
             });
         });
-    }, [open, user, getStaffProfileById, getAvatarIdByUserId]);
+    }, [open, user, getStaffProfileById, getAvatarIdByUserId, avatarUrl]);
 
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -103,17 +81,14 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
         }
     };
 
-    const handleOpen = () => setOpen(true);
-    const handleClose = () => setOpen(false);
-
     const handleStaffChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const {name, value} = e.target;
-        setStaffForm(prev => ({...prev, [name]: value}));
+        const { name, value } = e.target;
+        setStaffForm(prev => ({ ...prev, [name]: value }));
     };
 
     const handleUserChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const {name, value} = e.target;
-        setUserForm(prev => ({...prev, [name]: value}));
+        const { name, value } = e.target;
+        setUserForm(prev => ({ ...prev, [name]: value }));
     };
 
     const handleAvatarClick = () => {
@@ -132,16 +107,14 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
         }
 
         if (userId) {
-            const updateData = {
+            await updateStaffProfileById(userId, {
                 name: staffForm.name,
                 surname: staffForm.surname,
                 patronymic: staffForm.patronymic,
                 phone: userForm.phone,
-                systemLanguage: userForm.systemLanguage as UserSystemLanguageEnum,
+                systemLanguage: userForm.systemLanguage,
                 avatarId,
-            };
-            console.log("UpdateStaffProfileRequest:", updateData);
-            await updateStaffProfileById(userId, updateData);
+            });
         }
 
         onSave();
@@ -149,7 +122,10 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
     };
 
     return (
-        <div style={{position: "relative", display: "inline-block"}}>
+        <div style={{ 
+            position: "relative", 
+            display: "inline-block"
+             }}>
             <button
                 style={{
                     border: "none",
@@ -161,22 +137,24 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
                     height: 40,
                     cursor: "pointer"
                 }}
-                onClick={handleOpen}
+                onClick={() => setOpen(true)}
             >
                 <img
-                    src={avatarUrl || "/default-avatar.png"}
+                    src={avatarUrl || "/public/assets/images/default-avatar.svg"}
                     alt="avatar"
-                    style={{width: 40, height: 40, borderRadius: "50%", objectFit: "cover"}}
+                    style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }}
                 />
             </button>
             {open && (
                 <div
                     style={{
+                        background: 'var(--color-card)',
+                        color: 'var(--color-text)',
                         position: "absolute",
                         right: 0,
                         top: "100%",
                         zIndex: 10,
-                        background: "#fff",
+                        // background: "#fff",
                         border: "1px solid #ddd",
                         borderRadius: 8,
                         padding: 24,
@@ -185,7 +163,7 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
                     }}
                 >
                     <form onSubmit={handleSubmit}>
-                        <div style={{textAlign: "center", marginBottom: 16}}>
+                        <div style={{ textAlign: "center", marginBottom: 16 }}>
                             <div
                                 style={{
                                     margin: "0 auto",
@@ -200,55 +178,55 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
                                 title="Change avatar"
                             >
                                 <img
-                                    src={avatarPreview || "/default-avatar.png"}
+                                    src={avatarUrl}
                                     alt="avatar"
-                                    style={{width: "100%", height: "100%", objectFit: "cover"}}
+                                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                 />
                             </div>
                             <input
                                 ref={fileInputRef}
                                 type="file"
                                 accept="image/*"
-                                style={{display: "none"}}
+                                style={{ display: "none" }}
                                 onChange={handleAvatarChange}
                             />
                         </div>
-                        <div style={{marginBottom: 12}}>
+                        <div style={{ marginBottom: 12 }}>
                             <label>
                                 Имя:
                                 <input
                                     name="name"
                                     value={staffForm.name}
                                     onChange={handleStaffChange}
-                                    style={{width: "100%"}}
+                                    style={{ width: "100%" }}
                                     required
                                 />
                             </label>
                         </div>
-                        <div style={{marginBottom: 12}}>
+                        <div style={{ marginBottom: 12 }}>
                             <label>
                                 Фамилия:
                                 <input
                                     name="surname"
                                     value={staffForm.surname}
                                     onChange={handleStaffChange}
-                                    style={{width: "100%"}}
+                                    style={{ width: "100%" }}
                                     required
                                 />
                             </label>
                         </div>
-                        <div style={{marginBottom: 12}}>
+                        <div style={{ marginBottom: 12 }}>
                             <label>
                                 Отчество:
                                 <input
                                     name="patronymic"
                                     value={staffForm.patronymic || ""}
                                     onChange={handleStaffChange}
-                                    style={{width: "100%"}}
+                                    style={{ width: "100%" }}
                                 />
                             </label>
                         </div>
-                        <div style={{marginBottom: 12}}>
+                        <div style={{ marginBottom: 12 }}>
                             <label>
                                 Email:
                                 <input
@@ -256,12 +234,12 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
                                     type="email"
                                     value={userForm.email}
                                     onChange={handleUserChange}
-                                    style={{width: "100%"}}
+                                    style={{ width: "100%" }}
                                     disabled
                                 />
                             </label>
                         </div>
-                        <div style={{marginBottom: 12}}>
+                        <div style={{ marginBottom: 12 }}>
                             <label>
                                 Телефон:
                                 <input
@@ -269,18 +247,18 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
                                     type="tel"
                                     value={userForm.phone || ""}
                                     onChange={handleUserChange}
-                                    style={{width: "100%"}}
+                                    style={{ width: "100%" }}
                                 />
                             </label>
                         </div>
-                        <div style={{marginBottom: 16}}>
+                        <div style={{ marginBottom: 16 }}>
                             <label>
                                 Язык системы:
                                 <select
                                     name="systemLanguage"
                                     value={userForm.systemLanguage}
                                     onChange={handleUserChange}
-                                    style={{width: "100%"}}
+                                    style={{ width: "100%" }}
                                 >
                                     <option value="RUSSIAN">Русский</option>
                                     <option value="ENGLISH">English</option>
@@ -289,11 +267,11 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
                                 </select>
                             </label>
                         </div>
-                        <div style={{textAlign: "right"}}>
+                        <div style={{ textAlign: "right" }}>
                             <button
                                 type="button"
-                                onClick={handleClose}
-                                style={{marginRight: 12}}
+                                onClick={() => setOpen(false)}
+                                style={{ marginRight: 12 }}
                             >
                                 Отмена
                             </button>

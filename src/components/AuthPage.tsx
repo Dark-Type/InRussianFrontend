@@ -4,7 +4,7 @@ import {UserRoleEnum, UserSystemLanguageEnum} from '../api';
 import {useAuth} from '../context/auth/UseAuth';
 import {useTheme} from "../context/theme/UseTheme.tsx";
 
-export const AuthPage: React.FC = () => {
+export const AuthPage = () => {
     const [mode, setMode] = useState<'login' | 'register'>('login');
     const {theme, toggle} = useTheme();
     const [role, setRole] = useState<UserRoleEnum | null>(null);
@@ -34,6 +34,7 @@ export const AuthPage: React.FC = () => {
                     setIsLoading(false);
                     return;
                 }
+                console.log("[AUTH]", user)
                 redirectToPanel(user.role as UserRoleEnum);
 
             } else {
@@ -74,7 +75,7 @@ export const AuthPage: React.FC = () => {
     }, [navigate]);
 
     useEffect(() => {
-        console.log("AuthPage user:", user);
+        // console.log("AuthPage user:", user);
         if (user?.role) {
             redirectToPanel(user.role as UserRoleEnum);
         }

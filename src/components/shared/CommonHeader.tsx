@@ -55,7 +55,7 @@ export const CommonHeader: React.FC<CommonHeaderProps> = ({
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
                 <span style={{ fontSize: '1.1rem', fontWeight: 500 }}>
-                    Добро пожаловать, {displayName}
+                    {displayName}
                 </span>
                 <ProfilePopover
                     onSave={onAvatarUpdate}

@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AdminService } from '../../services/AdminService';
 import { UserCard } from './UserCard';
-import type { User, StaffProfile } from '../../api';
+import type { User, StaffProfile, UserRoleEnum } from '../../api';
 import { useProfile } from '../../context/profile/UseProfile';
 import { mediaService } from '../../services/MediaService';
 
 interface UserListProps {
     searchTerm: string;
     onEditUser: (user: User) => void;
+    excludedUserId: string;
 }
 
 interface UserWithProfile extends User {
@@ -25,219 +26,320 @@ interface UserLanguageSkill {
     reads: boolean;
     writes: boolean;
 }
-export const UserList: React.FC<UserListProps> = ({ searchTerm, onEditUser }) => {
-    const [users, setUsers] = useState<UserWithProfile[]>([]);
+
+const getRoleInfo = (role: UserRoleEnum) => {
+    switch (role) {
+        case 'ADMIN': return { color: '#ff6b6b', label: 'Администратор' };
+        case 'EXPERT': return { color: '#4ecdc4', label: 'Преподаватель' };
+        case 'CONTENT_MODERATOR': return { color: '#ffa726', label: 'Модератор контента' };
+        case 'STUDENT': return { color: '#45b7d1', label: 'Студент' };
+        default: return { color: '#6c757d', label: 'Неизвестно' };
+    }
+};
+
+const getStatusInfo = (status: string) => {
+    switch (status) {
+        case 'ACTIVE': return { color: '#28a745', label: 'Активен' };
+        case 'SUSPENDED': return { color: '#6c757d', label: 'Неактивен' };
+        case 'DEACTIVATED': return { color: '#dc3545', label: 'Заблокирован' };
+        case 'PENDING_VERIFICATION': return { color: '#ffa726', label: 'Ожидает подтверждения' };
+        default: return { color: '#6c757d', label: 'Неизвестно' };
+    }
+};
+
+const hexToRgba = (hex: string, alpha: number) => {
+    const r = parseInt(hex.slice(1,3),16);
+    const g = parseInt(hex.slice(3,5),16);
+    const b = parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${alpha})`;
+};
+
+const statuses = ['ACTIVE', 'SUSPENDED', 'DEACTIVATED', 'PENDING_VERIFICATION'] as const;
+const roles = ['ADMIN', 'EXPERT', 'CONTENT_MODERATOR', 'STUDENT'] as const;
+
+interface FiltersProps {
+    selectedStatuses: string[];
+    selectedRoles: UserRoleEnum[];
+    toggleStatus: (status: string) => void;
+    toggleRole: (role: UserRoleEnum) => void;
+}
+
+const Filters = React.memo(({ selectedStatuses, selectedRoles, toggleStatus, toggleRole }: FiltersProps) => (
+    <div style={{ marginBottom: 16 }}>
+        <div>
+            <strong>Фильтр по статусам:</strong>
+            {statuses.map(status => {
+                const { color, label } = getStatusInfo(status);
+                const checked = selectedStatuses.includes(status);
+                return (
+                    <label
+                        key={status}
+                        style={{
+                            marginLeft: 12,
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            border: `2px solid ${color}`,
+                            borderRadius: 8,
+                            padding: '4px 10px',
+                            backgroundColor: checked ? hexToRgba(color, 0.3) : 'transparent',
+                            transition: 'background-color 0.3s ease',
+                            color,
+                            fontWeight: 500,
+                            fontSize: '0.9rem',
+                        }}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleStatus(status)}
+                            style={{ display: 'none' }}
+                        />
+                        {label}
+                    </label>
+                );
+            })}
+        </div>
+        <div style={{ marginTop: 12 }}>
+            <strong>Фильтр по ролям:</strong>
+            {roles.map(role => {
+                const { color, label } = getRoleInfo(role);
+                const checked = selectedRoles.includes(role);
+                return (
+                    <label
+                        key={role}
+                        style={{
+                            marginLeft: 12,
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            border: `2px solid ${color}`,
+                            borderRadius: 8,
+                            padding: '4px 10px',
+                            backgroundColor: checked ? hexToRgba(color, 0.3) : 'transparent',
+                            transition: 'background-color 0.3s ease',
+                            color,
+                            fontWeight: 500,
+                            fontSize: '0.9rem',
+                        }}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleRole(role)}
+                            style={{ display: 'none' }}
+                        />
+                        {label}
+                    </label>
+                );
+            })}
+        </div>
+    </div>
+));
+
+export const UserList = ({ searchTerm, onEditUser, excludedUserId }: UserListProps) => {
+    const [allUsers, setAllUsers] = useState<UserWithProfile[]>([]);
     const [loading, setLoading] = useState(false);
-    const [hasMore, setHasMore] = useState(true);
     const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
     const [searchLoading, setSearchLoading] = useState(false);
-    const [totalLoaded, setTotalLoaded] = useState(0);
-    const observerRef = useRef<IntersectionObserver | null>(null);
     const { getStaffProfileById, getAvatarIdByUserId } = useProfile();
 
-    const enrichUsersWithProfiles = async (userList: User[]): Promise<UserWithProfile[]> => {
-        const enrichedUsers = await Promise.all(
-            userList.map(async (user) => {
-                const enrichedUser: UserWithProfile = { ...user };
+    const [selectedStatuses, setSelectedStatuses] = useState<string[]>([
+        'ACTIVE', 'SUSPENDED', 'DEACTIVATED', 'PENDING_VERIFICATION'
+    ]);
+    const [selectedRoles, setSelectedRoles] = useState<UserRoleEnum[]>([
+        'ADMIN', 'EXPERT', 'CONTENT_MODERATOR', 'STUDENT'
+    ]);
 
-                try {
-                    if (user.role === 'STUDENT') {
-                        // Загружаем профиль и языковые навыки для студентов
-                        const [userProfile, languageSkills] = await Promise.all([
-                            AdminService.getStudentProfile(user.id).catch(() => null),
-                            AdminService.getStudentLanguageSkills(user.id).catch(() => [])
-                        ]);
-
-                        enrichedUser.userProfile = userProfile;
-                        enrichedUser.languageSkills = languageSkills;
-                    } else {
-                        enrichedUser.staffProfile = await getStaffProfileById(user.id);
-                    }
-
-                    const avatarId = await getAvatarIdByUserId(user.id);
-                    if (avatarId) {
-                        const blob = await mediaService.getMediaById(avatarId);
-                        enrichedUser.avatarUrl = URL.createObjectURL(blob);
-                    }
-                } catch (error) {
-                    console.error(`Ошибка загрузки данных для пользователя ${user.id}:`, error);
-                }
-
-                return enrichedUser;
-            })
+    const toggleStatus = useCallback((status: string) => {
+        setSelectedStatuses(prev => 
+            prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
         );
+        setPage(0);
+    }, []);
 
-        return enrichedUsers;
-    };
+    const toggleRole = useCallback((role: UserRoleEnum) => {
+        setSelectedRoles(prev => 
+            prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
+        );
+        setPage(0);
+    }, []);
 
-    const loadUsers = useCallback(async (pageNum: number, reset = false) => {
-        if (loading || (!hasMore && !reset)) return;
+    const enrichUsersWithProfiles = useCallback(async (userList: User[]): Promise<UserWithProfile[]> => {
+        return Promise.all(userList.map(async user => {
+            const enrichedUser: UserWithProfile = { ...user };
+            try {
+                if(user.role === 'STUDENT') {
+                    const [userProfile, languageSkills] = await Promise.all([
+                        AdminService.getStudentProfile(user.id).catch(() => null),
+                        AdminService.getStudentLanguageSkills(user.id).catch(() => []),
+                    ]);
+                    enrichedUser.userProfile = userProfile;
+                    enrichedUser.languageSkills = languageSkills;
+                } else {
+                    enrichedUser.staffProfile = await getStaffProfileById(user.id);
+                }
+                const avatarId = await getAvatarIdByUserId(user.id);
+                if(avatarId) {
+                    const blob = await mediaService.getMediaById(avatarId);
+                    enrichedUser.avatarUrl = URL.createObjectURL(blob);
+                } else {
+                    enrichedUser.avatarUrl = '/public/assets/images/default-avatar.svg';
+                }
+            } catch {
 
+            }
+            return enrichedUser;
+        }));
+    }, [getStaffProfileById, getAvatarIdByUserId]);
+
+    const loadUsers = useCallback(async (pageNum: number) => {
+        if (loading || !hasMore) return;
         setLoading(true);
         try {
-            const response = await AdminService.getUsers(
-                pageNum,
-                20,
-                undefined,
-                'createdAt',
-                'desc'
-            );
-
-            const newUsers = response.data || [];
-            const enrichedUsers = await enrichUsersWithProfiles(newUsers);
-
-            if (reset) {
-                users.forEach(user => {
-                    if (user.avatarUrl && user.avatarUrl.startsWith('blob:')) {
-                        URL.revokeObjectURL(user.avatarUrl);
-                    }
-                });
-                setUsers(enrichedUsers);
-                setTotalLoaded(enrichedUsers.length);
-            } else {
-                setUsers(prev => [...prev, ...enrichedUsers]);
-                setTotalLoaded(prev => prev + enrichedUsers.length);
+            const response = await AdminService.getUsers(pageNum, 20, undefined, 'createdAt', 'desc');
+            let newUsers = (response.data || []).filter(user => String(user.id) !== String(excludedUserId));
+            if(newUsers.length === 0) {
+                setHasMore(false);
+                setLoading(false);
+                return;
             }
-
-            setHasMore(newUsers.length === 20 && totalLoaded + newUsers.length < 1000);
-        } catch (error) {
-            console.error('Ошибка загрузки пользователей:', error);
+            const enrichedUsers = await enrichUsersWithProfiles(newUsers);
+            setAllUsers(prev => {
+                const ids = new Set(prev.map(u => u.id));
+                const filteredNew = enrichedUsers.filter(u => !ids.has(u.id));
+                return [...prev, ...filteredNew];
+            });
+            setHasMore(newUsers.length === 20);
+        } catch (e) {
+            console.error('Ошибка загрузки пользователей:', e);
+            setHasMore(false);
         } finally {
             setLoading(false);
         }
-    }, [loading, hasMore, totalLoaded, users, getStaffProfileById, getAvatarIdByUserId]);
+    }, [loading, hasMore, excludedUserId, enrichUsersWithProfiles]);
 
     const searchUsers = useCallback(async (search: string) => {
         if (!search.trim()) {
             setPage(0);
-            setTotalLoaded(0);
             setHasMore(true);
-            loadUsers(0, true);
+            setSearchLoading(false);
             return;
         }
-
         setSearchLoading(true);
         try {
             const response = await AdminService.getUsers(0, 200);
-            const allUsers = response.data || [];
-
-            const filtered = allUsers.filter(user =>
-                user.email?.toLowerCase().includes(search.toLowerCase()) ||
-                user.phone?.toLowerCase().includes(search.toLowerCase())
-            );
-
-            const enrichedUsers = await enrichUsersWithProfiles(filtered);
-
-            users.forEach(user => {
-                if (user.avatarUrl && user.avatarUrl.startsWith('blob:')) {
-                    URL.revokeObjectURL(user.avatarUrl);
-                }
-            });
-
-            setUsers(enrichedUsers);
+            let users = (response.data || []).filter(user => String(user.id) !== String(excludedUserId));
+            const enrichedUsers = await enrichUsersWithProfiles(users);
+            setAllUsers(enrichedUsers);
             setHasMore(false);
-        } catch (error) {
-            console.error('Ошибка поиска:', error);
+        } catch (e) {
+            console.error('Ошибка поиска:', e);
         } finally {
             setSearchLoading(false);
         }
-    }, [loadUsers, users, getStaffProfileById, getAvatarIdByUserId]);
+    }, [excludedUserId, enrichUsersWithProfiles]);
 
     useEffect(() => {
-        const delayedSearch = setTimeout(() => {
+        if (!searchTerm) {
+            loadUsers(page);
+        }
+    }, [page, searchTerm, loadUsers]);
+
+    useEffect(() => {
+        const delay = setTimeout(() => {
             if (searchTerm) {
                 searchUsers(searchTerm);
             } else {
+                setAllUsers([]);
                 setPage(0);
-                setTotalLoaded(0);
                 setHasMore(true);
-                loadUsers(0, true);
             }
         }, 300);
 
-        return () => clearTimeout(delayedSearch);
-    }, [searchTerm]);
-
-    useEffect(() => {
-        if (!searchTerm && page > 0) {
-            loadUsers(page);
-        }
-    }, [page, searchTerm]);
+        return () => clearTimeout(delay);
+    }, [searchTerm, searchUsers]);
 
     useEffect(() => {
         return () => {
-            users.forEach(user => {
-                if (user.avatarUrl && user.avatarUrl.startsWith('blob:')) {
+            allUsers.forEach(user => {
+                if(user.avatarUrl && user.avatarUrl.startsWith('blob:')) {
                     URL.revokeObjectURL(user.avatarUrl);
                 }
             });
         };
-    }, []);
+    }, [allUsers]);
 
+    const observerRef = useRef<IntersectionObserver | null>(null);
     const lastUserCallback = useCallback((node: HTMLDivElement) => {
         if (loading || searchTerm || !hasMore) return;
         if (observerRef.current) observerRef.current.disconnect();
-
         observerRef.current = new IntersectionObserver(entries => {
             if (entries[0].isIntersecting && hasMore && !loading) {
                 setPage(prev => prev + 1);
             }
         });
-
         if (node) observerRef.current.observe(node);
     }, [loading, hasMore, searchTerm]);
 
-    if (users.length === 0 && !loading && !searchLoading) {
-        return (
-            <div style={{
-                textAlign: 'center',
-                padding: '40px',
-                color: 'var(--color-text-secondary)'
-            }}>
-                {searchTerm ? 'Пользователи не найдены' : 'Нет пользователей'}
-            </div>
+    const filteredUsers = useMemo(() => {
+        return allUsers.filter(user => 
+            selectedStatuses.includes(user.status) &&
+            selectedRoles.includes(user.role) &&
+            (
+                !searchTerm || 
+                user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                user.phone?.toLowerCase().includes(searchTerm.toLowerCase())
+            )
         );
-    }
+    }, [allUsers, selectedStatuses, selectedRoles, searchTerm]);
+
+    const userCards = useMemo(() => filteredUsers.map((user, index) => {
+        if (index === filteredUsers.length - 1 && hasMore && !searchTerm) {
+            return <div key={user.id} ref={lastUserCallback}><UserCard user={user} onEdit={onEditUser} /></div>;
+        }
+        return <UserCard key={user.id} user={user} onEdit={onEditUser} />;
+    }), [filteredUsers, hasMore, searchTerm, onEditUser, lastUserCallback]);
 
     return (
         <div>
-            {users.map((user, index) => {
-                if (index === users.length - 1 && hasMore && !searchTerm) {
-                    return (
-                        <div key={user.id} ref={lastUserCallback}>
-                            <UserCard user={user} onEdit={onEditUser} />
+            <Filters
+                selectedStatuses={selectedStatuses}
+                selectedRoles={selectedRoles}
+                toggleStatus={toggleStatus}
+                toggleRole={toggleRole}
+            />
+
+            {filteredUsers.length === 0 && !loading && !searchLoading ? (
+                <div style={{ textAlign: 'center', padding: 40, color: 'var(--color-text-secondary)' }}>
+                    {searchTerm ? 'Пользователи не найдены' : 'Нет пользователей'}
+                </div>
+            ) : (
+                <>
+                    {userCards}
+
+                    {(loading || searchLoading) && (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: 20 }}>
+                            <div style={{
+                                width: 20,
+                                height: 20,
+                                border: '2px solid var(--color-border)',
+                                borderTop: '2px solid var(--color-primary)',
+                                borderRadius: '50%',
+                                animation: 'spin 1s linear infinite',
+                            }}/>
                         </div>
-                    );
-                }
-                return <UserCard key={user.id} user={user} onEdit={onEditUser} />;
-            })}
+                    )}
 
-            {(loading || searchLoading) && (
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    padding: '20px'
-                }}>
-                    <div style={{
-                        width: '20px',
-                        height: '20px',
-                        border: '2px solid var(--color-border)',
-                        borderTop: '2px solid var(--color-primary)',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite'
-                    }} />
-                </div>
-            )}
-
-            {!hasMore && !searchTerm && users.length > 0 && (
-                <div style={{
-                    textAlign: 'center',
-                    padding: '20px',
-                    color: 'var(--color-text-secondary)',
-                    fontSize: '0.9rem'
-                }}>
-                    Загружено {users.length} пользователей
-                </div>
+                    {!hasMore && !searchTerm && filteredUsers.length > 0 && (
+                        <div style={{ textAlign: 'center', padding: 20, color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
+                            Загружено {filteredUsers.length} пользователей
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );
