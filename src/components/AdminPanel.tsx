@@ -154,7 +154,6 @@ export const AdminPanel = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 flex: 1,
-                maxWidth: '1200px',
                 margin: '0 auto',
                 width: '100%',
                 padding: '0 24px'
@@ -179,7 +178,7 @@ export const AdminPanel = () => {
                             fontWeight: '500'
                         }}
                     >
-                        👥 Пользователи
+                        Пользователи
                     </button>
                     <button
                         onClick={() => setActiveSection('statistics')}
@@ -194,7 +193,7 @@ export const AdminPanel = () => {
                             fontWeight: '500'
                         }}
                     >
-                        📊 Статистика
+                        Статистика
                     </button>
                 </nav>
 

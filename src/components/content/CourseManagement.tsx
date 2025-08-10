@@ -59,11 +59,7 @@ export const CoursesManagement: React.FC = () => {
 
     const handleTaskSave = async (taskData: Omit<Task, 'id' | 'themeId'>) => {
         if (!taskEditorState.themeId) return;
-
-        // Здесь будет вызов API для создания/обновления задачи
         console.log('Saving task:', taskData, 'for theme:', taskEditorState.themeId);
-
-        // Для мока просто закрываем редактор
         closeTaskEditor();
     };
 

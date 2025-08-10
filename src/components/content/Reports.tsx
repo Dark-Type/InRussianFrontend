@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import contentService from '../../services/ContentService.ts';
 import type { Report } from '../../api';
+import { ProfileApiFactory, ContentApiFactory } from '../../api'; // генерированный API (api.ts)
 
 export const Reports = () => {
     const [reports, setReports] = useState<Report[]>([]);
@@ -8,6 +9,13 @@ export const Reports = () => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // дополнительные стейты для деталей
+    const [reporterProfile, setReporterProfile] = useState<any | null>(null);
+    const [taskDetails, setTaskDetails] = useState<any | null>(null);
+    const [detailsLoading, setDetailsLoading] = useState(false);
+    const profileApi = ProfileApiFactory(); // из api.ts
+    const contentApi = ContentApiFactory(); // из api.ts
 
     useEffect(() => {
         loadReports();
@@ -32,8 +40,6 @@ export const Reports = () => {
             await contentService.deleteReport(reportId);
             setReports(prev => prev.filter(report => report.id !== reportId));
             setShowDeleteConfirm(null);
-
-            // Закрыть модальное окно, если удаляем просматриваемый отчёт
             if (selectedReport?.id === reportId) {
                 setSelectedReport(null);
             }
@@ -42,6 +48,54 @@ export const Reports = () => {
         } finally {
             setIsDeleting(false);
         }
+    };
+
+    const openDetails = async (report: Report) => {
+        setSelectedReport(report);
+        setReporterProfile(null);
+        setTaskDetails(null);
+        setDetailsLoading(true);
+
+        try {
+            // параллельно запрашиваем профиль пользователя и задачу по id
+            const profilePromise = report.reporterId
+                ? profileApi.profilesUserIdGet(report.reporterId)
+                : Promise.resolve(null);
+
+            const taskPromise = report.taskId
+                ? contentApi.contentTasksTaskIdGet(report.taskId)
+                : Promise.resolve(null);
+
+            const [profileResp, taskResp] = await Promise.all([profilePromise, taskPromise]);
+
+            // при использовании axios -> результат в .data
+            if (profileResp && 'data' in profileResp) {
+                setReporterProfile(profileResp.data?.profile ?? null);
+            } else if (profileResp && (profileResp as any).profile) {
+                // на случай другой обёртки
+                setReporterProfile((profileResp as any).profile ?? null);
+            } else {
+                setReporterProfile(null);
+            }
+
+            if (taskResp && 'data' in taskResp) {
+                setTaskDetails(taskResp.data ?? null);
+            } else {
+                setTaskDetails(taskResp ?? null);
+            }
+        } catch (err) {
+            console.error('Ошибка при загрузке деталей:', err);
+            setReporterProfile(null);
+            setTaskDetails(null);
+        } finally {
+            setDetailsLoading(false);
+        }
+    };
+
+    const closeDetails = () => {
+        setSelectedReport(null);
+        setReporterProfile(null);
+        setTaskDetails(null);
     };
 
     const formatDate = (dateString: string) => {
@@ -79,42 +133,34 @@ export const Reports = () => {
                 <div className="space-y-4">
                     {reports.map(report => (
                         <div key={report.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                            <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-sm text-gray-500">ID отчёта:</span>
-                                        <span className="font-mono text-sm">{report.id}</span>
+                            <div className="flex items-center justify-between">
+                                <div className="flex-1 min-w-0">
+                                    {/* Только тема (description), id и дата; тема обрезается многоточием */}
+                                    <div className="text-gray-900 font-medium mb-1 truncate max-w-full" title={report.description}>
+                                        {report.description || 'Без темы'}
                                     </div>
 
-                                    <p className="text-gray-900 mb-3">{report.description}</p>
-
-                                    <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                                        {report.taskId && (
-                                            <span>
-                                                <strong>Задача:</strong> {report.taskId}
-                                            </span>
-                                        )}
-                                        {report.reporterId && (
-                                            <span>
-                                                <strong>Пользователь:</strong> {report.reporterId}
-                                            </span>
-                                        )}
-                                        <span>
-                                            <strong>Дата:</strong> {formatDate(report.createdAt)}
-                                        </span>
+                                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                                        <div className="font-mono text-xs text-gray-500">ID: {report.id}</div>
+                                        <div>{formatDate(report.createdAt)}</div>
                                     </div>
                                 </div>
 
                                 <div className="flex gap-2 ml-4">
+                                    {/* Кнопка подробнее — теперь с фоном */}
                                     <button
-                                        onClick={() => setSelectedReport(report)}
-                                        className="px-3 py-1 text-sm bg-blue-200 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                                        onClick={() => openDetails(report)}
+                                        aria-label={`Подробнее по отчёту ${report.id}`}
+                                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
                                     >
                                         Подробнее
                                     </button>
+
+                                    {/* Кнопка удалить — ярко-красная */}
                                     <button
                                         onClick={() => setShowDeleteConfirm(report.id)}
-                                        className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                                        className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                                        aria-label={`Удалить отчёт ${report.id}`}
                                     >
                                         Удалить
                                     </button>
@@ -125,7 +171,7 @@ export const Reports = () => {
                 </div>
             )}
 
-            {/* Модальное окно просмотра отчёта */}
+            {/* Модальное окно просмотра отчёта (детали + профиль + задача) */}
             {selectedReport && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[80vh] overflow-auto">
@@ -133,7 +179,7 @@ export const Reports = () => {
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-lg font-semibold">Детали отчёта</h3>
                                 <button
-                                    onClick={() => setSelectedReport(null)}
+                                    onClick={closeDetails}
                                     className="text-gray-400 hover:text-gray-600"
                                 >
                                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -149,43 +195,43 @@ export const Reports = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Описание проблемы</label>
-                                    <div className="bg-gray-50 p-3 rounded">{selectedReport.description}</div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Тема / описание</label>
+                                    <div className="bg-gray-50 p-3 rounded max-h-48 overflow-auto whitespace-pre-wrap">{selectedReport.description}</div>
                                 </div>
-
-                                {selectedReport.taskId && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">ID задачи</label>
-                                        <div className="font-mono text-sm bg-gray-50 p-2 rounded">{selectedReport.taskId}</div>
-                                    </div>
-                                )}
-
-                                {selectedReport.reporterId && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">ID пользователя</label>
-                                        <div className="font-mono text-sm bg-gray-50 p-2 rounded">{selectedReport.reporterId}</div>
-                                    </div>
-                                )}
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Дата создания</label>
                                     <div className="bg-gray-50 p-2 rounded">{formatDate(selectedReport.createdAt)}</div>
                                 </div>
-                            </div>
 
-                            <div className="flex gap-3 mt-6">
-                                <button
-                                    onClick={() => setShowDeleteConfirm(selectedReport.id)}
-                                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                                >
-                                    Удалить отчёт
-                                </button>
-                                <button
-                                    onClick={() => setSelectedReport(null)}
-                                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition-colors"
-                                >
-                                    Закрыть
-                                </button>
+                                <div>
+                                    <h4 className="text-sm font-medium mb-2">Пользователь</h4>
+                                    {detailsLoading ? (
+                                        <div className="text-sm text-gray-500">Загрузка профиля...</div>
+                                    ) : reporterProfile ? (
+                                        <div className="text-sm text-gray-700">
+                                            <div><strong>Имя:</strong> {reporterProfile.name} {reporterProfile.surname}</div>
+                                            {reporterProfile.patronymic && <div><strong>Отчество:</strong> {reporterProfile.patronymic}</div>}
+                                            <div className="text-xs text-gray-500">userId: {reporterProfile.userId}</div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-sm text-gray-500">Профиль не найден</div>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <h4 className="text-sm font-medium mb-2">Задача</h4>
+                                    {detailsLoading ? (
+                                        <div className="text-sm text-gray-500">Загрузка задачи...</div>
+                                    ) : taskDetails ? (
+                                        <div className="text-sm text-gray-700">
+                                            <div><strong>Название:</strong> {taskDetails.name}</div>
+                                            <div className="text-xs text-gray-500">taskId: {taskDetails.id}</div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-sm text-gray-500">Задача не найдена</div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -199,7 +245,7 @@ export const Reports = () => {
                         <div className="p-6">
                             <h3 className="text-lg font-semibold mb-4">Подтвердите удаление</h3>
                             <p className="text-gray-600 mb-6">
-                                Вы уверены, что хотите удалить этот отчёт? Это действие нельзя отменить.
+                                Вы уверены, что хотите удалить этот отчёт?
                             </p>
                             <div className="flex gap-3">
                                 <button

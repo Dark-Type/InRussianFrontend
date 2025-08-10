@@ -8,6 +8,7 @@ import { CommonHeader } from "./shared/CommonHeader.tsx";
 import { StudentsSection } from './expert/StudentsSection';
 import { CoursesSection } from './expert/CoursesSection';
 import { StatisticsSection } from './expert/StatisticsSection';
+import type { User } from '../api/api.ts';
 
 type Section = 'students' | 'courses' | 'statistics';
 
@@ -47,7 +48,7 @@ export const ExpertPanel = () => {
             setAvatarUrl('/public/assets/images/default-avatar.svg');
             setDisplayName(user.email || 'Пользователь');
         }
-    }, [user?.id, getAvatarIdByUserId, getStaffProfileById]);
+    }, [user, getAvatarIdByUserId, getStaffProfileById]);
 
     const reloadAvatar = useCallback(async () => {
         if (!user?.id) {
@@ -69,18 +70,15 @@ export const ExpertPanel = () => {
         }
     }, [user?.id, getAvatarIdByUserId]);
 
-    // Загрузка данных только один раз при монтировании
     useEffect(() => {
         loadCourses();
         loadStudentProgress();
-    }, []); // Пустой массив зависимостей
+    }, []);
 
-    // Загрузка пользовательских данных при изменении user.id
     useEffect(() => {
         loadUserData();
     }, [loadUserData]);
 
-    // Очистка blob URL при размонтировании
     useEffect(() => {
         return () => {
             if (avatarUrl && avatarUrl.startsWith('blob:')) {
@@ -115,12 +113,14 @@ export const ExpertPanel = () => {
             boxSizing: 'border-box'
         }}>
             <CommonHeader
+                user={user as User | null}
                 panelName="Эксперт"
                 displayName={displayName}
                 theme={theme}
                 toggleTheme={toggle}
                 logout={logout}
                 profilePopoverOpen={profilePopoverOpen}
+                onAvatarUpdate={reloadAvatar}
                 setProfilePopoverOpen={setProfilePopoverOpen}
                 avatarUrl={avatarUrl}
             />

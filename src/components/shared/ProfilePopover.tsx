@@ -258,22 +258,6 @@ export const ProfilePopover: React.FC<ProfilePopoverProps> = ({
                                 />
                             </label>
                         </div>
-                        <div style={{ marginBottom: 16 }}>
-                            <label>
-                                Язык системы:
-                                <select
-                                    name="systemLanguage"
-                                    value={userForm.systemLanguage}
-                                    onChange={handleUserChange}
-                                    style={{ width: "100%" }}
-                                >
-                                    <option value="RUSSIAN">Русский</option>
-                                    <option value="ENGLISH">English</option>
-                                    <option value="TAJIC">Таджикский</option>
-                                    <option value="UZBEK">Узбекский</option>
-                                </select>
-                            </label>
-                        </div>
                         <div style={{ textAlign: "right" }}>
                             <button
                                 type="button"

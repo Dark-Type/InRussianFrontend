@@ -101,7 +101,7 @@ export interface CourseStatistics {
 
 
 
-export const ExpertProvider: React.FC<{ children: ReactNode }> = ({children}) => {
+export const ExpertProvider = ({children}: { children: ReactNode }) => {
     const [courses, setCourses] = useState<ExpertCourse[]>([]);
     const [sections, setSections] = useState<{ [courseId: string]: ExpertSection[] }>({});
     const [themes, setThemes] = useState<{ [sectionId: string]: ExpertTheme[] }>({});

@@ -107,6 +107,7 @@ export const ContentPanel = () => {
                         style={{
                             padding: '12px 24px',
                             border: 'none',
+                            outline: 'none',
                             borderRadius: '6px',
                             background: activeSection === 'courses' ? 'var(--color-primary)' : 'var(--color-card)',
                             color: activeSection === 'courses' ? 'white' : 'var(--color-text)',
@@ -115,13 +116,14 @@ export const ContentPanel = () => {
                             fontWeight: '500'
                         }}
                     >
-                        📚 Курсы
+                        Курсы
                     </button>
                     <button
                         onClick={() => setActiveSection('statistics')}
                         style={{
                             padding: '12px 24px',
                             border: 'none',
+                            outline: 'none',
                             borderRadius: '6px',
                             background: activeSection === 'statistics' ? 'var(--color-primary)' : 'var(--color-card)',
                             color: activeSection === 'statistics' ? 'white' : 'var(--color-text)',
@@ -130,13 +132,14 @@ export const ContentPanel = () => {
                             fontWeight: '500'
                         }}
                     >
-                        📊 Статистика
+                        Статистика
                     </button>
                     <button
                         onClick={() => setActiveSection('reports')}
                         style={{
                             padding: '12px 24px',
                             border: 'none',
+                            outline: 'none',
                             borderRadius: '6px',
                             background: activeSection === 'reports' ? 'var(--color-primary)' : 'var(--color-card)',
                             color: activeSection === 'reports' ? 'white' : 'var(--color-text)',
@@ -145,7 +148,7 @@ export const ContentPanel = () => {
                             fontWeight: '500'
                         }}
                     >
-                        📋 Отчеты
+                        Отчеты
                     </button>
                 </nav>
 

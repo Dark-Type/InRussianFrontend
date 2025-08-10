@@ -251,15 +251,9 @@ export const Statistics: React.FC = () => {
                                         </div>
                                         <div className="flex items-center space-x-6">
                                             <div className="flex space-x-3 text-sm">
-                                                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
-                                                    Секции: {sections[course.id]?.length || course.sectionsCount}
-                                                </span>
-                                                <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">
-                                                    Темы: {course.themesCount}
-                                                </span>
-                                                <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full font-medium">
-                                                    Задачи: {taskCounts[`course-${course.id}`] ?? course.tasksCount}
-                                                </span>
+                                                <p className="text-1 font-m text-gray-900">Секции: {sections[course.id]?.length || course.sectionsCount}</p>
+                                                <p className="text-1 font-m text-gray-900">Темы: {course.themesCount}</p>
+                                                <p className="text-1 font-m text-gray-900">Задачи: {taskCounts[`course-${course.id}`] ?? course.tasksCount}</p>
                                             </div>
                                             <div className={`text-gray-400 transition-transform ${expandedCourse === course.id ? 'rotate-90' : ''}`}>
                                                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -287,12 +281,8 @@ export const Statistics: React.FC = () => {
                                                         </div>
                                                         <div className="flex items-center space-x-3">
                                                             <div className="flex space-x-2 text-sm">
-                                                                <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
-                                                                    Темы: {themes[section.id]?.length || section.themesCount}
-                                                                </span>
-                                                                <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs">
-                                                                    Задачи: {taskCounts[`section-${section.id}`] ?? section.tasksCount}
-                                                                </span>
+                                                                <p className="text-1 font-s text-gray-900">Темы: {themes[section.id]?.length || section.themesCount}</p>
+                                                                <p className="text-1 font-s text-gray-900">Задачи: {taskCounts[`section-${section.id}`] ?? section.tasksCount}</p>
                                                             </div>
                                                             <div className={`text-gray-400 transition-transform ${expandedSection === section.id ? 'rotate-90' : ''}`}>
                                                                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -314,9 +304,7 @@ export const Statistics: React.FC = () => {
                                                                             <p className="text-gray-600 text-sm">{theme.description}</p>
                                                                         )}
                                                                     </div>
-                                                                    <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs">
-                                                                        Задачи: {taskCounts[`theme-${theme.id}`] ?? theme.tasksCount}
-                                                                    </span>
+                                                                    <p className="text-1 font-m text-gray-900">Задачи: {taskCounts[`theme-${theme.id}`] ?? theme.tasksCount}</p>
                                                                 </div>
                                                             </div>
                                                         ))}

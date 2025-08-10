@@ -69,13 +69,12 @@ class ExpertService {
     async getStudentLanguageSkills(userId: string): Promise<UserLanguageSkillRequest[]> {
         try {
             const response = await this.profileApi.profilesUserLanguageSkillsGet(userId);
-
             if (!response.data) {
                 return [];
             }
-
-            if (Array.isArray(response.data)) {
-                return response.data;
+            
+            if (Array.isArray(response.data.skills)) {
+                return response.data.skills;
             }
 
             if (typeof response.data === 'string') {

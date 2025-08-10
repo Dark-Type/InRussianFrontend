@@ -430,7 +430,6 @@ export const AdminStatistics = () => {
                             title="Общее количество пользователей"
                             value={usersCount.count || 0}
                             subtitle="По выбранным фильтрам"
-                            icon="👥"
                             color="#3b82f6"
                         />
                     )}
@@ -440,7 +439,6 @@ export const AdminStatistics = () => {
                             title="Всего студентов"
                             value={studentsOverallStats.totalStudents || 0}
                             subtitle="Активных студентов в системе"
-                            icon="🎓"
                             color="#10b981"
                         />
                     )}
@@ -451,7 +449,6 @@ export const AdminStatistics = () => {
                                 title="Среднее время обучения"
                                 value={formatTime(overallStats.averageTimeSpentSeconds)}
                                 subtitle="На одного студента"
-                                icon="⏱️"
                                 color="#f59e0b"
                             />
 
@@ -459,7 +456,6 @@ export const AdminStatistics = () => {
                                 title="Средний прогресс"
                                 value={formatPercentage(overallStats.averageProgressPercentage)}
                                 subtitle="Завершенность курсов"
-                                icon="📊"
                                 color="#8b5cf6"
                             />
                         </>

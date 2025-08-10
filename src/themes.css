@@ -1,7 +1,7 @@
 :root {
     --color-bg: #f5f6fa;
     --color-card: #fff;
-    --color-primary: #007bff;
+    --color-primary: #e0411b;
     --color-text: #222;
     --color-border: #e0e0e0;
     --color-error-bg: #f8d7da;
@@ -11,7 +11,7 @@
 [data-theme="dark"] {
     --color-bg: #181a20;
     --color-card: #23262f;
-    --color-primary: #4f8cff;
+    --color-primary: #e0411b;
     --color-text: #f5f6fa;
     --color-border: #2c2f36;
     --color-error-bg: #3a1a1a;
@@ -523,7 +523,6 @@ body, #root {
     border-color: var(--color-border);
 }
 
-/* Адаптивность */
 @media (min-width: 640px) {
     .sm\:grid-cols-2 {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -536,7 +535,242 @@ body, #root {
     }
 }
 
-/* Утилиты для отображения текста */
 .italic {
     font-style: italic;
+}
+
+/* Отступы */
+.p-2 {
+    padding: 0.5rem;
+}
+.p-3 {
+    padding: 0.75rem;
+}
+.p-4 {
+    padding: 1rem;
+}
+.p-6 {
+    padding: 1.5rem;
+}
+.px-3 {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+.px-4 {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+.py-1 {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+}
+.py-2 {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+.py-12 {
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+}
+
+/* Размеры */
+.h-6 {
+    height: 1.5rem;
+}
+.h-8 {
+    height: 2rem;
+}
+.h-64 {
+    height: 16rem;
+}
+.w-6 {
+    width: 1.5rem;
+}
+.w-8 {
+    width: 2rem;
+}
+
+/* Текст */
+.text-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}
+.text-xs {
+    font-size: 0.75rem;
+    line-height: 1rem;
+}
+.text-lg {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+}
+.text-2xl {
+    font-size: 1.5rem;
+    line-height: 2rem;
+}
+.font-medium {
+    font-weight: 500;
+}
+.font-semibold {
+    font-weight: 600;
+}
+.font-bold {
+    font-weight: 700;
+}
+
+/* Отступы между элементами */
+.mb-1 {
+    margin-bottom: 0.25rem;
+}
+.mb-2 {
+    margin-bottom: 0.5rem;
+}
+.mb-4 {
+    margin-bottom: 1rem;
+}
+.mb-6 {
+    margin-bottom: 1.5rem;
+}
+.ml-3 {
+    margin-left: 0.75rem;
+}
+.ml-4 {
+    margin-left: 1rem;
+}
+.mb-12 {
+    margin-bottom: 3rem;
+}
+
+/* Flexbox */
+.flex {
+    display: flex;
+}
+.items-center {
+    align-items: center;
+}
+.justify-center {
+    justify-content: center;
+}
+.justify-between {
+    justify-content: space-between;
+}
+.gap-2 {
+    gap: 0.5rem;
+}
+.gap-3 {
+    gap: 0.75rem;
+}
+.gap-4 {
+    gap: 1rem;
+}
+.flex-1 {
+    flex: 1 1 0%;
+}
+.min-w-0 {
+    min-width: 0;
+}
+
+/* Другие утилиты */
+.max-w-6xl {
+    max-width: 72rem; /* 1152px */
+}
+.max-w-2xl {
+    max-width: 42rem; /* 672px */
+}
+.max-w-md {
+    max-width: 28rem; /* 448px */
+}
+.mx-auto {
+    margin-left: auto;
+    margin-right: auto;
+}
+.mx-4 {
+    margin-left: 1rem;
+    margin-right: 1rem;
+}
+.rounded {
+    border-radius: 0.375rem;
+}
+.rounded-lg {
+    border-radius: 0.5rem;
+}
+.border {
+    border-width: 1px;
+    border-style: solid;
+    border-color: #d1d5db; /* примерно border-gray-200 */
+}
+.border-gray-200 {
+    border-color: #e5e7eb;
+}
+.transition-colors {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+.hover\:bg-blue-700:hover {
+    background-color: #1d4ed8;
+}
+.hover\:bg-red-700:hover {
+    background-color: #b91c1c;
+}
+.hover\:bg-gray-400:hover {
+    background-color: #9ca3af;
+}
+.hover\:text-gray-600:hover {
+    color: #4b5563;
+}
+.hover\:shadow-md:hover {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+.truncate {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.cursor-not-allowed {
+    cursor: not-allowed;
+}
+.disabled\:opacity-50:disabled {
+    opacity: 0.5;
+}
+.z-50 {
+    z-index: 50;
+}
+.overflow-auto {
+    overflow: auto;
+}
+.fixed {
+    position: fixed;
+}
+.inset-0 {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+.text-center {
+    text-align: center;
+}
+.font-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Анимация вращения */
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.max-h-48 {
+    max-height: 14rem;
+}
+
+.overflow-auto {
+    overflow: auto;
 }
