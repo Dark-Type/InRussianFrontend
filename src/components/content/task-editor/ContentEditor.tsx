@@ -93,7 +93,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
                             fontSize: '0.9rem'
                         }}
                     >
-                        📝 Текст
+                        Текст
                     </button>
                     <button
                         type="button"
@@ -108,7 +108,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
                             fontSize: '0.9rem'
                         }}
                     >
-                        🎵 Аудио
+                        Аудио
                     </button>
                     <button
                         type="button"
@@ -123,7 +123,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
                             fontSize: '0.9rem'
                         }}
                     >
-                        🖼️ Изображение
+                        Изображение
                     </button>
                     <button
                         type="button"
@@ -138,7 +138,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
                             fontSize: '0.9rem'
                         }}
                     >
-                        🎬 Видео
+                        Видео
                     </button>
                 </div>
             </div>

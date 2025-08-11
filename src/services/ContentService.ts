@@ -281,7 +281,7 @@ class ContentService {
     }
 
     async deleteReport(reportId: string): Promise<void> {
-        await this.managerApi.contentR (reportId);
+        await this.managerApi.contentReportsReportIdDelete(reportId);
     }
 
     // ============ STATS ============
@@ -295,7 +295,6 @@ class ContentService {
             const response: AxiosResponse<{
                 count: number
             }> = await this.contentApi.contentStatsCourseCourseIdTasksCountGet(courseId);
-            console.log(`Tasks count for course ${courseId}:`, response.data);
             return response.data.count || 0;
         } catch (error) {
             console.error(`Ошибка получения количества задач курса ${courseId}:`, error);
@@ -308,7 +307,6 @@ class ContentService {
             const response: AxiosResponse<{
                 count: number
             }> = await this.contentApi.contentStatsSectionSectionIdTasksCountGet(sectionId);
-            console.log(`Tasks count for section ${sectionId}:`, response.data);
             return response.data.count || 0;
         } catch (error) {
             console.error(`Ошибка получения количества задач секции ${sectionId}:`, error);
@@ -321,10 +319,8 @@ class ContentService {
             const response: AxiosResponse<{
                 count: number
             }> = await this.contentApi.contentStatsThemeThemeIdTasksCountGet(themeId);
-            console.log(`Tasks count for theme ${themeId}:`, response.data);
             return response.data.count || 0;
         } catch (error) {
-            console.log(`Fallback: counting tasks manually for theme ${themeId}`);
             try {
                 const tasks = await this.getTasksByTheme(themeId);
                 console.log(`Manual count for theme ${themeId}:`, tasks.length);
@@ -426,7 +422,6 @@ class ContentService {
                 });
             }
 
-            // Создание вариантов ответов и ответа
             if (taskData.answer?.options?.length) {
                 for (const option of taskData.answer.options) {
                     await this.managerApi.contentTasksTaskIdAnswerOptionsPost(createdTask.id, {
