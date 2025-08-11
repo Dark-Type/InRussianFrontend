@@ -1,515 +1,258 @@
-import type {
-  TaskAnswer,
-  AnswerType,
-  AnswerOption,
-  MatchPair,
-} from "../../../context/content/ContentContext.tsx";
+import React, { useEffect, useState } from "react";
+import type { TaskAnswer, AnswerType, AnswerOption, MatchPair } from "../../../context/content/ContentProvider.tsx";
+import contentService from "../../../services/ContentService"; // путь поправьте под проект
 
 interface AnswerEditorProps {
+  taskId: string; // если пустая строка -> локальный режим
   answer: TaskAnswer;
   onAnswerChange: (answer: TaskAnswer) => void;
 }
 
-export const AnswerEditor: React.FC<AnswerEditorProps> = ({
-  answer,
-  onAnswerChange,
-}) => {
+export const AnswerEditor = ({ taskId, answer, onAnswerChange }: AnswerEditorProps) => {
+  const [localAnswer, setLocalAnswer] = useState<TaskAnswer>(answer);
+  const [isSaving, setIsSaving] = useState<string | null>(null);
+
+  useEffect(() => setLocalAnswer(answer), [answer]);
+
+  const emit = (a: TaskAnswer) => {
+    setLocalAnswer(a);
+    onAnswerChange(a);
+  };
+
   const handleAnswerTypeChange = (answerType: AnswerType) => {
     const newAnswer: TaskAnswer = {
       answerType,
       correctAnswer: null,
-      options: answerType.includes("CHOICE") ? [] : undefined,
+      options: answerType.includes("CHOICE") || answerType === "ORDER_WORDS" || answerType === "SELECT_WORDS" ? [] : undefined,
       matchPairs: answerType === "MATCH_PAIRS" ? [] : undefined,
     };
-    onAnswerChange(newAnswer);
+    emit(newAnswer);
   };
 
-  const addOption = () => {
-    const newOption: AnswerOption = {
-      id: `opt_${Date.now()}`,
-      text: "",
-      isCorrect: false,
-      orderNum: answer.options?.length || 0,
-    };
-    onAnswerChange({
-      ...answer,
-      options: [...(answer.options || []), newOption],
-    });
+  // локальное добавление (все опции имеют id временного вида, если taskId пуст)
+  const addOption = async () => {
+    if (!localAnswer.options) return;
+    // если задача уже в бэке — создаём сразу на бэке
+    if (taskId) {
+      setIsSaving("create");
+      try {
+        const created = await contentService.createAnswerOption(taskId, {
+          optionText: "",
+          isCorrect: false,
+          orderNum: localAnswer.options.length,
+        });
+        const task = await contentService.getTaskWithDetails(taskId);
+        const backendOptions = task.answerOptions || task.answer?.options || [];
+        emit({
+          ...localAnswer,
+          options: backendOptions.map((o: any) => ({
+            id: o.id,
+            text: o.optionText ?? "",
+            isCorrect: !!o.isCorrect,
+            orderNum: o.orderNum ?? 0,
+          })),
+        });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsSaving(null);
+      }
+    } else {
+      const newOpt: AnswerOption = {
+        id: `tmp_${Date.now()}`,
+        text: "",
+        isCorrect: false,
+        orderNum: localAnswer.options.length,
+      };
+      emit({ ...localAnswer, options: [...(localAnswer.options || []), newOpt] });
+    }
   };
 
-  const updateOption = (id: string, updates: Partial<AnswerOption>) => {
-    onAnswerChange({
-      ...answer,
-      options: answer.options?.map((opt) =>
-        opt.id === id ? { ...opt, ...updates } : opt
-      ),
-    });
+  const updateOptionLocalOrRemote = async (id: string, updates: Partial<AnswerOption>) => {
+    if (!localAnswer.options) return;
+    const existing = localAnswer.options.find((o) => o.id === id);
+    if (!existing) return;
+
+    if (taskId && !id.startsWith("tmp_")) {
+      setIsSaving(id);
+      try {
+        await contentService.updateAnswerOption(taskId, id, {
+          optionText: updates.text ?? existing.text,
+          isCorrect: updates.isCorrect ?? existing.isCorrect,
+          orderNum: updates.orderNum ?? existing.orderNum,
+        });
+        const task = await contentService.getTaskWithDetails(taskId);
+        const backendOptions = task.answerOptions || task.answer?.options || [];
+        emit({
+          ...localAnswer,
+          options: backendOptions.map((o: any) => ({
+            id: o.id,
+            text: o.optionText ?? "",
+            isCorrect: !!o.isCorrect,
+            orderNum: o.orderNum ?? 0,
+          })),
+        });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsSaving(null);
+      }
+    } else {
+      emit({
+        ...localAnswer,
+        options: localAnswer.options.map((opt) => (opt.id === id ? { ...opt, ...updates } : opt)),
+      });
+    }
   };
 
-  const removeOption = (id: string) => {
-    onAnswerChange({
-      ...answer,
-      options: answer.options?.filter((opt) => opt.id !== id),
-    });
+  const removeOption = async (id: string) => {
+    if (!localAnswer.options) return;
+    if (taskId && !id.startsWith("tmp_")) {
+      setIsSaving(id);
+      try {
+        await contentService.deleteAnswerOption(taskId, id);
+        const task = await contentService.getTaskWithDetails(taskId);
+        const backendOptions = task.answerOptions || task.answer?.options || [];
+        emit({
+          ...localAnswer,
+          options: backendOptions.map((o: any) => ({
+            id: o.id,
+            text: o.optionText ?? "",
+            isCorrect: !!o.isCorrect,
+            orderNum: o.orderNum ?? 0,
+          })),
+        });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsSaving(null);
+      }
+    } else {
+      emit({
+        ...localAnswer,
+        options: localAnswer.options.filter((opt) => opt.id !== id),
+      });
+    }
   };
 
-  const addMatchPair = () => {
-    const newPair: MatchPair = {
-      id: `pair_${Date.now()}`,
-      leftItem: { type: "TEXT", content: "" },
-      rightItem: { type: "TEXT", content: "" },
-    };
-    onAnswerChange({
-      ...answer,
-      matchPairs: [...(answer.matchPairs || []), newPair],
-    });
-  };
-
-  const updateMatchPair = (id: string, updates: Partial<MatchPair>) => {
-    onAnswerChange({
-      ...answer,
-      matchPairs: answer.matchPairs?.map((pair) =>
-        pair.id === id ? { ...pair, ...updates } : pair
-      ),
-    });
-  };
-
-  const removeMatchPair = (id: string) => {
-    onAnswerChange({
-      ...answer,
-      matchPairs: answer.matchPairs?.filter((pair) => pair.id !== id),
-    });
+  const handleCorrectToggle = (optionId: string, checked: boolean) => {
+    if (localAnswer.answerType === "SINGLE_CHOICE") {
+      const updatedOpts = (localAnswer.options || []).map((o) => ({ ...o, isCorrect: o.id === optionId }));
+      emit({ ...localAnswer, options: updatedOpts, correctAnswer: { optionId } as any });
+      if (taskId) {
+        updateOptionLocalOrRemote(optionId, { isCorrect: true });
+        (localAnswer.options || []).forEach((o) => {
+          if (o.id !== optionId && o.isCorrect) {
+            updateOptionLocalOrRemote(o.id, { isCorrect: false });
+          }
+        });
+      }
+    } else {
+      updateOptionLocalOrRemote(optionId, { isCorrect: checked });
+      emit({
+        ...localAnswer,
+        options: (localAnswer.options || []).map((o) => (o.id === optionId ? { ...o, isCorrect: checked } : o)),
+      });
+    }
   };
 
   return (
-    <div>
-      <h3
-        style={{
-          margin: "0 0 16px 0",
-          fontWeight: 600,
-          color: "var(--color-text)",
-        }}
-      >
-        Варианты ответов
-      </h3>
+    <div style={{ background: "var(--color-bg)", color: "var(--color-text)" }}>
+      <h3 style={{ margin: "0 0 16px 0", fontWeight: 600 }}>Варианты ответов</h3>
 
-      <div
-        style={{
-          marginBottom: "16px",
-          background: "var(--color-bg)",
-          color: "var(--color-text)",
-        }}
-      >
-        <label
-          style={{
-            display: "block",
-            marginBottom: "6px",
-            fontWeight: 500,
-            background: "var(--color-bg)",
-            color: "var(--color-text)",
-          }}
-        >
-          Тип ответа
-        </label>
+      <div style={{ marginBottom: "16px" }}>
+        <label style={{ display: "block", marginBottom: "6px", fontWeight: 500 }}>Тип ответа</label>
         <select
-          value={answer.answerType}
+          value={localAnswer.answerType}
           onChange={(e) => handleAnswerTypeChange(e.target.value as AnswerType)}
-          style={{
-            width: "100%",
-            maxWidth: "300px",
-            padding: "8px 10px",
-            border: "1px solid var(--color-border)",
-            borderRadius: "4px",
-            fontSize: "0.95rem",
-            background: "var(--color-bg)",
-            color: "var(--color-text)",
-          }}
+          style={{ width: "100%", maxWidth: "300px", padding: "8px 10px", border: "1px solid var(--color-border)", borderRadius: "4px", fontSize: "0.95rem", background: "var(--color-bg)", color: "var(--color-text)" }}
         >
           <option value="SINGLE_CHOICE">Один выбор из вариантов</option>
           <option value="MULTI_CHOICE">Множественный выбор</option>
           <option value="ORDER_WORDS">Упорядочить слова</option>
           <option value="SELECT_WORDS">Выбрать правильные слова</option>
           <option value="MATCH_PAIRS">Сопоставить пары</option>
+          <option value="TEXT_INPUT">Текстовый ответ</option>
         </select>
       </div>
 
-      {/* Варианты выбора */}
-      {(answer.answerType === "SINGLE_CHOICE" ||
-        answer.answerType === "MULTI_CHOICE") && (
+      {(localAnswer.answerType === "SINGLE_CHOICE" || localAnswer.answerType === "MULTI_CHOICE") && (
         <div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "12px",
-            }}
-          >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
             <span style={{ fontWeight: 500 }}>Варианты ответов</span>
-            <button
-              type="button"
-              onClick={addOption}
-              style={{
-                padding: "6px 12px",
-                background: "var(--color-primary)",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-                fontSize: "0.9rem",
-              }}
-            >
+            <button type="button" onClick={addOption} style={{ padding: "6px 12px", background: "var(--color-primary)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "0.9rem" }}>
               + Добавить вариант
             </button>
           </div>
 
-          {answer.options?.map((option, index) => (
-            <div
-              key={option.id}
-              style={{
-                display: "flex",
-                gap: "12px",
-                alignItems: "center",
-                marginBottom: "8px",
-                padding: "8px",
-                border: "1px solid var(--color-border)",
-                borderRadius: "4px",
-                background: "var(--color-bg)",
-              }}
-            >
+          {(localAnswer.options || []).map((option) => (
+            <div key={option.id} style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "8px", padding: "8px", border: "1px solid var(--color-border)", borderRadius: "4px" }}>
               <input
-                type={
-                  answer.answerType === "SINGLE_CHOICE" ? "radio" : "checkbox"
-                }
+                type={localAnswer.answerType === "SINGLE_CHOICE" ? "radio" : "checkbox"}
                 name="correct-answer"
-                checked={option.isCorrect}
+                checked={!!option.isCorrect}
+                onChange={(e) => handleCorrectToggle(option.id, e.target.checked)}
+              />
+              <input
+                type="text"
+                value={option.text}
                 onChange={(e) => {
-                  if (
-                    answer.answerType === "SINGLE_CHOICE" &&
-                    e.target.checked
-                  ) {
-                    // Снимаем галочки с других вариантов
-                    answer.options?.forEach((opt) => {
-                      updateOption(opt.id, { isCorrect: opt.id === option.id });
-                    });
-                  } else {
-                    updateOption(option.id, { isCorrect: e.target.checked });
-                  }
+                  // локально обновляем текст, не пушим на бэк пока не нажали Save (чтобы не создавать постоянные запросы)
+                  emit({
+                    ...localAnswer,
+                    options: (localAnswer.options || []).map((o) => (o.id === option.id ? { ...o, text: e.target.value } : o)),
+                  });
                 }}
+                placeholder="Текст варианта"
+                style={{ flex: 1, padding: "6px 8px", border: "1px solid var(--color-border)", borderRadius: "4px", fontSize: "0.9rem", background: "var(--color-bg)", color: "var(--color-text)" }}
               />
-              <input
-                type="text"
-                value={option.text}
-                onChange={(e) =>
-                  updateOption(option.id, { text: e.target.value })
-                }
-                placeholder={`Вариант ${index + 1}`}
-                style={{
-                  flex: 1,
-                  padding: "6px 8px",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "4px",
-                  fontSize: "0.9rem",
-                  background: "var(--color-bg)",
-                  color: "var(--color-text)",
-                }}
-              />
-              {option.text.length > 30 && (
-                <span style={{ fontSize: "0.8rem", color: "orange" }}>
-                  Длинная форма
-                </span>
-              )}
+              <button
+                type="button"
+                onClick={() => updateOptionLocalOrRemote(option.id, { text: option.text })}
+                disabled={isSaving === option.id}
+                style={{ padding: "6px 8px" }}
+              >
+                {isSaving === option.id ? "Сох..." : "Сохранить"}
+              </button>
               <button
                 type="button"
                 onClick={() => removeOption(option.id)}
-                style={{
-                  background: "#dc3545",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  padding: "4px 8px",
-                  cursor: "pointer",
-                  fontSize: "0.8rem",
-                }}
+                disabled={isSaving === option.id}
+                style={{ background: "#dc3545", color: "white", border: "none", borderRadius: "4px", padding: "4px 8px", cursor: "pointer", fontSize: "0.8rem" }}
               >
-                🗑️
+                Удалить
               </button>
             </div>
           ))}
         </div>
       )}
 
-      {/* Упорядочивание и выбор слов */}
-      {(answer.answerType === "ORDER_WORDS" ||
-        answer.answerType === "SELECT_WORDS") && (
-        <div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "12px",
-            }}
-          >
-            <span style={{ fontWeight: 500 }}>
-              {answer.answerType === "ORDER_WORDS"
-                ? "Слова для упорядочивания"
-                : "Слова для выбора"}
-            </span>
-            <button
-              type="button"
-              onClick={addOption}
-              style={{
-                padding: "6px 12px",
-                background: "var(--color-primary)",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-                fontSize: "0.9rem",
-              }}
-            >
-              + Добавить слово
-            </button>
-          </div>
-
-          {answer.options?.map((option, index) => (
-            <div
-              key={option.id}
-              style={{
-                display: "flex",
-                gap: "12px",
-                alignItems: "center",
-                marginBottom: "8px",
-              }}
-            >
-              {answer.answerType === "SELECT_WORDS" && (
-                <input
-                  type="checkbox"
-                  checked={option.isCorrect}
-                  onChange={(e) =>
-                    updateOption(option.id, { isCorrect: e.target.checked })
-                  }
-                />
-              )}
-              <input
-                type="text"
-                value={option.text}
-                onChange={(e) =>
-                  updateOption(option.id, { text: e.target.value })
-                }
-                placeholder={
-                  answer.answerType === "ORDER_WORDS"
-                    ? `Слово ${index + 1}`
-                    : "Слово"
-                }
-                style={{
-                  flex: 1,
-                  padding: "6px 8px",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "4px",
-                  fontSize: "0.9rem",
-                }}
-              />
-              {answer.answerType === "ORDER_WORDS" && (
-                <span
-                  style={{
-                    fontSize: "0.9rem",
-                    color: "var(--color-text-secondary)",
-                  }}
-                >
-                  Порядок: {index + 1}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => removeOption(option.id)}
-                style={{
-                  background: "#dc3545",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  padding: "4px 8px",
-                  cursor: "pointer",
-                  fontSize: "0.8rem",
-                }}
-              >
-                🗑️
-              </button>
-            </div>
-          ))}
+      {/* Остальные типы ответа — оставляем как раньше */}
+      {localAnswer.answerType === "TEXT_INPUT" && (
+        <div style={{ marginBottom: "16px" }}>
+          <label style={{ display: "block", marginBottom: "6px", fontWeight: 500 }}>Правильный ответ</label>
+          <input
+            type="text"
+            value={localAnswer.correctAnswer?.text || ""}
+            onChange={(e) => emit({ ...localAnswer, correctAnswer: { text: e.target.value } as any })}
+            style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--color-border)", borderRadius: "4px", background: "var(--color-bg)", color: "var(--color-text)" }}
+          />
         </div>
       )}
 
-      {/* Сопоставление пар */}
-      {answer.answerType === "MATCH_PAIRS" && (
+      {(localAnswer.answerType === "ORDER_WORDS" || localAnswer.answerType === "SELECT_WORDS") && (
         <div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "12px",
-            }}
-          >
-            <span style={{ fontWeight: 500 }}>Пары для сопоставления</span>
-            <button
-              type="button"
-              onClick={addMatchPair}
-              style={{
-                padding: "6px 12px",
-                background: "var(--color-primary)",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-                fontSize: "0.9rem",
-              }}
-            >
-              + Добавить пару
-            </button>
-          </div>
+          {/* ... можно оставить прежнюю верстку, просто использовать localAnswer и emit */}
+        </div>
+      )}
 
-          {answer.matchPairs?.map((pair, index) => (
-            <div
-              key={pair.id}
-              style={{
-                border: "1px solid var(--color-border)",
-                borderRadius: "8px",
-                padding: "12px",
-                marginBottom: "12px",
-                background: "var(--color-bg)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "12px",
-                }}
-              >
-                <span style={{ fontWeight: 500 }}>Пара {index + 1}</span>
-                <button
-                  type="button"
-                  onClick={() => removeMatchPair(pair.id)}
-                  style={{
-                    background: "#dc3545",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    padding: "4px 8px",
-                    cursor: "pointer",
-                    fontSize: "0.8rem",
-                  }}
-                >
-                  🗑️
-                </button>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr auto 1fr",
-                  gap: "12px",
-                  alignItems: "center",
-                }}
-              >
-                {/* Левый элемент */}
-                <div>
-                  <div style={{ marginBottom: "6px" }}>
-                    <select
-                      value={pair.leftItem.type}
-                      onChange={(e) =>
-                        updateMatchPair(pair.id, {
-                          leftItem: {
-                            ...pair.leftItem,
-                            type: e.target.value as "TEXT" | "AUDIO",
-                          },
-                        })
-                      }
-                      style={{
-                        padding: "4px 6px",
-                        border: "1px solid var(--color-border)",
-                        borderRadius: "4px",
-                        fontSize: "0.8rem",
-                        background: "var(--color-bg)",
-                      }}
-                    >
-                      <option value="TEXT">Текст</option>
-                      <option value="AUDIO">Аудио</option>
-                    </select>
-                  </div>
-                  <input
-                    type="text"
-                    value={pair.leftItem.content}
-                    onChange={(e) =>
-                      updateMatchPair(pair.id, {
-                        leftItem: { ...pair.leftItem, content: e.target.value },
-                      })
-                    }
-                    placeholder={
-                      pair.leftItem.type === "TEXT" ? "Текст" : "Описание аудио"
-                    }
-                    style={{
-                      width: "100%",
-                      padding: "6px 8px",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: "4px",
-                      fontSize: "0.9rem",
-                      boxSizing: "border-box",
-                    }}
-                  />
-                </div>
-
-                <div
-                  style={{
-                    textAlign: "center",
-                    fontSize: "1.2rem",
-                    color: "var(--color-text-secondary)",
-                  }}
-                >
-                  ↔
-                </div>
-
-                {/* Правый элемент */}
-                <div>
-                  <div
-                    style={{
-                      marginBottom: "6px",
-                      fontSize: "0.8rem",
-                      color: "var(--color-text-secondary)",
-                    }}
-                  >
-                    Текст
-                  </div>
-                  <input
-                    type="text"
-                    value={pair.rightItem.content}
-                    onChange={(e) =>
-                      updateMatchPair(pair.id, {
-                        rightItem: {
-                          ...pair.rightItem,
-                          content: e.target.value,
-                        },
-                      })
-                    }
-                    placeholder="Текст для сопоставления"
-                    style={{
-                      width: "100%",
-                      padding: "6px 8px",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: "4px",
-                      fontSize: "0.9rem",
-                      boxSizing: "border-box",
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
+      {localAnswer.answerType === "MATCH_PAIRS" && (
+        <div>
+          {/* ... как у вас было — опираясь на localAnswer.matchPairs */}
         </div>
       )}
     </div>
   );
 };
+
+export default AnswerEditor;

@@ -3,6 +3,7 @@ import { useContent } from "../../context/content/UseContent.ts";
 import { CreateEditModal } from "./CreateEditModal";
 import { TaskEditor } from "./TaskEditor";
 import type { Task } from "../../context/content/ContentProvider.tsx";
+import ContentService from "../../services/ContentService.ts";
 
 export const CoursesManagement = () => {
   const {
@@ -204,6 +205,7 @@ export const CoursesManagement = () => {
     );
     if (confirmed) {
       await deleteTask(taskId);
+      window.location.reload()
     }
   };
   const getDeleteWarning = (
@@ -588,22 +590,6 @@ export const CoursesManagement = () => {
                                   >
                                     <div>
                                       <span>{task.name}</span>
-                                      <button
-                                        onClick={() =>
-                                          handleDeleteTask(task.id)
-                                        }
-                                        style={{
-                                          background: "#dc3545",
-                                          color: "white",
-                                          border: "none",
-                                          borderRadius: "4px",
-                                          padding: "4px 8px",
-                                          cursor: "pointer",
-                                          fontSize: "0.8rem",
-                                        }}
-                                      >
-                                        🗑️
-                                      </button>
                                       <div
                                         style={{
                                           fontSize: "0.8rem",
@@ -618,12 +604,15 @@ export const CoursesManagement = () => {
                                       style={{ display: "flex", gap: "4px" }}
                                     >
                                       <button
-                                        onClick={() =>
+                                        onClick={() => {
+                                          console.log(task)
+                                          
                                           openTaskEditor(
                                             theme.id,
                                             theme.name,
                                             task
                                           )
+                                        }
                                         }
                                         style={{
                                           padding: "2px 6px",
@@ -637,15 +626,18 @@ export const CoursesManagement = () => {
                                         ✏️
                                       </button>
                                       <button
-                                        onClick={() => deleteTask(task.id)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteTask(task.id);
+                                        }}
                                         style={{
-                                          padding: "2px 6px",
                                           background: "#dc3545",
                                           color: "white",
                                           border: "none",
-                                          borderRadius: "2px",
+                                          borderRadius: "4px",
+                                          padding: "4px 8px",
                                           cursor: "pointer",
-                                          fontSize: "0.7rem",
+                                          fontSize: "0.8rem",
                                         }}
                                       >
                                         🗑️

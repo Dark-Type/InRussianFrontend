@@ -83,6 +83,7 @@ export const TaskEditor = ({
         await updateTask(task.id, formData);
       } else {
         await createTask(themeId, formData);
+        window.location.reload();
       }
 
       onClose();
@@ -361,6 +362,7 @@ export const TaskEditor = ({
             {/* Редактор ответов */}
             <div style={{ marginBottom: "32px" }}>
               <AnswerEditor
+                taskId={task?.id ? task.id : ""}
                 answer={formData.answer}
                 onAnswerChange={(answer) => handleInputChange("answer", answer)}
               />

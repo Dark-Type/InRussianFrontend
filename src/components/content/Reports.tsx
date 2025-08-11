@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import contentService from '../../services/ContentService.ts';
 import type { Report } from '../../api';
-import { ProfileApiFactory, ContentApiFactory } from '../../api'; // генерированный API (api.ts)
+import { ProfileApiFactory, ContentApiFactory, AdminApiFactory } from '../../api'; // генерированный API (api.ts)
 
 export const Reports = () => {
     const [reports, setReports] = useState<Report[]>([]);
@@ -14,7 +14,8 @@ export const Reports = () => {
     const [reporterProfile, setReporterProfile] = useState<any | null>(null);
     const [taskDetails, setTaskDetails] = useState<any | null>(null);
     const [detailsLoading, setDetailsLoading] = useState(false);
-    const profileApi = ProfileApiFactory(); // из api.ts
+    // const profileApi = ProfileApiFactory(); // из api.ts
+    const adminApi = AdminApiFactory();
     const contentApi = ContentApiFactory(); // из api.ts
 
     useEffect(() => {
@@ -51,46 +52,60 @@ export const Reports = () => {
     };
 
     const openDetails = async (report: Report) => {
-        setSelectedReport(report);
-        setReporterProfile(null);
-        setTaskDetails(null);
-        setDetailsLoading(true);
+    setSelectedReport(report);
+    setReporterProfile(null);
+    setTaskDetails(null);
+    setDetailsLoading(true);
 
-        try {
-            // параллельно запрашиваем профиль пользователя и задачу по id
-            const profilePromise = report.reporterId
-                ? profileApi.profilesUserIdGet(report.reporterId)
-                : Promise.resolve(null);
-
-            const taskPromise = report.taskId
-                ? contentApi.contentTasksTaskIdGet(report.taskId)
-                : Promise.resolve(null);
-
-            const [profileResp, taskResp] = await Promise.all([profilePromise, taskPromise]);
-
-            // при использовании axios -> результат в .data
-            if (profileResp && 'data' in profileResp) {
-                setReporterProfile(profileResp.data?.profile ?? null);
-            } else if (profileResp && (profileResp as any).profile) {
-                // на случай другой обёртки
-                setReporterProfile((profileResp as any).profile ?? null);
-            } else {
-                setReporterProfile(null);
-            }
-
-            if (taskResp && 'data' in taskResp) {
-                setTaskDetails(taskResp.data ?? null);
-            } else {
-                setTaskDetails(taskResp ?? null);
-            }
-        } catch (err) {
-            console.error('Ошибка при загрузке деталей:', err);
-            setReporterProfile(null);
-            setTaskDetails(null);
-        } finally {
-            setDetailsLoading(false);
+    try {
+        const promises = [];
+        
+        if (report.reporterId) {
+            promises.push(
+                adminApi.adminUsersUserIdGet(report.reporterId)
+                    .then(response => {
+                        if (response.data) {
+                            return response.data || response.data;
+                        }
+                        return response;
+                    })
+                    .catch(err => {
+                        console.error('Ошибка загрузки профиля:', err);
+                        return null;
+                    })
+            );
+        } else {
+            promises.push(Promise.resolve(null));
         }
-    };
+
+        if (report.taskId) {
+            promises.push(
+                contentApi.contentTasksTaskIdGet(report.taskId)
+                    .then(response => {
+                        if (response.data) {
+                            return response.data;
+                        }
+                        return response;
+                    })
+                    .catch(err => {
+                        console.error('Ошибка загрузки задачи:', err);
+                        return null;
+                    })
+            );
+        } else {
+            promises.push(Promise.resolve(null));
+        }
+
+        const [profileData, taskData] = await Promise.all(promises);
+        
+        setReporterProfile(profileData);
+        setTaskDetails(taskData);
+    } catch (err) {
+        console.error('Общая ошибка при загрузке деталей:', err);
+    } finally {
+        setDetailsLoading(false);
+    }
+};
 
     const closeDetails = () => {
         setSelectedReport(null);
@@ -210,9 +225,8 @@ export const Reports = () => {
                                         <div className="text-sm text-gray-500">Загрузка профиля...</div>
                                     ) : reporterProfile ? (
                                         <div className="text-sm text-gray-700">
-                                            <div><strong>Имя:</strong> {reporterProfile.name} {reporterProfile.surname}</div>
-                                            {reporterProfile.patronymic && <div><strong>Отчество:</strong> {reporterProfile.patronymic}</div>}
-                                            <div className="text-xs text-gray-500">userId: {reporterProfile.userId}</div>
+                                            <div><strong>Почта:</strong> {reporterProfile.email}</div>
+                                            <div className="text-xs text-gray-500">ID: {reporterProfile.id}</div>
                                         </div>
                                     ) : (
                                         <div className="text-sm text-gray-500">Профиль не найден</div>
