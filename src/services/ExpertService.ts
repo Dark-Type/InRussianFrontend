@@ -48,7 +48,7 @@ class ExpertService {
     async getStudentsCount(createdFrom?: string, createdTo?: string): Promise<number> {
         try {
             const response = await this.expertApi.expertStudentsCountGet(createdFrom, createdTo);
-            return parseInt(response.data, 10) || 0;
+            return parseInt(response.data.count, 10) || 0;
         } catch (error) {
             console.error('Ошибка загрузки количества студентов:', error);
             return 0;
@@ -250,22 +250,22 @@ class ExpertService {
 
     async getOverallAverageProgress(): Promise<number> {
         const response = await this.expertApi.expertStatisticsOverallAverageProgressGet();
-        return parseFloat(response.data) || 0;
+        return parseFloat(response.data.averageProgress) || 0;
     }
 
     async getOverallAverageTime(): Promise<number> {
         const response = await this.expertApi.expertStatisticsOverallAverageTimeGet();
-        return parseFloat(response.data) || 0;
+        return parseFloat(response.data.averageTime) || 0;
     }
 
     async getCourseAverageProgress(courseId: string): Promise<number> {
         const response = await this.expertApi.expertStatisticsCourseCourseIdAverageProgressGet(courseId);
-        return parseFloat(response.data) || 0;
+        return parseFloat(response.data.averageProgress) || 0;
     }
 
     async getCourseAverageTime(courseId: string): Promise<number> {
         const response = await this.expertApi.expertStatisticsCourseCourseIdAverageTimeGet(courseId);
-        return parseFloat(response.data) || 0;
+        return parseFloat(response.data.averageTime) || 0;
     }
 
     async getCourseStudentsCount(courseId: string): Promise<number> {

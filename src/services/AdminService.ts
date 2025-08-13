@@ -45,13 +45,12 @@ export const AdminService = {
     async getStudentLanguageSkills(userId: string): Promise<UserLanguageSkill[]> {
         try {
             const response = await profileApi.profilesUserLanguageSkillsGet(userId);
-
             if (!response.data) {
                 return [];
             }
 
-            if (Array.isArray(response.data)) {
-                return response.data;
+            if (Array.isArray(response.data.skills)) {
+                return response.data.skills;
             }
 
             if (typeof response.data === 'string') {

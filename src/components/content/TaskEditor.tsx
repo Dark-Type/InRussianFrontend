@@ -9,6 +9,8 @@ import type {
   TaskContent,
   TaskType,
 } from "../../context/content/ContentProvider.tsx";
+import ContentService from "../../services/ContentService.ts";
+import { TaskAnswerItemAnswerTypeEnum } from "../../api/api.ts";
 
 interface TaskEditorProps {
   isOpen: boolean;
@@ -43,18 +45,25 @@ export const TaskEditor = ({
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (task && isOpen) {
-      setFormData({
-        name: task.name || "",
-        taskType: task.taskType,
-        question: task.question || "",
-        instructions: task.instructions || "",
-        isTraining: task.isTraining,
-        contents: task.contents || [],
-        answer: task.answer,
+    if (task?.id && isOpen) {
+      ContentService.getTaskById(task.id).then((t) => {
+        console.log(t);
+        setFormData({
+          name: t.name || "",
+          taskType: t.taskType,
+          question: t.question || "",
+          instructions: t.instructions || "",
+          isTraining: t.isTraining,
+          contents: t.content || [],
+          answer: {
+            answerType: t.answer?.answerType || "SINGLE_CHOICE",
+            correctAnswer: t.answer?.correctAnswer || "",
+            options: t.answerOptions || [],
+            matchPairs: [],
+          },
+        });
       });
     } else if (isOpen) {
-      // Сброс формы для новой задачи
       setFormData({
         name: "",
         taskType: "LISTEN_AND_CHOOSE",
@@ -76,14 +85,23 @@ export const TaskEditor = ({
     e.preventDefault();
     if (!formData.name?.trim() || !formData.question?.trim()) return;
 
+    const dataToSend = {
+      ...formData,
+      contents: formData.contents.map((content) => ({
+        ...content,
+        file: undefined, // Удаляем поле file
+      })),
+    };
+
+    // console.log("Отправляемые данные:", JSON.stringify(dataToSend, null, 2));
     try {
       setIsLoading(true);
-
+      // console.log("[FORM DATA]", formData);
       if (task) {
-        await updateTask(task.id, formData);
+        await updateTask(task.id, dataToSend);
       } else {
-        await createTask(themeId, formData);
-        window.location.reload();
+        await createTask(themeId, dataToSend);
+        // window.location.reload();
       }
 
       onClose();
@@ -100,6 +118,7 @@ export const TaskEditor = ({
 
   if (!isOpen) return null;
 
+  // console.log("[FORM DATA]", formData);
   return (
     <div
       style={{

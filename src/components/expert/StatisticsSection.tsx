@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import ExpertService from "../../services/ExpertService"; // ваш сервис
+import { useEffect, useMemo, useState } from "react";
+import ExpertService from "../../services/ExpertService";
 import type { Course, User } from "../../api";
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20];
@@ -45,14 +45,12 @@ const formatTime = (minutes: number) => {
   return `${hours}ч ${mins}м`;
 };
 
-// проверяем, записан ли студент на курс (попытка по разным возможным полям)
 const studentEnrolledInCourse = (s: any, courseId: string) => {
   if (!courseId) return false;
   if (!s) return false;
   if (s.courseId && String(s.courseId) === String(courseId)) return true;
   if (Array.isArray(s.courses) && s.courses.some((c: any) => String(c.id || c.courseId || c) === String(courseId))) return true;
   if (Array.isArray(s.enrollments) && s.enrollments.some((en: any) => String(en.courseId || en.course?.id) === String(courseId))) return true;
-  // some backends may store in profile
   if (s.profile && Array.isArray((s.profile as any).courses) && (s.profile as any).courses.some((c: any) => String(c.id) === String(courseId))) return true;
   return false;
 };
@@ -64,26 +62,20 @@ export const StatisticsSection = () => {
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // course stats
   const [avgProgress, setAvgProgress] = useState<number | null>(null);
   const [avgTimeMinutes, setAvgTimeMinutes] = useState<number | null>(null);
   const [courseStudentsCount, setCourseStudentsCount] = useState<number | null>(null);
 
-  // overall stats
   const [overallAvgProgress, setOverallAvgProgress] = useState<number | null>(null);
   const [overallAvgTime, setOverallAvgTime] = useState<number | null>(null);
   const [overallStudentsCount, setOverallStudentsCount] = useState<number | null>(null);
-
-  // students pagination
   const [students, setStudents] = useState<User[]>([]);
   const [page, setPage] = useState(0);
   const [size, setSize] = useState<number>(10);
   const [totalStudents, setTotalStudents] = useState<number>(0);
 
-  // view mode: 'all' | 'byCourse'
   const [viewMode, setViewMode] = useState<"all" | "byCourse">("all");
 
-  // initial load: courses + overall stats
   useEffect(() => {
     let cancelled = false;
     const loadInit = async () => {
@@ -95,7 +87,9 @@ export const StatisticsSection = () => {
           ExpertService.getStudentsCount(),
         ]);
 
+        
         if (cancelled) return;
+        
         setCourses(coursesResp || []);
         setOverallAvgProgress(typeof overallProg === "number" ? overallProg : parseFloat(String(overallProg)) || 0);
         setOverallAvgTime(typeof overallTime === "number" ? overallTime : parseFloat(String(overallTime)) || 0);
@@ -111,14 +105,11 @@ export const StatisticsSection = () => {
       cancelled = true;
     };
   }, []);
-
-  // load stats for selected course
   useEffect(() => {
     if (!selectedCourseId) {
       setAvgProgress(null);
       setAvgTimeMinutes(null);
       setCourseStudentsCount(null);
-      // keep students as they are depending on viewMode
       return;
     }
 
@@ -135,12 +126,9 @@ export const StatisticsSection = () => {
         ]);
 
         if (cancelled) return;
-
         setAvgProgress(typeof progress === "number" ? progress : parseFloat(String(progress)) || 0);
         setAvgTimeMinutes(typeof time === "number" ? time : parseFloat(String(time)) || 0);
         setCourseStudentsCount(typeof studentsCount === "number" ? studentsCount : parseInt(String(studentsCount), 10) || 0);
-
-        // if user is viewing byCourse, set totalStudents to course count
         if (viewMode === "byCourse") {
           setTotalStudents(typeof studentsCount === "number" ? studentsCount : parseInt(String(studentsCount), 10) || 0);
         }
@@ -161,7 +149,6 @@ export const StatisticsSection = () => {
     };
   }, [selectedCourseId, viewMode]);
 
-  // load students depending on viewMode
   useEffect(() => {
     let cancelled = false;
     setLoadingStudents(true);
@@ -169,19 +156,14 @@ export const StatisticsSection = () => {
 
     const loadStudents = async () => {
       try {
-        // if "all" -> server-side page
         if (viewMode === "all") {
           const res = await ExpertService.getAllStudents(page, size);
-          // total from students count endpoint
           const total = await ExpertService.getStudentsCount();
           if (cancelled) return;
           setStudents(res || []);
           setTotalStudents(typeof total === "number" ? total : parseInt(String(total), 10) || 0);
         } else {
-          // viewMode === 'byCourse'
-          // try to fetch server-side if API supports course filter — many backends expose ?courseId param.
-          // We'll try ExpertService.getAllStudents(page,size) then filter locally as fallback.
-          const res = await ExpertService.getAllStudents(0, 1000); // get reasonable chunk (if large, change to server-side)
+          const res = await ExpertService.getAllStudents(0, 1000);
           if (cancelled) return;
           const filtered = (res || []).filter((s: any) => studentEnrolledInCourse(s, selectedCourseId));
           // local pagination for filtered array:
@@ -200,7 +182,6 @@ export const StatisticsSection = () => {
       }
     };
 
-    // guard: when switching to byCourse but no course selected -> empty
     if (viewMode === "byCourse" && !selectedCourseId) {
       setStudents([]);
       setTotalStudents(0);
@@ -214,12 +195,10 @@ export const StatisticsSection = () => {
     };
   }, [viewMode, selectedCourseId, page, size]);
 
-  // derived: has course stats to show
   const hasCourseStats = useMemo(() => {
     return avgProgress !== null || avgTimeMinutes !== null || (courseStudentsCount !== null && courseStudentsCount > 0);
   }, [avgProgress, avgTimeMinutes, courseStudentsCount]);
 
-  // helpers for displaying student name & last activity
   const getStudentName = (s: any) => {
     const prof = s.profile;
     if (prof) {
@@ -235,7 +214,7 @@ export const StatisticsSection = () => {
   const formatDateTime = (isoString: string | null | undefined) => {
   if (!isoString) return "—";
   const date = new Date(isoString);
-  if (isNaN(date.getTime())) return "—"; // если дата некорректная
+  if (isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat('ru-RU', {
     year: 'numeric',
     month: 'long',
@@ -244,11 +223,6 @@ export const StatisticsSection = () => {
     minute: '2-digit'
   }).format(date);
 };
-
-  const handleExport = () => {
-    if (!selectedCourseId) return;
-    ExpertService.exportCourseStatisticsToExcel?.(selectedCourseId);
-  };
 
   const pagesCount = Math.max(1, Math.ceil((totalStudents || 0) / size));
 

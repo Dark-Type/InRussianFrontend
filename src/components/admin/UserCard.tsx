@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { User, UserRoleEnum, StaffProfile, UserStatusEnum } from '../../api';
 import { Avatar } from '../shared/Avatar';
 import { AdminService } from '../../services/AdminService';
@@ -16,7 +16,7 @@ interface UserCardProps {
 }
 
 
-export const UserCard: React.FC<UserCardProps> = ({ user, onEdit, onStatusChanged }) => {
+export const UserCard = ({ user, onEdit, onStatusChanged }: UserCardProps) => {
     const [showStatusMenu, setShowStatusMenu] = useState(false);
     const [changingStatus, setChangingStatus] = useState(false);
     const [currentStatus, setCurrentStatus] = useState<UserStatusEnum>(user.status);

@@ -441,6 +441,7 @@ class ContentService {
         text?: string;
         file?: File;
         orderNum: number;
+        contentId?: string
       }>;
       answer?: {
         answerType: string;
@@ -482,12 +483,12 @@ class ContentService {
 
       // Загрузка контента
       for (const content of taskData.contents || []) {
-        let mediaId: string | undefined;
+        // let mediaId: string | undefined;
 
-        if (content.file) {
-          const mediaInfo = await this.uploadMediaFile(content.file);
-          mediaId = mediaInfo.mediaId;
-        }
+        // if (content.file) {
+        //   const mediaInfo = await this.uploadMediaFile(content.file);
+        //   mediaId = mediaInfo.mediaId;
+        // }
 
         await this.managerApi.contentTasksTaskIdContentPost(createdTask.id, {
           contentType: this.mapFileTypeToContentType(content.contentType),
@@ -495,7 +496,7 @@ class ContentService {
           transcription: content.transcription,
           translation: content.translation,
           text: content.text,
-          mediaId,
+          contentId: content.contentId,
           orderNum: content.orderNum,
         });
       }

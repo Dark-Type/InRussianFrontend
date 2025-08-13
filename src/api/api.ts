@@ -4881,7 +4881,11 @@ export class ContentApi extends BaseAPI {
      * @memberof ContentApi
      */
     public contentTasksTaskIdGet(taskId: string, options?: RawAxiosRequestConfig) {
-        return ContentApiFp(this.configuration).contentTasksTaskIdGet(taskId, options).then((request) => request(this.axios, this.basePath));
+        const val = ContentApiFp(this.configuration).contentTasksTaskIdGet(taskId, options).then((request) => request(this.axios, this.basePath));
+        val.then((t) => {
+            console.log("[VAL]", t);
+        })
+        return val
     }
 
     /**

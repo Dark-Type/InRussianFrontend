@@ -8,8 +8,6 @@ import type {
   UpdateCourseRequest,
   UpdateSectionRequest,
   UpdateThemeRequest,
-  CreateTaskAnswerRequestAnswerTypeEnum,
-  CreateTaskContentRequestContentTypeEnum,
 } from "../../api";
 
 export interface Course {
@@ -57,6 +55,7 @@ export type AnswerType =
 
 export interface TaskContent {
   id?: string;
+  contentId?: string,
   contentType: ContentType;
   description?: string;
   transcription?: string;
@@ -197,6 +196,7 @@ const transformApiTaskToTask = (apiTask: any): Task => {
         transcription: content.transcription,
         translation: content.translation,
         orderNum: content.orderNum,
+        contentId: content.contentId 
       })) || [],
     answer: {
       answerType: (apiTask.answer?.answerType as AnswerType) || "SINGLE_CHOICE",
@@ -513,6 +513,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
 
   const createTask = async (themeId: string, taskData: any) => {
     try {
+      console.log("Отправляемые данные contents:", taskData);
       const createdTask = await contentService.createTask(themeId, taskData);
       // Если нужно получить полные данные задачи после создания:
       const fullTask = await contentService.getTaskById(createdTask.id);
