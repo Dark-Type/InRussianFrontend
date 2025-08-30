@@ -116,7 +116,7 @@ export function ProfileProvider({children}: ProfileProviderProps) {
     };
 
     const getAvatarUrl = (mediaId: string): string => {
-        return `${import.meta.env.VITE_API_URL || "http://localhost:8080"}/media/${mediaId}`;
+        return `${import.meta.env.VITE_API_URL || "/api"}/media/${mediaId}`;
     };
 
     const updateAvatar = async (mediaId: string, file: File, userId?: string): Promise<MediaFileMeta> => {

@@ -26,7 +26,7 @@ class TaskService {
 
     constructor() {
         const config = new Configuration({
-            basePath: import.meta.env.VITE_API_URL || "http://localhost:8080",
+            basePath: import.meta.env.VITE_API_URL || "/api",
         });
         this.contentApi = new ContentApi(config, undefined, axiosInstance);
         this.managerApi = new ContentManagerApi(config, undefined, axiosInstance);

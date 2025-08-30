@@ -2,7 +2,7 @@ import axios from 'axios';
 import {AuthApi, Configuration} from '../api';
 
 const axiosInstance = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080'
+    baseURL: import.meta.env.VITE_API_URL || "/api"
 });
 
 export const authApi = new AuthApi(

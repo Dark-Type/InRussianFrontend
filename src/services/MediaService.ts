@@ -4,7 +4,7 @@ import {axiosInstance} from "../instances/axiosInstance";
 
 const mediaApi = new MediaApi(
     new Configuration({
-        basePath: import.meta.env.VITE_API_URL || "http://localhost:8080",
+        basePath: import.meta.env.VITE_API_URL || "/api",
     }),
     undefined,
     axiosInstance
