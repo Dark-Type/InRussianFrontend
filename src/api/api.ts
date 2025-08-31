@@ -192,6 +192,8 @@ export interface Course {
      * @memberof Course
      */
     'isPublished': boolean;
+
+    'coursePoster'?: string | null;
     /**
      * 
      * @type {string}
@@ -272,6 +274,8 @@ export interface CreateCourseRequest {
      * @memberof CreateCourseRequest
      */
     'language': string;
+
+    'coursePoster'?: string | null;
     /**
      * 
      * @type {boolean}
@@ -1514,6 +1518,8 @@ export interface UpdateCourseRequest {
      * @memberof UpdateCourseRequest
      */
     'language'?: string;
+
+    'coursePoster'?: string | null;
     /**
      * 
      * @type {boolean}

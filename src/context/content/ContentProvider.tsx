@@ -17,6 +17,10 @@ export interface Course {
   sectionsCount: number;
   themesCount: number;
   tasksCount: number;
+  authorUrl?: string;
+  language?: string;
+  isPublished?: boolean;
+  coursePoster?: string;
 }
 
 export interface Section {

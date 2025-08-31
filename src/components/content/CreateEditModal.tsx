@@ -1,304 +1,360 @@
+// frontend/src/components/content/CreateEditModal.tsx
 import React, { useEffect, useState } from "react";
+import { mediaService } from "../../services/MediaService.ts";
 
 interface CreateEditModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (name: string, description?: string) => Promise<void>;
-  onDelete?: () => Promise<void>;
-  title: string;
-  initialName?: string;
-  initialDescription?: string;
-  isEdit?: boolean;
-  deleteWarning?: string;
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (data: {
+        name: string;
+        description?: string;
+        authorUrl?: string;
+        language?: string;
+        coursePoster?: string | null;
+        isPublished?: boolean;
+    }) => Promise<void>;
+    onDelete?: () => Promise<void>;
+    title: string;
+    initialName?: string;
+    initialDescription?: string;
+    isEdit?: boolean;
+    deleteWarning?: string;
+    type?: "course" | "section" | "theme";
+    initialAuthorUrl?: string;
+    initialLanguage?: string;
+    initialCoursePosterId?: string | null;
+    initialIsPublished?: boolean;
 }
 
 export const CreateEditModal = ({
-  isOpen,
-  onClose,
-  onSave,
-  onDelete,
-  title,
-  initialName = "",
-  initialDescription = "",
-  isEdit = false,
-  deleteWarning,
-}: CreateEditModalProps) => {
-  const [name, setName] = useState(initialName);
-  const [description, setDescription] = useState(initialDescription);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+                                    isOpen,
+                                    onClose,
+                                    onSave,
+                                    onDelete,
+                                    title,
+                                    initialName = "",
+                                    initialDescription = "",
+                                    isEdit = false,
+                                    deleteWarning,
+                                    type = "course",
+                                    initialAuthorUrl = "",
+                                    initialLanguage = "",
+                                    initialCoursePosterId = null,
+                                    initialIsPublished = false,
+                                }: CreateEditModalProps) => {
+    const [name, setName] = useState(initialName);
+    const [description, setDescription] = useState(initialDescription);
+    const [isLoading, setIsLoading] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+    // Course-specific
+    const [authorUrl, setAuthorUrl] = useState(initialAuthorUrl);
+    const [language, setLanguage] = useState(initialLanguage);
+    const [coursePosterId, setCoursePosterId] = useState<string | null>(initialCoursePosterId);
+    const [selectedFileName, setSelectedFileName] = useState<string>("");
+    const [isPublished, setIsPublished] = useState<boolean>(initialIsPublished ?? false);
 
-  useEffect(() => {
-    if (isOpen) {
-      setName(initialName);
-      setDescription(initialDescription);
-    }
-  }, [isOpen, initialName, initialDescription]);
+    useEffect(() => {
+        if (isOpen) {
+            setName(initialName);
+            setDescription(initialDescription);
+            setAuthorUrl(initialAuthorUrl);
+            setLanguage(initialLanguage);
+            setCoursePosterId(initialCoursePosterId ?? null);
+            setSelectedFileName("");
+            setIsPublished(initialIsPublished ?? false);
+        }
+    }, [
+        isOpen,
+        initialName,
+        initialDescription,
+        initialAuthorUrl,
+        initialLanguage,
+        initialCoursePosterId,
+        initialIsPublished,
+    ]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        try {
+            setIsLoading(true);
+            await onSave({
+                name: name.trim(),
+                description: description?.trim() || undefined,
+                authorUrl: authorUrl?.trim() || undefined,
+                language: language?.trim() || undefined, // должен соответствовать SystemLanguages
+                coursePoster: coursePosterId ?? null,     // только mediaId
+                isPublished,
+            });
+            onClose();
+        } catch (error) {
+            console.error("Ошибка сохранения:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-    try {
-      setIsLoading(true);
-      await onSave(name.trim(), description.trim() || undefined);
-      setName("");
-      setDescription("");
-      onClose();
-    } catch (error) {
-      console.error("Ошибка сохранения:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const handleDelete = async () => {
+        if (!onDelete) return;
+        try {
+            setIsLoading(true);
+            await onDelete();
+            onClose();
+            setShowDeleteConfirm(false);
+        } catch (error) {
+            console.error("Ошибка удаления:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-  const handleDelete = async () => {
-    if (!onDelete) {
-        return;
-    }
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            setIsLoading(true);
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("fileName", file.name);
+            formData.append("mimeType", file.type);
+            formData.append("fileSize", String(file.size));
+            // Постер всегда IMAGE
+            formData.append("fileType", "IMAGE");
 
-    try {
-      setIsLoading(true);
-      await onDelete();
-      onClose();
-      setShowDeleteConfirm(false);
-    } catch (error) {
-      console.error("Ошибка удаления:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+            const resp = await mediaService.uploadMediaWithMeta(formData);
+            const mediaId = resp.mediaId;
+            setCoursePosterId(mediaId);
+            setSelectedFileName(file.name);
+        } catch (error) {
+            console.error("Ошибка загрузки постера курса:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-  
+    const handleRemoveImage = async () => {
+        if (!coursePosterId) {
+            setSelectedFileName("");
+            return;
+        }
+        try {
+            setIsLoading(true);
+            await mediaService.deleteMedia(coursePosterId);
+        } catch (error) {
+            console.error("Ошибка удаления медиа:", error);
+        } finally {
+            setCoursePosterId(null);
+            setSelectedFileName("");
+            setIsLoading(false);
+        }
+    };
 
-  if (!isOpen) return null;
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "rgba(0, 0, 0, 0.5)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 1000,
-      }}
-    >
-      <div
-        style={{
-          background: "var(--color-card)",
-          borderRadius: "8px",
-          padding: "24px",
-          minWidth: "400px",
-          maxWidth: "500px",
-        }}
-      >
-        {!showDeleteConfirm ? (
-          <>
-            <h3 style={{ margin: "0 0 16px 0", fontWeight: 600 }}>{title}</h3>
+    if (!isOpen) return null;
 
-            <form onSubmit={handleSubmit}>
-              <div style={{ marginBottom: "16px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "6px",
-                    fontWeight: 500,
-                  }}
-                >
-                  Название *
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "6px",
-                    fontSize: "1rem",
-                    background: "var(--color-bg)",
-                    color: "var(--color-text)",
-                    boxSizing: "border-box",
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: "24px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "6px",
-                    fontWeight: 500,
-                  }}
-                >
-                  Описание
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={3}
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "6px",
-                    fontSize: "1rem",
-                    background: "var(--color-bg)",
-                    color: "var(--color-text)",
-                    resize: "vertical",
-                    boxSizing: "border-box",
-                  }}
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: "12px",
-                  justifyContent:
-                    isEdit && onDelete ? "space-between" : "flex-end",
-                }}
-              >
-                {isEdit && onDelete && (
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteConfirm(true)}
-                    disabled={isLoading}
-                    style={{
-                      padding: "10px 20px",
-                      background: "#dc3545",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      cursor: isLoading ? "not-allowed" : "pointer",
-                      fontWeight: 500,
-                    }}
-                  >
-                    🗑️ Удалить
-                  </button>
-                )}
-
-                <div style={{ display: "flex", gap: "12px" }}>
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    disabled={isLoading}
-                    style={{
-                      padding: "10px 20px",
-                      background: "var(--color-border)",
-                      color: "var(--color-text)",
-                      border: "none",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      fontWeight: 500,
-                    }}
-                  >
-                    Отмена
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!name.trim() || isLoading}
-                    style={{
-                      padding: "10px 20px",
-                      background: isLoading
-                        ? "var(--color-border)"
-                        : "var(--color-primary)",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      cursor: isLoading ? "not-allowed" : "pointer",
-                      fontWeight: 500,
-                    }}
-                  >
-                    {isLoading
-                      ? "Сохранение..."
-                      : isEdit
-                      ? "Сохранить"
-                      : "Создать"}
-                  </button>
-                </div>
-              </div>
-            </form>
-          </>
-        ) : (
-          <>
-            <h3
-              style={{
-                margin: "0 0 16px 0",
-                fontWeight: 600,
-                color: "#dc3545",
-              }}
-            >
-              ⚠️ Подтверждение удаления
-            </h3>
-
-            <div style={{ marginBottom: "24px" }}>
-              <p style={{ margin: "0 0 12px 0" }}>
-                Вы действительно хотите удалить <strong>{name}</strong>?
-              </p>
-              {deleteWarning && (
-                <div
-                  style={{
-                    padding: "12px",
-                    background: "#fff3cd",
-                    border: "1px solid #ffeaa7",
-                    borderRadius: "6px",
-                    color: "#856404",
-                  }}
-                >
-                  <strong>Внимание:</strong> {deleteWarning}
-                </div>
-              )}
-            </div>
-
-            <div
-              style={{
+    return (
+        <div
+            style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.5)",
                 display: "flex",
-                gap: "12px",
-                justifyContent: "flex-end",
-              }}
+                justifyContent: "center",
+                alignItems: "center",
+                zIndex: 1000,
+            }}
+        >
+            <div
+                style={{
+                    background: "var(--color-card)",
+                    borderRadius: 8,
+                    padding: 24,
+                    minWidth: 400,
+                    maxWidth: 640,
+                }}
             >
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={isLoading}
-                style={{
-                  padding: "10px 20px",
-                  background: "var(--color-border)",
-                  color: "var(--color-text)",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontWeight: 500,
-                }}
-              >
-                Отмена
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={isLoading}
-                style={{
-                  padding: "10px 20px",
-                  background: isLoading ? "#6c757d" : "#dc3545",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: isLoading ? "not-allowed" : "pointer",
-                  fontWeight: 500,
-                }}
-              >
-                {isLoading ? "Удаление..." : "Удалить навсегда"}
-              </button>
+                {!showDeleteConfirm ? (
+                    <form onSubmit={handleSubmit}>
+                        <h3 style={{ marginTop: 0 }}>{title}</h3>
+
+                        <label style={{ display: "block", marginTop: 12 }}>
+                            Название
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                required
+                                style={{ width: "100%", marginTop: 6 }}
+                            />
+                        </label>
+
+                        <label style={{ display: "block", marginTop: 12 }}>
+                            Описание
+                            <textarea
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                rows={3}
+                                style={{ width: "100%", marginTop: 6 }}
+                            />
+                        </label>
+
+                        {type === "course" && (
+                            <>
+                                <label style={{ display: "block", marginTop: 12 }}>
+                                    Автор URL
+                                    <input
+                                        type="url"
+                                        value={authorUrl}
+                                        onChange={(e) => setAuthorUrl(e.target.value)}
+                                        placeholder="https://..."
+                                        style={{ width: "100%", marginTop: 6 }}
+                                    />
+                                </label>
+
+                                <label style={{ display: "block", marginTop: 12 }}>
+                                    Язык (SystemLanguages)
+                                    <input
+                                        type="text"
+                                        value={language}
+                                        onChange={(e) => setLanguage(e.target.value.toUpperCase())}
+                                        placeholder="например: RUSSIAN"
+                                        style={{ width: "100%", marginTop: 6 }}
+                                    />
+                                </label>
+
+                                <div style={{ marginTop: 12 }}>
+                                    <div style={{ marginBottom: 6, fontWeight: 600 }}>Постер курса (IMAGE)</div>
+                                    {!coursePosterId ? (
+                                        <input type="file" accept="image/*" onChange={handleImageChange} />
+                                    ) : (
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 8,
+                                                fontSize: "0.9rem",
+                                            }}
+                                        >
+                                            <span>Загружено: {selectedFileName || "image"}</span>
+                                            <span style={{ color: "var(--color-text-secondary)" }}>
+                        mediaId: {coursePosterId}
+                      </span>
+                                            <button
+                                                type="button"
+                                                onClick={handleRemoveImage}
+                                                style={{
+                                                    marginLeft: "auto",
+                                                    background: "#dc3545",
+                                                    color: "#fff",
+                                                    border: "none",
+                                                    borderRadius: 4,
+                                                    padding: "6px 10px",
+                                                    cursor: "pointer",
+                                                }}
+                                            >
+                                                Удалить
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={isPublished}
+                                        onChange={(e) => setIsPublished(e.target.checked)}
+                                    />
+                                    Опубликован
+                                </label>
+                            </>
+                        )}
+
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
+                            {isEdit && onDelete && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDeleteConfirm(true)}
+                                    style={{
+                                        background: "#dc3545",
+                                        color: "#fff",
+                                        border: "none",
+                                        borderRadius: 4,
+                                        padding: "8px 12px",
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    Удалить
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                disabled={isLoading}
+                                style={{
+                                    background: "var(--color-border)",
+                                    border: "none",
+                                    borderRadius: 4,
+                                    padding: "8px 12px",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                Отмена
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isLoading || !name.trim()}
+                                style={{
+                                    background: "var(--color-primary)",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: 4,
+                                    padding: "8px 12px",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                Сохранить
+                            </button>
+                        </div>
+                    </form>
+                ) : (
+                    <div>
+                        <h3 style={{ marginTop: 0 }}>Подтверждение удаления</h3>
+                        {deleteWarning && (
+                            <p style={{ color: "var(--color-text-secondary)" }}>{deleteWarning}</p>
+                        )}
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
+                            <button
+                                type="button"
+                                onClick={() => setShowDeleteConfirm(false)}
+                                style={{
+                                    background: "var(--color-border)",
+                                    border: "none",
+                                    borderRadius: 4,
+                                    padding: "8px 12px",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                Отмена
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDelete}
+                                disabled={isLoading}
+                                style={{
+                                    background: "#dc3545",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: 4,
+                                    padding: "8px 12px",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                Удалить
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
+        </div>
+    );
 };
