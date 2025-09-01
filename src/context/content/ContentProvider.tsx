@@ -3,12 +3,14 @@ import contentService from "../../services/ContentService.ts";
 import taskService from "../../services/TaskService.ts";
 import { mediaService } from "../../services/MediaService.ts";
 import { ContentContext } from "./ContentContext.ts";
+import type { TaskModel } from "../../components/content/task-editor/TaskModels.ts";
 import type {
   UpdateTaskRequest,
   UpdateCourseRequest,
   UpdateSectionRequest,
   UpdateThemeRequest,
 } from "../../api";
+import { axiosInstance } from "../../instances/axiosInstance.ts";
 
 export interface Course {
   id: string;
@@ -20,7 +22,7 @@ export interface Course {
   authorUrl?: string;
   language?: string;
   isPublished?: boolean;
-  coursePoster?: string;
+  posterId?: string;
 }
 
 export interface Section {
@@ -115,11 +117,13 @@ export interface ContentContextType {
   sections: { [courseId: string]: Section[] };
   themes: { [sectionId: string]: Theme[] };
   tasks: { [themeId: string]: Task[] };
+  taskModels: { [themeId: string]: TaskModel[] };
 
   loadCourses: () => Promise<void>;
   loadSections: (courseId: string) => Promise<void>;
   loadThemes: (sectionId: string) => Promise<void>;
   loadTasks: (themeId: string) => Promise<void>;
+  loadTaskModels: (themeId: string) => Promise<void>;
 
   createCourse: (
     name: string,
@@ -225,6 +229,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
   );
   const [themes, setThemes] = useState<{ [sectionId: string]: Theme[] }>({});
   const [tasks, setTasks] = useState<{ [themeId: string]: Task[] }>({});
+  const [taskModels, setTaskModels] = useState<{ [themeId: string]: TaskModel[] }>({});
 
   const [isLoadingTasks, setIsLoadingTasks] = useState(false);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
@@ -285,6 +290,21 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  // Placeholder: загрузка TaskModel (новые задания редактора)
+  const loadTaskModels = async (themeId: string) => {
+    setIsLoadingTasks(true);
+    try {
+      const resp = await axiosInstance.get<TaskModel[]>("/task/theme/" + themeId)
+      const items: TaskModel[] = resp.data;
+      setTaskModels((prev) => ({ ...prev, [themeId]: items }));
+    } catch (error) {
+      console.error("Ошибка загрузки TaskModel:", error);
+      setTaskModels((prev) => ({ ...prev, [themeId]: [] }));
+    } finally {
+      setIsLoadingTasks(false);
+    }
+  };
+
   const createCourse = async (
     name: string,
     description?: string,
@@ -298,13 +318,14 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
         localStorage.getItem("userId") ||
         "0070ecd4-fa1f-4007-bde7-a5399b789fe1";
 
-      const newCourse = await contentService.createCourse(
+      const courseData: any = {
         name,
-        description || "",
-        defaultAuthorUrl,
-        language || "RUSSIAN",
-        isPublished || false
-      );
+        description: description || "",
+        authorUrl: defaultAuthorUrl,
+        language: language || "RUSSIAN",
+        isPublished: isPublished ?? false,
+      };
+      const newCourse = await contentService.createCourse(courseData);
       setCourses((prev) => [...prev, newCourse]);
     } catch (error) {
       console.error("Ошибка создания курса:", error);
@@ -518,7 +539,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
   const createTask = async (themeId: string, taskData: any) => {
     try {
       console.log("Отправляемые данные contents:", taskData);
-      const createdTask = await contentService.createTask(themeId, taskData);
+  const createdTask: any = await contentService.createTask(themeId, taskData);
       // Если нужно получить полные данные задачи после создания:
       const fullTask = await contentService.getTaskById(createdTask.id);
       // Обновляем состояние, если нужно
@@ -626,10 +647,12 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
         sections,
         themes,
         tasks,
+  taskModels,
         loadCourses,
         loadSections,
         loadThemes,
         loadTasks,
+  loadTaskModels,
         createCourse,
         createSection,
         createTheme,

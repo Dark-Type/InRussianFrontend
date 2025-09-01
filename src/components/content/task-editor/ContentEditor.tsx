@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import type {
   TaskContent,
   ContentType,
 } from "../../../context/content/ContentProvider.tsx";
 import { mediaService } from "../../../services/MediaService.ts";
+import styles from "./ContentEditor.module.css";
 
 interface ContentEditorProps {
   contents: TaskContent[];
@@ -16,7 +17,9 @@ export const ContentEditor = ({
 }: ContentEditorProps) => {
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const getMediaKey = (content: TaskContent) =>
+    (content.contentId ?? content.id ?? "") as string;
 
   const addContent = (type: ContentType) => {
     const newContent: TaskContent = {
@@ -94,8 +97,8 @@ export const ContentEditor = ({
 
   const removeContent = async (id: string) => {
     try {
-      const contentToDelete = contents.find((c) => c.contentId === id);
-      console.log(contentToDelete)
+      const contentToDelete = contents.find((c) => c.id === id);
+      console.log(contentToDelete);
       if (!contentToDelete) return;
       if (contentToDelete.contentId) {
         try {
@@ -110,14 +113,15 @@ export const ContentEditor = ({
           );
         }
       }
-      if (mediaUrls[id]) {
-        URL.revokeObjectURL(mediaUrls[id]);
+      const key = getMediaKey(contentToDelete);
+      if (key && mediaUrls[key]) {
+        URL.revokeObjectURL(mediaUrls[key]);
       }
       const filtered = contents.filter((c) => c.id !== id);
       const reordered = filtered.map((c, index) => ({ ...c, orderNum: index }));
       setMediaUrls((prev) => {
         const newUrls = { ...prev };
-        delete newUrls[id];
+        if (key) delete newUrls[key];
         return newUrls;
       });
 
@@ -127,7 +131,7 @@ export const ContentEditor = ({
     }
   };
 
-  const fetchMedia = async (contentId: string, mediaId: string) => {
+  const fetchMedia = async (key: string, mediaId: string) => {
     try {
       const mediaBlob = await mediaService.getMediaById(mediaId);
       if (!mediaBlob || mediaBlob.size === 0) {
@@ -136,13 +140,13 @@ export const ContentEditor = ({
       const mediaUrl = URL.createObjectURL(mediaBlob);
       setMediaUrls((prev) => ({
         ...prev,
-        [contentId]: mediaUrl,
+        [key]: mediaUrl,
       }));
     } catch (error) {
       console.error("Ошибка загрузки медиа:", error);
       setMediaUrls((prev) => ({
         ...prev,
-        [contentId]: "/fallback-image.jpg",
+        [key]: "/fallback-image.jpg",
       }));
     }
   };
@@ -150,12 +154,14 @@ export const ContentEditor = ({
   useEffect(() => {
     contents.forEach((content) => {
       if (content.contentType !== "TEXT") {
-        if (content.contentId && !mediaUrls[content.contentId]) {
-          fetchMedia(content.contentId, content.contentId);
-        } else if (content.url && !mediaUrls[content.contentId]) {
+        const key = getMediaKey(content);
+        if (!key) return;
+        if (content.contentId && !mediaUrls[key]) {
+          fetchMedia(key, content.contentId);
+        } else if (content.url && !mediaUrls[key]) {
           setMediaUrls((prev) => ({
             ...prev,
-            [content.contentId]: content.url!,
+            [key]: content.url!,
           }));
         }
       }
@@ -170,30 +176,14 @@ export const ContentEditor = ({
 
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "16px",
-        }}
-      >
-        <h3 style={{ margin: 0, fontWeight: 600 }}>Содержимое задачи</h3>
-        <div style={{ display: "flex", gap: "8px" }}>
+      <div className={styles.header}>
+        <h3 className={styles.title}>Содержимое задачи</h3>
+        <div className={styles.actions}>
           <button
             type="button"
             onClick={() => addContent("TEXT")}
             disabled={isUploading}
-            style={{
-              padding: "6px 12px",
-              background: "var(--color-primary)",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "0.9rem",
-              opacity: isUploading ? 0.5 : 1,
-            }}
+            className={styles.actionButton}
           >
             Текст
           </button>
@@ -201,16 +191,7 @@ export const ContentEditor = ({
             type="button"
             onClick={() => addContent("AUDIO")}
             disabled={isUploading}
-            style={{
-              padding: "6px 12px",
-              background: "var(--color-primary)",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "0.9rem",
-              opacity: isUploading ? 0.5 : 1,
-            }}
+            className={styles.actionButton}
           >
             Аудио
           </button>
@@ -218,16 +199,7 @@ export const ContentEditor = ({
             type="button"
             onClick={() => addContent("IMAGE")}
             disabled={isUploading}
-            style={{
-              padding: "6px 12px",
-              background: "var(--color-primary)",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "0.9rem",
-              opacity: isUploading ? 0.5 : 1,
-            }}
+            className={styles.actionButton}
           >
             Изображение
           </button>
@@ -235,16 +207,7 @@ export const ContentEditor = ({
             type="button"
             onClick={() => addContent("VIDEO")}
             disabled={isUploading}
-            style={{
-              padding: "6px 12px",
-              background: "var(--color-primary)",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "0.9rem",
-              opacity: isUploading ? 0.5 : 1,
-            }}
+            className={styles.actionButton}
           >
             Видео
           </button>
@@ -252,97 +215,61 @@ export const ContentEditor = ({
       </div>
 
       {isUploading && (
-        <div style={{ marginBottom: "16px", textAlign: "center" }}>
-          Загрузка медиафайла...
-        </div>
+        <div className={styles.uploading}>Загрузка медиафайла...</div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-        {contents.map((content, index) => (
+      <div className={styles.list}>
+    {contents.map((content) => (
           <div
             key={content.id}
-            style={{
-              border: "1px solid var(--color-border)",
-              borderRadius: "8px",
-              padding: "16px",
-              position: "relative",
-            }}
+            className={styles.card}
           >
             <button
-              onClick={() => removeContent(content.contentId)}
-              style={{
-                position: "absolute",
-                right: "16px",
-                top: "16px",
-                background: "#dc3545",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                padding: "2px 4px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "2px",
-              }}
+      onClick={() => removeContent(content.id as string)}
+              className={styles.removeButton}
             >
               <span>×</span>
-              <span style={{ fontSize: "0.7rem" }}>Удалить</span>
+      <span className={styles.removeButtonLabel}>Удалить</span>
             </button>
 
             {content.contentType === "TEXT" ? (
               <textarea
                 value={content.text || ""}
                 onChange={(e) =>
-                  updateContent(content.id, { text: e.target.value })
+                  updateContent(content.id as string, { text: e.target.value })
                 }
                 placeholder="Введите текст..."
                 rows={3}
-                style={{
-                  width: "100%",
-                  padding: "8px 10px",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "4px",
-                  fontSize: "0.95rem",
-                  resize: "vertical",
-                  boxSizing: "border-box",
-                  marginBottom: "12px",
-                }}
+                className={styles.textarea}
               />
             ) : (
-              <div style={{ marginBottom: "12px" }}>
-                {(mediaUrls[content.contentId] || content.url) && (
-                  <div style={{ marginBottom: "8px" }}>
+              <div className={styles.mediaBlock}>
+                {(mediaUrls[getMediaKey(content)] || content.url) && (
+                  <div className={styles.mediaPreview}>
                     {content.contentType === "IMAGE" && (
                       <img
-                        src={mediaUrls[content.contentId] || content.url}
+                        src={mediaUrls[getMediaKey(content)] || content.url}
                         alt={content.description || ""}
-                        style={{
-                          maxWidth: "200px",
-                          maxHeight: "200px",
-                          objectFit: "contain",
-                        }}
-                        onError={(e) => {
+                        className={styles.image}
+                        onError={() => {
                           console.error("Ошибка загрузки изображения");
                         }}
                       />
                     )}
 
                     {content.contentType === "AUDIO" && (
-                      <audio controls style={{ width: "90%", zIndex: "" }}>
+                      <audio controls className={styles.audio}>
                         <source
-                          src={mediaUrls[content.contentId] || content.url}
+                          src={mediaUrls[getMediaKey(content)] || content.url}
                           type="audio/mpeg"
                         />
                       </audio>
                     )}
 
                     {content.contentType === "VIDEO" && (
-                      <video
-                        controls
-                        style={{ maxWidth: "300px", maxHeight: "200px" }}
-                      >
+                      <video controls className={styles.video}>
                         <source
-                          src={mediaUrls[content.contentId] || content.url}
+                          src={mediaUrls[getMediaKey(content)] || content.url}
                           type="video/mp4"
                         />
                       </video>
@@ -352,21 +279,10 @@ export const ContentEditor = ({
               </div>
             )}
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr 1fr",
-                gap: "12px",
-              }}
-            >
+            <div className={styles.fieldsGrid}>
               <div>
                 <label
-                  style={{
-                    display: "block",
-                    marginBottom: "4px",
-                    fontWeight: 500,
-                    fontSize: "0.9rem",
-                  }}
+                  className={styles.label}
                 >
                   Описание
                 </label>
@@ -374,27 +290,15 @@ export const ContentEditor = ({
                   type="text"
                   value={content.description || ""}
                   onChange={(e) =>
-                    updateContent(content.id, { description: e.target.value })
+                    updateContent(content.id as string, { description: e.target.value })
                   }
                   placeholder="Описание контента"
-                  style={{
-                    width: "100%",
-                    padding: "6px 8px",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "4px",
-                    fontSize: "0.9rem",
-                    boxSizing: "border-box",
-                  }}
+                  className={styles.input}
                 />
               </div>
               <div>
                 <label
-                  style={{
-                    display: "block",
-                    marginBottom: "4px",
-                    fontWeight: 500,
-                    fontSize: "0.9rem",
-                  }}
+                  className={styles.label}
                 >
                   Транскрипция
                 </label>
@@ -402,29 +306,17 @@ export const ContentEditor = ({
                   type="text"
                   value={content.transcription || ""}
                   onChange={(e) =>
-                    updateContent(content.id, {
+                    updateContent(content.id as string, {
                       transcription: e.target.value,
                     })
                   }
                   placeholder="Транскрипция"
-                  style={{
-                    width: "100%",
-                    padding: "6px 8px",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "4px",
-                    fontSize: "0.9rem",
-                    boxSizing: "border-box",
-                  }}
+                  className={styles.input}
                 />
               </div>
               <div>
                 <label
-                  style={{
-                    display: "block",
-                    marginBottom: "4px",
-                    fontWeight: 500,
-                    fontSize: "0.9rem",
-                  }}
+                  className={styles.label}
                 >
                   Перевод
                 </label>
@@ -432,17 +324,10 @@ export const ContentEditor = ({
                   type="text"
                   value={content.translation || ""}
                   onChange={(e) =>
-                    updateContent(content.id, { translation: e.target.value })
+                    updateContent(content.id as string, { translation: e.target.value })
                   }
                   placeholder="Перевод"
-                  style={{
-                    width: "100%",
-                    padding: "6px 8px",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "4px",
-                    fontSize: "0.9rem",
-                    boxSizing: "border-box",
-                  }}
+                  className={styles.input}
                 />
               </div>
             </div>
@@ -451,15 +336,7 @@ export const ContentEditor = ({
       </div>
 
       {contents.length === 0 && (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "32px",
-            color: "var(--color-text-secondary)",
-            border: "2px dashed var(--color-border)",
-            borderRadius: "8px",
-          }}
-        >
+        <div className={styles.empty}>
           Добавьте содержимое для задачи
         </div>
       )}

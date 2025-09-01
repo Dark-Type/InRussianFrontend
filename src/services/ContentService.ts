@@ -110,11 +110,12 @@ class ContentService {
                 // @ts-expect-error
                 isPublished: (apiCourse as any).isPublished,
                 // @ts-expect-error
-                coursePoster: (apiCourse as any).coursePoster ?? null,
+                courseId: (apiCourse as any).courseId ?? null,
 
                 sectionsCount: await this.getSectionsCountByCourse(apiCourse.id),
                 themesCount: await this.getThemesCountByCourse(apiCourse.id),
                 tasksCount: await this.getTasksCountByCourse(apiCourse.id),
+                posterId: (apiCourse as any).posterId
             }))
         );
 
@@ -136,7 +137,7 @@ class ContentService {
             // @ts-expect-error
             isPublished: (apiCourse as any).isPublished,
             // @ts-expect-error
-            coursePoster: (apiCourse as any).coursePoster ?? null,
+            courseId: (apiCourse as any).courseId ?? null,
 
             sectionsCount: await this.getSectionsCountByCourse(courseId),
             themesCount: await this.getThemesCountByCourse(courseId),
@@ -171,7 +172,7 @@ class ContentService {
             // @ts-expect-error
             isPublished: (apiCourse as any).isPublished,
             // @ts-expect-error
-            coursePoster: (apiCourse as any).coursePoster ?? courseData.coursePoster ?? null,
+            courseId: (apiCourse as any).courseId ?? courseData.courseId ?? null,
 
             sectionsCount: 0,
             themesCount: 0,
@@ -180,8 +181,8 @@ class ContentService {
     }
 
     async updateCourse(courseId: string, courseData: UpdateCourseRequest) {
-        const response: AxiosResponse<ApiCourse> =
-            await this.managerApi.contentCoursesCourseIdPut(courseId, courseData);
+        //AAAAAAAAAAAAAAAAAAAAAA
+        const response = await axiosInstance.put("/content/courses/" + courseId, courseData.name)
         return response.data;
     }
 

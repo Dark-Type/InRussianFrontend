@@ -1,20 +1,20 @@
 import {useState, useEffect} from "react";
 import {useContent} from "../../context/content/UseContent.ts";
 import {CreateEditModal} from "./CreateEditModal";
-import {TaskEditor} from "./TaskEditor";
-import type {Task} from "../../context/content/ContentProvider.tsx";
-import ContentService from "../../services/ContentService.ts";
+import TaskEditorModal from "./task-editor/TaskEditorModal.tsx";
+import type { TaskModel } from "./task-editor/TaskModels";
 
 export const CoursesManagement = () => {
     const {
         courses,
         sections,
         themes,
-        tasks,
+    taskModels,
         loadCourses,
         loadSections,
         loadThemes,
-        loadTasks,
+        
+    loadTaskModels,
         createCourse,
         createSection,
         createTheme,
@@ -24,7 +24,6 @@ export const CoursesManagement = () => {
         deleteCourse,
         deleteSection,
         deleteTheme,
-        deleteTask,
     } = useContent();
 
     const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
@@ -43,32 +42,25 @@ export const CoursesManagement = () => {
         isOpen: boolean;
         themeId?: string;
         themeName?: string;
-        task?: Task;
+        task?: TaskModel | null;
     }>({
         isOpen: false,
+        themeId: ""
     });
-    const openTaskEditor = (themeId: string, themeName: string, task?: Task) => {
+    const openTaskEditor = (themeId: string, themeName: string, task?: TaskModel | null) => {
+        console.log(task)
         setTaskEditorState({
             isOpen: true,
             themeId,
             themeName,
-            task,
+            task: task ?? null,
         });
     };
     const closeTaskEditor = () => {
         setTaskEditorState({isOpen: false});
     };
 
-    const handleTaskSave = async (taskData: Omit<Task, "id" | "themeId">) => {
-        if (!taskEditorState.themeId) return;
-        console.log(
-            "Saving task:",
-            taskData,
-            "for theme:",
-            taskEditorState.themeId
-        );
-        closeTaskEditor();
-    };
+    // Редактор TaskModel сам вызывает onCreated/onUpdated; тут ничего не сохраняем напрямую
 
     useEffect(() => {
         loadCourses();
@@ -107,8 +99,9 @@ export const CoursesManagement = () => {
             setExpandedTheme(null);
         } else {
             setExpandedTheme(themeId);
-            if (!tasks[themeId]) {
-                await loadTasks(themeId);
+            // Загружаем TaskModel (новые задания)
+            if (!taskModels[themeId]) {
+                await loadTaskModels(themeId);
             }
         }
     };
@@ -118,6 +111,7 @@ export const CoursesManagement = () => {
         parentId?: string,
         editItem?: any
     ) => {
+        console.log(editItem)
         setModalState({
             isOpen: true,
             type,
@@ -138,22 +132,14 @@ export const CoursesManagement = () => {
         description?: string;
         authorUrl?: string;
         language?: string;
-        coursePoster?: string | null;
+        posterId?: string | null;
         isPublished?: boolean;
     }) => {
         const {type, parentId, editItem} = modalState;
         if (editItem) {
             switch (type) {
                 case "course":
-                    // ожидается, что updateCourse принимает id и объект UpdateCourseRequest-подобный
-                    await updateCourse(editItem.id, {
-                        name: data.name,
-                        description: data.description,
-                        authorUrl: data.authorUrl,
-                        language: data.language,
-                        coursePoster: data.coursePoster,
-                        isPublished: data.isPublished,
-                    });
+                    await updateCourse(editItem.id, data.name, data.description);
                     break;
                 case "section":
                     await updateSection(editItem.id, data.name, data.description);
@@ -165,14 +151,13 @@ export const CoursesManagement = () => {
         } else {
             switch (type) {
                 case "course":
-                    await createCourse({
-                        name: data.name,
-                        description: data.description,
-                        coursePoster: data.coursePoster,
-                        authorUrl: data.authorUrl,
-                        language: data.language || "RUSSIAN",
-                        isPublished: data.isPublished ?? false,
-                    });
+                    await createCourse(
+                        data.name,
+                        data.description,
+                        data.authorUrl,
+                        data.language,
+                        data.isPublished
+                    );
                     break;
                 case "section":
                     if (parentId) await createSection(parentId, data.name, data.description);
@@ -219,15 +204,6 @@ export const CoursesManagement = () => {
         } catch (error) {
             console.error(`Ошибка удаления ${type}:`, error);
             throw error;
-        }
-    };
-    const handleDeleteTask = async (taskId: string) => {
-        const confirmed = window.confirm(
-            "Вы уверены, что хотите удалить эту задачу?"
-        );
-        if (confirmed) {
-            await deleteTask(taskId);
-            window.location.reload()
         }
     };
     const getDeleteWarning = (
@@ -556,7 +532,7 @@ export const CoursesManagement = () => {
                                                             </div>
                                                         </div>
 
-                                                        {/* Tasks */}
+                                                        {/* Tasks (TaskModels) */}
                                                         {expandedTheme === theme.id && (
                                                             <div
                                                                 style={{
@@ -573,7 +549,7 @@ export const CoursesManagement = () => {
                                                                     }}
                                                                 >
                                                                     <h6 style={{margin: 0, fontWeight: 600}}>
-                                                                        Задачи
+                                                                        Задачи (новый редактор)
                                                                     </h6>
                                                                     <button
                                                                         onClick={() =>
@@ -592,50 +568,33 @@ export const CoursesManagement = () => {
                                                                         + Создать задачу
                                                                     </button>
                                                                 </div>
-
-                                                                {tasks[theme.id]?.map((task) => (
+                                                                {taskModels[theme.id]?.map((task) => (
                                                                     <div
                                                                         key={task.id}
-                                                                        onClick={() =>
-                                                                            openTaskEditor(theme.id, theme.name, task)
-                                                                        }
                                                                         style={{
                                                                             padding: "8px 12px",
                                                                             background: "var(--color-bg)",
                                                                             border: "1px solid var(--color-border)",
                                                                             borderRadius: "4px",
-                                                                            cursor: "pointer",
                                                                             display: "flex",
                                                                             justifyContent: "space-between",
                                                                             alignItems: "center",
                                                                         }}
                                                                     >
                                                                         <div>
-                                                                            <span>{task.name}</span>
+                                                                            <span>{task.question || "Без вопроса"}</span>
                                                                             <div
                                                                                 style={{
                                                                                     fontSize: "0.8rem",
                                                                                     color: "var(--color-text-secondary)",
                                                                                 }}
                                                                             >
-                                                                                {task.taskType}{" "}
-                                                                                {task.isTraining && "(Тренировка)"}
+                                                                                {task.taskType.join(", ")}
                                                                             </div>
                                                                         </div>
-                                                                        <div
-                                                                            style={{display: "flex", gap: "4px"}}
-                                                                        >
+                                                                        <div style={{display: "flex", gap: "4px"}}>
                                                                             <button
-                                                                                onClick={() => {
-                                                                                    console.log(task)
-
-                                                                                    openTaskEditor(
-                                                                                        theme.id,
-                                                                                        theme.name,
-                                                                                        task
-                                                                                    )
-                                                                                }
-                                                                                }
+                                                                                onClick={() => openTaskEditor(theme.id, theme.name, task)}
                                                                                 style={{
                                                                                     padding: "2px 6px",
                                                                                     background: "var(--color-border)",
@@ -646,23 +605,6 @@ export const CoursesManagement = () => {
                                                                                 }}
                                                                             >
                                                                                 ✏️
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    handleDeleteTask(task.id);
-                                                                                }}
-                                                                                style={{
-                                                                                    background: "#dc3545",
-                                                                                    color: "white",
-                                                                                    border: "none",
-                                                                                    borderRadius: "4px",
-                                                                                    padding: "4px 8px",
-                                                                                    cursor: "pointer",
-                                                                                    fontSize: "0.8rem",
-                                                                                }}
-                                                                            >
-                                                                                🗑️
                                                                             </button>
                                                                         </div>
                                                                     </div>
@@ -702,10 +644,30 @@ export const CoursesManagement = () => {
                 type={modalState.type}
                 initialAuthorUrl={modalState.editItem?.authorUrl || ""}
                 initialLanguage={modalState.editItem?.language || ""}
-                initialCoursePosterId={modalState.editItem?.coursePoster || null}
+                initialCoursePosterId={modalState.editItem?.posterId || null}
                 initialIsPublished={modalState.editItem?.isPublished || false}
             />
 
+            <TaskEditorModal
+                isOpen={taskEditorState.isOpen}
+                onClose={() => {
+                    closeTaskEditor();
+                    if (taskEditorState.themeId) {
+                        // Обновляем список после закрытия
+                        loadTaskModels(taskEditorState.themeId);
+                    }
+                }}
+                themeId={taskEditorState.themeId!}
+                initialTask={taskEditorState.task || undefined}
+                onCreated={() => {
+                    if (taskEditorState.themeId) loadTaskModels(taskEditorState.themeId);
+                }}
+                onUpdated={() => {
+                    if (taskEditorState.themeId) loadTaskModels(taskEditorState.themeId);
+                }}
+            />
+            
+            {/* Tasks 
             <TaskEditor
                 isOpen={taskEditorState.isOpen}
                 onClose={closeTaskEditor}
@@ -714,6 +676,7 @@ export const CoursesManagement = () => {
                 themeId={taskEditorState.themeId || ""}
                 themeName={taskEditorState.themeName || ""}
             />
+            */}
         </div>
     );
 };

@@ -10,7 +10,7 @@ interface CreateEditModalProps {
         description?: string;
         authorUrl?: string;
         language?: string;
-        coursePoster?: string | null;
+        posterId?: string | null;
         isPublished?: boolean;
     }) => Promise<void>;
     onDelete?: () => Promise<void>;
@@ -38,7 +38,7 @@ export const CreateEditModal = ({
                                     deleteWarning,
                                     type = "course",
                                     initialAuthorUrl = "",
-                                    initialLanguage = "",
+                                    initialLanguage = "RUSSIAN",
                                     initialCoursePosterId = null,
                                     initialIsPublished = false,
                                 }: CreateEditModalProps) => {
@@ -48,20 +48,25 @@ export const CreateEditModal = ({
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     // Course-specific
-    const [authorUrl, setAuthorUrl] = useState(initialAuthorUrl);
+    // authorUrl previously held a URL string; now we use it to store an author image mediaId (uploaded via mediaService)
+    const [authorImageId, setAuthorImageId] = useState<string | null>(initialAuthorUrl);
     const [language, setLanguage] = useState(initialLanguage);
     const [coursePosterId, setCoursePosterId] = useState<string | null>(initialCoursePosterId);
+    const [authorSelectedFileName, setAuthorSelectedFileName] = useState<string>("");
+    const [authorImageUrl, setAuthorImageUrl] = useState<string | null>(null);
     const [selectedFileName, setSelectedFileName] = useState<string>("");
     const [isPublished, setIsPublished] = useState<boolean>(initialIsPublished ?? false);
+    const [posterUrl, setPosterUrl] = useState<string | null>(null);
 
     useEffect(() => {
         if (isOpen) {
             setName(initialName);
             setDescription(initialDescription);
-            setAuthorUrl(initialAuthorUrl);
+            setAuthorImageId(initialAuthorUrl);
             setLanguage(initialLanguage);
             setCoursePosterId(initialCoursePosterId ?? null);
             setSelectedFileName("");
+            setAuthorSelectedFileName("");
             setIsPublished(initialIsPublished ?? false);
         }
     }, [
@@ -74,6 +79,47 @@ export const CreateEditModal = ({
         initialIsPublished,
     ]);
 
+    useEffect(() => {
+        let objectUrl: string | null = null;
+        const fetchPoster = async () => {
+            setPosterUrl(null);
+            if (!coursePosterId) return;
+            try {
+                objectUrl = await getPosterUrl(coursePosterId);
+                setPosterUrl(objectUrl);
+            } catch (err) {
+                console.error('Ошибка получения постера:', err);
+                setPosterUrl(null);
+            }
+        };
+
+        fetchPoster();
+
+        return () => {
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+            }
+        };
+    }, [coursePosterId]);
+
+    useEffect(() => {
+        let objectUrl: string | null = null;
+        const fetchAuthorImage = async () => {
+            if (authorImageId) {
+                objectUrl = await getPosterUrl(authorImageId);
+                setAuthorImageUrl(objectUrl);
+            } else {
+                setAuthorImageUrl(null);
+            }
+        };
+
+        fetchAuthorImage();
+
+        return () => {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [authorImageId]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim()) return;
@@ -82,9 +128,10 @@ export const CreateEditModal = ({
             await onSave({
                 name: name.trim(),
                 description: description?.trim() || undefined,
-                authorUrl: authorUrl?.trim() || undefined,
+                // we send the uploaded author image mediaId in the authorUrl field to preserve the existing payload shape
+                authorUrl: authorImageId ?? undefined,
                 language: language?.trim() || undefined, // должен соответствовать SystemLanguages
-                coursePoster: coursePosterId ?? null,     // только mediaId
+                posterId: coursePosterId ?? null,     // только mediaId
                 isPublished,
             });
             onClose();
@@ -133,6 +180,46 @@ export const CreateEditModal = ({
         }
     };
 
+    const handleAuthorImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            setIsLoading(true);
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("fileName", file.name);
+            formData.append("mimeType", file.type);
+            formData.append("fileSize", String(file.size));
+            formData.append("fileType", "IMAGE");
+
+            const resp = await mediaService.uploadMediaWithMeta(formData);
+            const mediaId = resp.mediaId;
+            setAuthorImageId(mediaId);
+            setAuthorSelectedFileName(file.name);
+        } catch (error) {
+            console.error("Ошибка загрузки изображения автора:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleRemoveAuthorImage = async () => {
+        if (!authorImageId) {
+            setAuthorSelectedFileName("");
+            return;
+        }
+        try {
+            setIsLoading(true);
+            await mediaService.deleteMedia(authorImageId);
+        } catch (error) {
+            console.error("Ошибка удаления изображения автора:", error);
+        } finally {
+            setAuthorImageId(null);
+            setAuthorSelectedFileName("");
+            setIsLoading(false);
+        }
+    };
+
     const handleRemoveImage = async () => {
         if (!coursePosterId) {
             setSelectedFileName("");
@@ -149,6 +236,16 @@ export const CreateEditModal = ({
             setIsLoading(false);
         }
     };
+
+    const getPosterUrl = async (posterId: string) => {
+        try {
+            const blob = await mediaService.getMediaById(posterId);
+            return URL.createObjectURL(blob);
+        } catch (err) {
+            console.error('Ошибка загрузки медиа по id:', err);
+            return null;
+        }
+    }
 
     if (!isOpen) return null;
 
@@ -201,25 +298,58 @@ export const CreateEditModal = ({
                         {type === "course" && (
                             <>
                                 <label style={{ display: "block", marginTop: 12 }}>
-                                    Автор URL
-                                    <input
-                                        type="url"
-                                        value={authorUrl}
-                                        onChange={(e) => setAuthorUrl(e.target.value)}
-                                        placeholder="https://..."
-                                        style={{ width: "100%", marginTop: 6 }}
-                                    />
+                                    Автор (изображение)
+                                    <div style={{ marginTop: 6 }}>
+                                        {!authorImageId ? (
+                                            <input type="file" accept="image/*" onChange={handleAuthorImageChange} />
+                                        ) : (
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: 8,
+                                                    fontSize: "0.9rem",
+                                                }}
+                                            >
+                                                <img src={authorImageUrl || ''} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 4 }} />
+                                                <span>Загружено: {authorSelectedFileName || 'image'}</span>
+                                                <span style={{ color: "var(--color-text-secondary)" }}>
+                          mediaId: {authorImageId}
+                        </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleRemoveAuthorImage}
+                                                    style={{
+                                                        marginLeft: "auto",
+                                                        background: "#dc3545",
+                                                        color: "#fff",
+                                                        border: "none",
+                                                        borderRadius: 4,
+                                                        padding: "6px 10px",
+                                                        cursor: "pointer",
+                                                    }}
+                                                >
+                                                    Удалить
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </label>
 
                                 <label style={{ display: "block", marginTop: 12 }}>
-                                    Язык (SystemLanguages)
-                                    <input
-                                        type="text"
-                                        value={language}
-                                        onChange={(e) => setLanguage(e.target.value.toUpperCase())}
-                                        placeholder="например: RUSSIAN"
-                                        style={{ width: "100%", marginTop: 6 }}
-                                    />
+                                        Язык
+                                        <select
+                                            value={language || "RUSSIAN"}
+                                            onChange={(e) => setLanguage(e.target.value)}
+                                            style={{ width: "100%", marginTop: 6 }}
+                                        >
+                                            <option value="RUSSIAN">Русский</option>
+                                            <option value="UZBEK">Узбекский</option>
+                                            <option value="CHINESE">Китайский</option>
+                                            <option value="HINDI">Хинди</option>
+                                            <option value="TAJIK">Таджикский</option>
+                                            <option value="ENGLISH">Английский</option>
+                                        </select>
                                 </label>
 
                                 <div style={{ marginTop: 12 }}>
@@ -235,6 +365,11 @@ export const CreateEditModal = ({
                                                 fontSize: "0.9rem",
                                             }}
                                         >
+                                            <img
+                                                src={posterUrl || ''}
+                                                alt="poster"
+                                                style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 4 }}
+                                            />
                                             <span>Загружено: {selectedFileName || "image"}</span>
                                             <span style={{ color: "var(--color-text-secondary)" }}>
                         mediaId: {coursePosterId}

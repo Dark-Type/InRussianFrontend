@@ -1,5 +1,9 @@
 import { useState, useEffect } from "react";
 import expertService from "../../services/ExpertService";
+import { axiosInstance } from "../../instances/axiosInstance.ts";
+import type { TaskModel } from "../content/task-editor/TaskModels";
+import TaskEditorModal from "../content/task-editor/TaskEditorModal";
+import { taskTypesToRu } from "../content/task-editor/TaskModels";
 import type {
   Course,
   Section,
@@ -35,6 +39,9 @@ export const CoursesSection = () => {
   const [tasks, setTasks] = useState<{ [themeId: string]: TaskWithDetails[] }>(
     {}
   );
+  const [taskModels, setTaskModels] = useState<{ [themeId: string]: TaskModel[] }>({});
+  const [previewTask, setPreviewTask] = useState<TaskModel | null>(null);
+  const [previewThemeId, setPreviewThemeId] = useState<string | null>(null);
   const [contentStats, setContentStats] = useState<CountStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(
@@ -158,6 +165,19 @@ export const CoursesSection = () => {
       setExpandedTheme(null);
     } else {
       setExpandedTheme(themeId);
+      if (!taskModels[themeId]) {
+        loadTaskModels(themeId);
+      }
+    }
+  };
+
+  const loadTaskModels = async (themeId: string) => {
+    try {
+      const resp = await axiosInstance.get<TaskModel[]>(`/task/theme/${themeId}`);
+      setTaskModels((prev) => ({ ...prev, [themeId]: resp.data || [] }));
+    } catch (error) {
+      console.error(`Ошибка загрузки TaskModel для темы ${themeId}:`, error);
+      setTaskModels((prev) => ({ ...prev, [themeId]: [] }));
     }
   };
 
@@ -233,7 +253,7 @@ export const CoursesSection = () => {
                   borderRadius: "4px",
                 }}
               >
-                {selectedTask.title || "Без названия"}
+                {selectedTask.name || "Без названия"}
               </div>
             </div>
 
@@ -256,7 +276,7 @@ export const CoursesSection = () => {
                   whiteSpace: "pre-wrap",
                 }}
               >
-                {selectedTask.description || "Описание отсутствует"}
+                {selectedTask.instructions || "Описание отсутствует"}
               </div>
             </div>
 
@@ -279,7 +299,22 @@ export const CoursesSection = () => {
                   whiteSpace: "pre-wrap",
                 }}
               >
-                {selectedTask.content || "Содержание отсутствует"}
+                {selectedTask.content && selectedTask.content.length > 0 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {selectedTask.content.map((c) => (
+                      <div key={c.id} style={{ padding: 8, background: "var(--color-bg)", borderRadius: 4, border: "1px solid var(--color-border)" }}>
+                        <div style={{ fontWeight: 600 }}>{c.contentType}</div>
+                        {(c.description || c.transcription || c.translation) && (
+                          <div style={{ color: "var(--color-text-secondary)", fontSize: "0.85rem" }}>
+                            {[c.description, c.transcription, c.translation].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  "Содержание отсутствует"
+                )}
               </div>
             </div>
 
@@ -319,7 +354,7 @@ export const CoursesSection = () => {
                             fontWeight: option.isCorrect ? "bold" : "normal",
                           }}
                         >
-                          {String.fromCharCode(65 + index)}. {option.text}
+                          {String.fromCharCode(65 + index)}. {option.optionText}
                           {option.isCorrect && (
                             <span
                               style={{ color: "#28a745", marginLeft: "8px" }}
@@ -353,7 +388,7 @@ export const CoursesSection = () => {
                     border: "2px solid #28a745",
                   }}
                 >
-                  {selectedTask.answer}
+                  {selectedTask.answer?.answerType || ""}
                 </div>
               </div>
             )}
@@ -382,7 +417,7 @@ export const CoursesSection = () => {
                     borderRadius: "4px",
                   }}
                 >
-                  {selectedTask.type || "Не указан"}
+                  {selectedTask.taskType || "Не указан"}
                 </div>
               </div>
               <div>
@@ -402,8 +437,8 @@ export const CoursesSection = () => {
                     borderRadius: "4px",
                   }}
                 >
-                  {selectedTask.orderIndex !== undefined
-                    ? selectedTask.orderIndex + 1
+                  {selectedTask.orderNum !== undefined
+                    ? selectedTask.orderNum
                     : "Не указан"}
                 </div>
               </div>
@@ -429,6 +464,7 @@ export const CoursesSection = () => {
             animation: "spin 1s linear infinite",
           }}
         />
+  {/* Preview modal is rendered below to ensure themeId is provided */}
       </div>
     );
   }
@@ -566,7 +602,7 @@ export const CoursesSection = () => {
                         >
                           <div>
                             <h4 style={{ margin: "0 0 4px 0" }}>
-                              {section.title}
+                              {section.name}
                             </h4>
                             <p
                               style={{
@@ -638,7 +674,7 @@ export const CoursesSection = () => {
                                 >
                                   <div>
                                     <h5 style={{ margin: "0 0 2px 0" }}>
-                                      {theme.title}
+                                      {theme.name}
                                     </h5>
                                     <p
                                       style={{
@@ -681,72 +717,121 @@ export const CoursesSection = () => {
                                 </div>
                               </div>
 
-                              {expandedTheme === theme.id &&
-                                tasks[theme.id] && (
-                                  <div
+                              {expandedTheme === theme.id && (
+                                <div
+                                  style={{
+                                    padding: "0 0 0 24px",
+                                    marginTop: "8px",
+                                  }}
+                                >
+                                  {/* Новые задания (TaskModel) */}
+                                  <h6
                                     style={{
-                                      padding: "0 0 0 24px",
-                                      marginTop: "8px",
+                                      margin: "0 0 8px 0",
+                                      fontWeight: 600,
                                     }}
                                   >
-                                    <h6
-                                      style={{
-                                        margin: "0 0 8px 0",
-                                        fontWeight: 600,
-                                      }}
-                                    >
-                                      Задачи:
-                                    </h6>
-                                    {tasks[theme.id].map((task) => (
+                                    Новые задания:
+                                  </h6>
+                                  {taskModels[theme.id] && taskModels[theme.id].length > 0 ? (
+                                    taskModels[theme.id].map((tm) => (
                                       <div
-                                        key={task.id}
-                                        onClick={() => setSelectedTask(task)}
+                                        key={tm.id}
                                         style={{
                                           padding: "8px 12px",
                                           marginBottom: "4px",
-                                          cursor: "pointer",
                                           background: "var(--color-bg)",
                                           borderRadius: "4px",
-                                          border:
-                                            "1px solid var(--color-border)",
+                                          border: "1px solid var(--color-border)",
                                           display: "flex",
                                           justifyContent: "space-between",
                                           alignItems: "center",
+                                          cursor: "pointer",
                                         }}
+                                        onClick={() => { setPreviewTask(tm); setPreviewThemeId(String(theme.id)); }}
                                       >
                                         <div>
                                           <div style={{ fontWeight: 500 }}>
-                                            {task.title ||
-                                              task.name ||
-                                              "Задача без названия"}
+                                            {tm.question || "Без вопроса"}
                                           </div>
                                           <div
                                             style={{
                                               fontSize: "0.8rem",
-                                              color:
-                                                "var(--color-text-secondary)",
+                                              color: "var(--color-text-secondary)",
                                             }}
                                           >
-                                            {task.type || task.taskType}{" "}
-                                            {task.isTraining && "(Тренировка)"}
+                                            {tm.taskType && tm.taskType.length > 0
+                                              ? taskTypesToRu(tm.taskType)
+                                              : "Типы не указаны"}
                                           </div>
                                         </div>
-                                        <span
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div
+                                      style={{
+                                        fontSize: "0.85rem",
+                                        color: "var(--color-text-secondary)",
+                                      }}
+                                    >
+                                      Новых заданий нет
+                                    </div>
+                                  )}
+
+                                  {/* Старые задачи */}
+                                  {tasks[theme.id] && tasks[theme.id].length > 0 && (
+                                    <div style={{ marginTop: 10 }}>
+                                      <h6
+                                        style={{
+                                          margin: "0 0 8px 0",
+                                          fontWeight: 600,
+                                        }}
+                                      >
+                                        Старые задачи:
+                                      </h6>
+                                      {tasks[theme.id].map((task) => (
+                                        <div
+                                          key={task.id}
+                                          onClick={() => setSelectedTask(task)}
                                           style={{
-                                            fontSize: "0.9rem",
-                                            color:
-                                              "var(--color-text-secondary)",
+                                            padding: "8px 12px",
+                                            marginBottom: "4px",
+                                            cursor: "pointer",
+                                            background: "var(--color-bg)",
+                                            borderRadius: "4px",
+                                            border: "1px solid var(--color-border)",
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            alignItems: "center",
                                           }}
                                         >
-                                          #
-                                          {task.orderIndex !== undefined
-                                            ? task.orderIndex + 1
-                                            : "?"}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                                          <div>
+                                            <div style={{ fontWeight: 500 }}>
+                                              {task.name || "Задача без названия"}
+                                            </div>
+                                            <div
+                                              style={{
+                                                fontSize: "0.8rem",
+                                                color: "var(--color-text-secondary)",
+                                              }}
+                                            >
+                                              {task.taskType} {task.isTraining && "(Тренировка)"}
+                                            </div>
+                                          </div>
+                                          <span
+                                            style={{
+                                              fontSize: "0.9rem",
+                                              color: "var(--color-text-secondary)",
+                                            }}
+                                          >
+                                            #{task.orderNum !== undefined ? task.orderNum : "?"}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -771,6 +856,16 @@ export const CoursesSection = () => {
       </div>
 
       {renderTaskPopup()}
+
+      {previewTask && previewThemeId && (
+        <TaskEditorModal
+          isOpen={!!previewTask}
+          onClose={() => { setPreviewTask(null); setPreviewThemeId(null); }}
+          readOnly
+          initialTask={previewTask}
+          themeId={previewThemeId}
+        />
+      )}
     </div>
   );
 };
