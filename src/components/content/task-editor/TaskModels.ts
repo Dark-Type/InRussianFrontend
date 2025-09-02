@@ -19,19 +19,65 @@ export type TaskType =
 export type Pair<A, B> = [A, B];
 
 export interface Gap {
-  enter: string;
   correctWord: string;
-  index: number;
+  index: number; // internal; maps to backend indexWord
 }
 
 export interface Sentence {
+  label: string;
   text: string;
   gaps: Gap[];
 }
 
+export interface GapWithVariantModel {
+  indexWord: number; // matches backend indexWord
+  variants: string[];
+  correctVariant: string;
+}
+
+export interface TextInputWithVariantModel {
+  label: string;
+  text: string;
+  gaps: GapWithVariantModel[];
+}
+
+export interface AudioBlocks {
+  name: string;
+  description?: string | null;
+  audio: string; // mediaId | dataURL | base64
+  descriptionTranslate?: string | null;
+}
+
+export interface ListenAndSelectModel {
+  audioBlocks: AudioBlocks[];
+  variants: Pair<string, boolean>[];
+}
+
+export interface ImageBlocks {
+  name: string;
+  description?: string | null;
+  image: string; // mediaId | dataURL | base64
+  descriptionTranslate?: string | null;
+}
+
+export interface ImageAndSelectModel {
+  imageBlocks: ImageBlocks[];
+  variants: Pair<string, boolean>[];
+}
+
+export interface ConstructSentenceModel {
+  audio?: string | null; // mediaId | dataURL | base64
+  variants: string[]; // words in correct order
+}
+
+export interface SelectWordsModel {
+  audio: string; // mediaId | dataURL | base64 (required)
+  variants: Pair<string, boolean>[]; // single correct (radio)
+}
+
 export type TaskBody =
   | {
-      type: "TextTask";
+      type: "TextConnectTask";
       variant: Pair<string, string>[];
     }
   | {
@@ -40,15 +86,31 @@ export type TaskBody =
     }
   | {
       type: "TextInputTask";
-      sentence: Sentence[];
+      task: Sentence[];
     }
   | {
       type: "TextInputWithVariantTask";
-      variant: Pair<string, string[]>[];
+      task: TextInputWithVariantModel;
     }
   | {
       type: "ImageTask";
       variant: Pair<string, string>[];
+    }
+  | {
+      type: "ListenAndSelect";
+      task: ListenAndSelectModel;
+    }
+  | {
+      type: "ImageAndSelect";
+      task: ImageAndSelectModel;
+  }
+  | {
+      type: "ConstructSentenceTask";
+      task: ConstructSentenceModel;
+    }
+  | {
+      type: "SelectWordsTask";
+      task: SelectWordsModel;
     };
 
 export interface TaskModel {
@@ -73,8 +135,8 @@ export interface UpdateTaskModelRequest {
   taskTypes: TaskType[];
 }
 
-export const isTextTask = (b: TaskBody): b is Extract<TaskBody, { type: "TextTask" }> =>
-  b.type === "TextTask";
+// Removed nonexistent TextTask guard to avoid type errors
+export const isTextTask = (_b: TaskBody): _b is never => false;
 export const isAudioTask = (b: TaskBody): b is Extract<TaskBody, { type: "AudioTask" }> =>
   b.type === "AudioTask";
 export const isImageTask = (b: TaskBody): b is Extract<TaskBody, { type: "ImageTask" }> =>

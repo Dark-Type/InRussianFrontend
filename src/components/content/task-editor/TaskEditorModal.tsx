@@ -6,6 +6,12 @@ import type {
   Pair,
   Sentence,
   Gap,
+  TextInputWithVariantModel,
+  GapWithVariantModel,
+  ListenAndSelectModel,
+  ImageAndSelectModel,
+  ConstructSentenceModel,
+  SelectWordsModel,
   CreateTaskModelRequest,
   UpdateTaskModelRequest,
   TaskModel,
@@ -16,11 +22,15 @@ import { mediaService } from "../../../services/MediaService";
 // Представление Pair на проводе (бэкенд): { first, second }
 type PairObj<A, B> = { first: A; second: B };
 type WireTaskBody =
-  | { type: "TextTask"; variant: PairObj<string, string>[] }
+  | { type: "TextConnectTask"; variant: PairObj<string, string>[] }
   | { type: "AudioTask"; variant: PairObj<string, string>[] }
-  | { type: "TextInputTask"; sentence: Sentence[] }
-  | { type: "TextInputWithVariantTask"; variant: PairObj<string, string[]>[] }
-  | { type: "ImageTask"; variant: PairObj<string, string>[] };
+  | { type: "TextInputTask"; task: Sentence[] }
+  | { type: "TextInputWithVariantTask"; task: TextInputWithVariantModel }
+  | { type: "ImageTask"; variant: PairObj<string, string>[] }
+  | { type: "ListenAndSelect"; task: { audioBlocks: ListenAndSelectModel["audioBlocks"]; variants: PairObj<string, boolean>[] } }
+  | { type: "ImageAndSelect"; task: { imageBlocks: ImageAndSelectModel["imageBlocks"]; variants: PairObj<string, boolean>[] } }
+  | { type: "ConstructSentenceTask"; task: { audio: string | null; variants: string[] } }
+  | { type: "SelectWordsTask"; task: { audio: string; variants: PairObj<string, boolean>[] } };
 
 type Props = {
   isOpen: boolean;
@@ -147,6 +157,38 @@ async function uploadTaskBodyMediaIfNeeded(body: TaskBody): Promise<TaskBody> {
     );
     return { ...body, variant };
   }
+  if (body.type === "ListenAndSelect") {
+    const nextBlocks = await Promise.all(
+      body.task.audioBlocks.map(async (b) => ({
+        ...b,
+        audio: await uploadMediaString(b.audio, "audio"),
+      }))
+    );
+    return { ...body, task: { ...body.task, audioBlocks: nextBlocks } } as TaskBody;
+  }
+  if (body.type === "ImageAndSelect") {
+    const nextBlocks = await Promise.all(
+      body.task.imageBlocks.map(async (b) => ({
+        ...b,
+        image: await uploadMediaString(b.image, "image"),
+      }))
+    );
+    return { ...body, task: { ...body.task, imageBlocks: nextBlocks } } as TaskBody;
+  }
+  if (body.type === "ConstructSentenceTask") {
+    if (body.task.audio && (isDataUrl(body.task.audio) || isBareBase64(body.task.audio))) {
+      const mediaId = await uploadMediaString(body.task.audio, "audio");
+      return { ...body, task: { ...body.task, audio: mediaId } } as TaskBody;
+    }
+    return body;
+  }
+  if (body.type === "SelectWordsTask") {
+    if (body.task.audio && (isDataUrl(body.task.audio) || isBareBase64(body.task.audio))) {
+      const mediaId = await uploadMediaString(body.task.audio, "audio");
+      return { ...body, task: { ...body.task, audio: mediaId } } as TaskBody;
+    }
+    return body;
+  }
   return body;
 }
 
@@ -189,11 +231,15 @@ const TASK_TYPE_LABELS: Record<TaskType, string> = {
 };
 
 const BODY_TYPE_OPTIONS: { value: TaskBody["type"]; label: string }[] = [
-  { value: "TextTask", label: "Текстовые варианты" },
+  { value: "TextConnectTask", label: "Текстовые варианты" },
   { value: "AudioTask", label: "Аудио + Текст" },
   { value: "TextInputTask", label: "Ввод текста (Пропуски)" },
-  { value: "TextInputWithVariantTask", label: "Текст с вариантами" },
+  { value: "TextInputWithVariantTask", label: "Пропуски с вариантами" },
   { value: "ImageTask", label: "Изображение + Текст" },
+  { value: "ListenAndSelect", label: "Слушать и выбирать" },
+  { value: "ImageAndSelect", label: "Смотреть и выбирать" },
+  { value: "ConstructSentenceTask", label: "Собери предложение" },
+  { value: "SelectWordsTask", label: "Выбор слов" },
 ];
 
 const OVERLAY_STYLE: React.CSSProperties = {
@@ -224,7 +270,7 @@ export default function TaskEditorModal({ isOpen, onClose, onCreated, onUpdated,
 
   // тип и данные тела задания
   const [body, setBody] = useState<TaskBody>({
-    type: "TextTask",
+    type: "TextConnectTask",
     variant: [["", ""]],
   });
 
@@ -236,7 +282,7 @@ export default function TaskEditorModal({ isOpen, onClose, onCreated, onUpdated,
     if (!initialTask) {
       setQuestion("");
       setTaskTypes([]);
-      setBody({ type: "TextTask", variant: [["", ""]] });
+      setBody({ type: "TextConnectTask", variant: [["", ""]] });
       return;
     }
     setQuestion(initialTask.question ?? "");
@@ -255,8 +301,8 @@ export default function TaskEditorModal({ isOpen, onClose, onCreated, onUpdated,
   const handleChangeBodyType = (t: TaskBody["type"]) => {
     if (readOnly) return;
     switch (t) {
-      case "TextTask":
-        setBody({ type: "TextTask", variant: [["", ""]] });
+      case "TextConnectTask":
+        setBody({ type: "TextConnectTask", variant: [["", ""]] });
         break;
       case "AudioTask":
         setBody({ type: "AudioTask", variant: [["", ""]] });
@@ -264,44 +310,111 @@ export default function TaskEditorModal({ isOpen, onClose, onCreated, onUpdated,
       case "TextInputTask":
         setBody({
           type: "TextInputTask",
-          sentence: [{ text: "", gaps: [] }],
+          task: [{ label: "", text: "", gaps: [] }],
         });
         break;
       case "TextInputWithVariantTask":
         setBody({
           type: "TextInputWithVariantTask",
-          variant: [["", [""]]],
-        });
+          task: { label: "", text: "", gaps: [] },
+        } as any);
         break;
       case "ImageTask":
         setBody({ type: "ImageTask", variant: [["", ""]] });
+        break;
+      case "ListenAndSelect":
+        setBody({ type: "ListenAndSelect", task: { audioBlocks: [], variants: [["", false], ["", false]] } } as any);
+        break;
+      case "ImageAndSelect":
+        setBody({ type: "ImageAndSelect", task: { imageBlocks: [], variants: [["", false], ["", false]] } } as any);
+        break;
+      case "ConstructSentenceTask":
+        setBody({ type: "ConstructSentenceTask", task: { audio: null, variants: ["", ""] } } as any);
+        break;
+      case "SelectWordsTask":
+        setBody({ type: "SelectWordsTask", task: { audio: "", variants: [["", false], ["", false]] } } as any);
         break;
     }
   };
 
   const submitDisabled = useMemo(() => {
+    const isCreate = !initialTask;
     if (taskTypes.length === 0) return true;
+    if (isCreate && (!question || question.trim() === "")) return true;
     switch (body.type) {
-      case "TextTask":
+      case "TextConnectTask":
       case "ImageTask":
         return body.variant.length === 0 || body.variant.some(([a, b]) => !a || !b);
       case "AudioTask":
         return body.variant.length === 0 || body.variant.some(([a, b]) => !a || !b);
       case "TextInputTask":
         return (
-          body.sentence.length === 0 ||
-          body.sentence.some((s) => !s.text) ||
-          body.sentence.some((s) =>
-            s.gaps.some((g) => !g.enter || !g.correctWord || g.index < 0)
-          )
+          body.task.length === 0 ||
+          body.task.some((s) => !s.text || s.text.trim() === "") ||
+          body.task.some((s) => s.gaps.some((g) => !g.correctWord || g.index < 0)) ||
+          // duplicate gap indexes inside a sentence
+          body.task.some((s) => {
+            const idxs = s.gaps.map(g => g.index);
+            return new Set(idxs).size !== idxs.length;
+          })
         );
       case "TextInputWithVariantTask":
         return (
-          body.variant.length === 0 ||
-          body.variant.some(([q, opts]) => !q || opts.length === 0 || opts.some((o) => !o))
+          !("task" in body) ||
+          !body.task ||
+          !body.task.text || body.task.text.trim() === "" ||
+          !body.task.gaps ||
+          body.task.gaps.some(
+            (g: GapWithVariantModel) =>
+              (g as any).indexWord < 0 ||
+              !g.correctVariant || g.correctVariant.trim() === "" ||
+              !g.variants || g.variants.length === 0 ||
+              g.variants.some((v) => !v || v.trim() === "") ||
+              !g.variants.includes(g.correctVariant)
+          ) ||
+          // duplicate indexes across variant gaps
+          (() => { const idxs = body.task.gaps.map((g: any) => g.indexWord); return new Set(idxs).size !== idxs.length; })()
+        );
+      case "ListenAndSelect":
+        return (
+          !("task" in body) ||
+          !body.task ||
+          (body.task as ListenAndSelectModel).audioBlocks.length < 1 ||
+          (body.task as ListenAndSelectModel).audioBlocks.some((b) => !b.name || !b.audio) ||
+          !(body.task as ListenAndSelectModel).variants ||
+          (body.task as ListenAndSelectModel).variants.length < 2 ||
+          (body.task as ListenAndSelectModel).variants.some(([t]) => !t || t.trim() === "") ||
+          !(body.task as ListenAndSelectModel).variants.some(([, c]) => c === true)
+        );
+      case "ImageAndSelect":
+        return (
+          !("task" in body) ||
+          !body.task ||
+          (body.task as ImageAndSelectModel).imageBlocks.length < 1 ||
+          (body.task as ImageAndSelectModel).imageBlocks.some((b) => !b.name || !b.image) ||
+          !(body.task as ImageAndSelectModel).variants ||
+          (body.task as ImageAndSelectModel).variants.length < 2 ||
+          (body.task as ImageAndSelectModel).variants.some(([t]) => !t || t.trim() === "") ||
+          !(body.task as ImageAndSelectModel).variants.some(([, c]) => c === true)
+        );
+      case "ConstructSentenceTask":
+        return (
+          !body.task ||
+          !("variants" in body.task) ||
+          (body.task as ConstructSentenceModel).variants.length < 2 ||
+          (body.task as ConstructSentenceModel).variants.some((w) => !w || w.trim() === "")
+        );
+      case "SelectWordsTask":
+        return (
+          !body.task ||
+          !("variants" in body.task) ||
+          !(body.task as SelectWordsModel).audio || (body.task as SelectWordsModel).audio === "" ||
+          (body.task as SelectWordsModel).variants.length < 2 ||
+          (body.task as SelectWordsModel).variants.some(([t]) => !t || t.trim() === "") ||
+          !(body.task as SelectWordsModel).variants.some(([, c]) => c === true)
         );
     }
-  }, [taskTypes, body]);
+  }, [taskTypes, body, initialTask, question]);
 
   const onSubmit = async () => {
     setError(null);
@@ -402,7 +515,7 @@ export default function TaskEditorModal({ isOpen, onClose, onCreated, onUpdated,
   <TaskTypesPicker selected={taskTypes} onToggle={handleToggleTaskType} disabled={readOnly} />
 
         <div className={styles.card}>
-          {body.type === "TextTask" && (
+          {body.type === "TextConnectTask" && (
             <PairsEditor
               title="Текстовые варианты"
               pairs={body.variant}
@@ -430,17 +543,49 @@ export default function TaskEditorModal({ isOpen, onClose, onCreated, onUpdated,
           )}
 
           {body.type === "TextInputWithVariantTask" && (
-            <TextWithOptionsEditor
-              pairs={body.variant}
-              onChange={(pairs) => setBody({ ...body, variant: pairs })}
+            <TextWithVariantGapsEditor
+              value={body.task as TextInputWithVariantModel}
+              onChange={(val: TextInputWithVariantModel) => setBody({ ...body, task: val } as any)}
+              disabled={readOnly}
+            />
+          )}
+
+          {body.type === "ListenAndSelect" && (
+            <ListenAndSelectEditor
+              value={body.task as ListenAndSelectModel}
+              onChange={(val: ListenAndSelectModel) => setBody({ ...body, task: val } as any)}
+              disabled={readOnly}
+            />
+          )}
+
+          {body.type === "ImageAndSelect" && (
+            <ImageAndSelectEditor
+              value={body.task as ImageAndSelectModel}
+              onChange={(val: ImageAndSelectModel) => setBody({ ...body, task: val } as any)}
               disabled={readOnly}
             />
           )}
 
           {body.type === "TextInputTask" && (
             <SentencesEditor
-              sentences={body.sentence}
-              onChange={(sentences) => setBody({ ...body, sentence: sentences })}
+              sentences={body.task}
+              onChange={(sentences) => setBody({ ...body, task: sentences })}
+              disabled={readOnly}
+            />
+          )}
+
+          {body.type === "ConstructSentenceTask" && (
+            <ConstructSentenceEditor
+              value={body.task as ConstructSentenceModel}
+              onChange={(val: ConstructSentenceModel) => setBody({ ...body, task: val } as any)}
+              disabled={readOnly}
+            />
+          )}
+
+          {body.type === "SelectWordsTask" && (
+            <SelectWordsEditor
+              value={body.task as SelectWordsModel}
+              onChange={(val: SelectWordsModel) => setBody({ ...body, task: val } as any)}
               disabled={readOnly}
             />
           )}
@@ -801,100 +946,114 @@ function ImagePairsEditor({
   );
 }
 
-function TextWithOptionsEditor({
-  pairs,
+function TextWithVariantGapsEditor({
+  value,
   onChange,
   disabled,
 }: {
-  pairs: Pair<string, string[]>[];
-  onChange: (pairs: Pair<string, string[]>[]) => void;
+  value: TextInputWithVariantModel;
+  onChange: (v: TextInputWithVariantModel) => void;
   disabled?: boolean;
 }) {
-  const addPair = () => onChange([...pairs, ["", [""]]]);
-  const removePair = (idx: number) => onChange(pairs.filter((_, i) => i !== idx));
-  const setQuestion = (idx: number, q: string) => {
-    const next = pairs.map((p, i) => (i === idx ? [q, p[1]] : p));
-    onChange(next as Pair<string, string[]>[]);
+  const setLabel = (label: string) => onChange({ ...value, label });
+  const setText = (text: string) => onChange({ ...value, text });
+  const addGap = () => onChange({ ...value, gaps: [...value.gaps, { indexWord: value.gaps.length, variants: [""], correctVariant: "" }] });
+  const removeGap = (idx: number) => onChange({ ...value, gaps: value.gaps.filter((_, i) => i !== idx) });
+  const updateGap = (idx: number, patch: Partial<GapWithVariantModel>) =>
+    onChange({ ...value, gaps: value.gaps.map((g, i) => (i === idx ? { ...g, ...patch } : g)) });
+  const addVariant = (idx: number) =>
+    onChange({ ...value, gaps: value.gaps.map((g, i) => (i === idx ? { ...g, variants: [...g.variants, ""] } : g)) });
+  const setVariant = (gapIdx: number, optIdx: number, val: string) => {
+    const oldVal = value.gaps[gapIdx]?.variants[optIdx];
+    onChange({
+      ...value,
+      gaps: value.gaps.map((g, i) => {
+        if (i !== gapIdx) return g;
+        const newVariants = g.variants.map((o, j) => (j === optIdx ? val : o));
+        const nextCorrect = g.correctVariant === oldVal ? val : g.correctVariant;
+        return { ...g, variants: newVariants, correctVariant: nextCorrect };
+      }),
+    });
   };
-  const addOption = (idx: number) => {
-    const next = pairs.map((p, i) => (i === idx ? [p[0], [...p[1], ""]] : p));
-    onChange(next as Pair<string, string[]>[]);
-  };
-  const setOption = (pairIdx: number, optIdx: number, val: string) => {
-    const next = pairs.map((p, i) =>
-      i === pairIdx ? [p[0], p[1].map((o, j) => (j === optIdx ? val : o))] : p
-    );
-    onChange(next as Pair<string, string[]>[]);
-  };
-  const removeOption = (pairIdx: number, optIdx: number) => {
-    const next = pairs.map((p, i) =>
-      i === pairIdx ? [p[0], p[1].filter((_, j) => j !== optIdx)] : p
-    );
-    onChange(next as Pair<string, string[]>[]);
+  const removeVariant = (gapIdx: number, optIdx: number) => {
+    const removedVal = value.gaps[gapIdx]?.variants[optIdx];
+    onChange({
+      ...value,
+      gaps: value.gaps.map((g, i) => {
+        if (i !== gapIdx) return g;
+        const newVariants = g.variants.filter((_, j) => j !== optIdx);
+        const nextCorrect = g.correctVariant === removedVal ? "" : g.correctVariant;
+        return { ...g, variants: newVariants, correctVariant: nextCorrect };
+      }),
+    });
   };
 
   return (
-    <>
+    <div>
       <div className={styles.header} style={{ marginTop: 4 }}>
-        <h4 className={styles.title} style={{ fontSize: "1rem" }}>
-          Текст с вариантами
-        </h4>
+        <h4 className={styles.title} style={{ fontSize: "1rem" }}>Текст с вариантами пропусков</h4>
+      </div>
+      <div className={styles.card}>
+        <label className={styles.label}>
+          Заголовок
+          <input className={styles.input} value={value.label} onChange={(e) => setLabel(e.target.value)} disabled={disabled} />
+        </label>
+        <label className={styles.label}>
+          Текст
+          <textarea className={styles.textarea} value={value.text} onChange={(e) => setText(e.target.value)} disabled={disabled} />
+        </label>
+      </div>
+      <div className={styles.header} style={{ marginTop: 8 }}>
+        <h4 className={styles.title} style={{ fontSize: "0.95rem" }}>Пропуски</h4>
         {!disabled && (
-          <button className={styles.actionButton} onClick={addPair}>
-            Добавить
-          </button>
+          <button className={styles.actionButton} onClick={addGap}>Добавить пропуск</button>
         )}
       </div>
       <div className={styles.list}>
-        {pairs.map(([q, opts], i) => (
+        {value.gaps.map((g, i) => (
           <div key={i} className={styles.card}>
             {!disabled && (
-              <button className={styles.removeButton} onClick={() => removePair(i)}>✕ удалить</button>
+              <button className={styles.removeButton} onClick={() => removeGap(i)}>✕ удалить</button>
             )}
-            <label className={styles.label}>
-              Текст
-              <input
-                className={styles.input}
-                value={q}
-                onChange={(e) => setQuestion(i, e.target.value)}
-                placeholder="Текст"
-                disabled={disabled}
-              />
-            </label>
+            <div className={styles.fieldsGrid}>
+              <label className={styles.label}>
+                Позиция
+                <input className={styles.input} type="number" min={0} value={(g as any).indexWord}
+                  onChange={(e) => updateGap(i, { indexWord: Math.max(0, Number(e.target.value || 0)) } as any)} disabled={disabled} />
+              </label>
+            </div>
             <div className={styles.fieldsGrid} style={{ marginTop: 8 }}>
-              {opts.map((o, j) => (
+              {g.variants.map((o, j) => (
                 <div key={j}>
                   <label className={styles.label}>
                     Вариант {j + 1}
+                    <input className={styles.input} value={o} onChange={(e) => setVariant(i, j, e.target.value)} disabled={disabled} />
+                  </label>
+                  <div className={styles.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <input
-                      className={styles.input}
-                      value={o}
-                      onChange={(e) => setOption(i, j, e.target.value)}
-                      placeholder="Вариант"
+                      type="radio"
+                      name={`correct-${i}`}
+                      checked={g.correctVariant === o}
+                      onChange={() => updateGap(i, { correctVariant: o })}
                       disabled={disabled}
                     />
-                  </label>
+                    <span>Правильный</span>
+                  </div>
                   {!disabled && (
-                  <button
-                    className={styles.removeButton}
-                    style={{ position: "static", marginTop: 6 }}
-                    onClick={() => removeOption(i, j)}
-                  >
-                    Удалить вариант
-                  </button>
+                    <button className={styles.removeButton} style={{ position: "static", marginTop: 6 }} onClick={() => removeVariant(i, j)}>
+                      Удалить вариант
+                    </button>
                   )}
                 </div>
               ))}
             </div>
             {!disabled && (
-              <button className={styles.actionButton} onClick={() => addOption(i)} style={{ marginTop: 8 }}>
-                добавить вариант
-              </button>
+              <button className={styles.actionButton} onClick={() => addVariant(i)} style={{ marginTop: 8 }}>добавить вариант</button>
             )}
           </div>
         ))}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -907,8 +1066,11 @@ function SentencesEditor({
   onChange: (s: Sentence[]) => void;
   disabled?: boolean;
 }) {
-  const addSentence = () => onChange([...sentences, { text: "", gaps: [] }]);
+  const addSentence = () => onChange([...sentences, { label: "", text: "", gaps: [] }]);
   const removeSentence = (idx: number) => onChange(sentences.filter((_, i) => i !== idx));
+  const setSentenceLabel = (idx: number, label: string) => {
+    onChange(sentences.map((s, i) => (i === idx ? { ...s, label } : s)));
+  };
   const setSentenceText = (idx: number, text: string) => {
     onChange(sentences.map((s, i) => (i === idx ? { ...s, text } : s)));
   };
@@ -931,6 +1093,16 @@ function SentencesEditor({
             {!disabled && (
               <button className={styles.removeButton} onClick={() => removeSentence(i)}>✕ удалить</button>
             )}
+            <label className={styles.label}>
+              Заголовок
+              <input
+                className={styles.input}
+                value={s.label}
+                onChange={(e) => setSentenceLabel(i, e.target.value)}
+                placeholder="Заголовок блока..."
+                disabled={disabled}
+              />
+            </label>
             <label className={styles.label}>
               Текст
               <textarea
@@ -964,7 +1136,7 @@ function GapsEditor({
   onChange: (g: Gap[]) => void;
   disabled?: boolean;
 }) {
-  const addGap = () => onChange([...gaps, { enter: "", correctWord: "", index: gaps.length }]);
+  const addGap = () => onChange([...gaps, { correctWord: "", index: gaps.length }]);
   const removeGap = (idx: number) => onChange(gaps.filter((_, i) => i !== idx));
   const updateGap = (idx: number, patch: Partial<Gap>) =>
     onChange(
@@ -995,16 +1167,6 @@ function GapsEditor({
               <button className={styles.removeButton} onClick={() => removeGap(i)}>✕ удалить</button>
             )}
             <div className={styles.fieldsColumn}>
-              <label className={styles.label}>
-                Маркер пропуска
-                <input
-                  className={styles.input}
-                  value={g.enter}
-                  onChange={(e) => updateGap(i, { enter: e.target.value })}
-                  placeholder="например: __"
-                  disabled={disabled}
-                />
-              </label>
               <label className={styles.label}>
                 Правильное слово
                 <input
@@ -1043,11 +1205,339 @@ function asDataUrl(base64: string, fallbackMime: string): string {
   return base64.startsWith("data:") ? base64 : `data:${fallbackMime};base64,${base64}`;
 }
 
+function ListenAndSelectEditor({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: ListenAndSelectModel;
+  onChange: (v: ListenAndSelectModel) => void;
+  disabled?: boolean;
+}) {
+  const [objectUrls, setObjectUrls] = React.useState<(string | null)[]>([]);
+  React.useEffect(() => {
+    let active = true;
+    const urlsToRevoke: string[] = [];
+    (async () => {
+      const res = await Promise.all(
+        value.audioBlocks.map(async (b) => {
+          const val = b.audio;
+          if (isDataUrl(val)) return val;
+          if (isBareBase64(val)) return asDataUrl(val, "audio/*");
+          if (/^https?:\/\//i.test(val)) return val;
+          const url = await getUrl(val);
+          if (url) urlsToRevoke.push(url);
+          return url;
+        })
+      );
+      if (active) setObjectUrls(res);
+    })();
+    return () => {
+      active = false;
+      urlsToRevoke.forEach((u) => u && URL.revokeObjectURL(u));
+    };
+  }, [value.audioBlocks]);
+
+  const addBlock = () => onChange({ ...value, audioBlocks: [...value.audioBlocks, { name: "", description: "", audio: "", descriptionTranslate: "" }] });
+  const removeBlock = (idx: number) => onChange({ ...value, audioBlocks: value.audioBlocks.filter((_, i) => i !== idx) });
+  const updateBlock = (idx: number, patch: Partial<ListenAndSelectModel["audioBlocks"][number]>) =>
+    onChange({ ...value, audioBlocks: value.audioBlocks.map((b, i) => (i === idx ? { ...b, ...patch } : b)) });
+  const setAudio = async (idx: number, file: File | null) => {
+    if (!file) return;
+    const base64 = await fileToBase64(file);
+    updateBlock(idx, { audio: base64 });
+  };
+  const setVariantText = (idx: number, text: string) =>
+    onChange({ ...value, variants: value.variants.map((v, i) => (i === idx ? [text, v[1]] : v)) });
+  const setOnlyCorrect = (idx: number) =>
+    onChange({ ...value, variants: value.variants.map((v, i) => [v[0], i === idx]) });
+  const addVariant = () => onChange({ ...value, variants: [...value.variants, ["", false]] });
+  const removeVariant = (idx: number) => onChange({ ...value, variants: value.variants.filter((_, i) => i !== idx) });
+
+  return (
+    <div>
+      <div className={styles.header}>
+        <h4 className={styles.title} style={{ fontSize: "1rem" }}>Слушать и выбирать</h4>
+        {!disabled && <button className={styles.actionButton} onClick={addBlock}>Добавить блок</button>}
+      </div>
+      <div className={styles.list}>
+        {value.audioBlocks.map((b, i) => (
+          <div key={i} className={styles.card}>
+            {!disabled && (
+              <button className={styles.removeButton} onClick={() => removeBlock(i)}>✕ удалить</button>
+            )}
+            <div className={styles.fieldsGrid}>
+              <label className={styles.label}>
+                Название
+                <input className={styles.input} value={b.name} onChange={(e) => updateBlock(i, { name: e.target.value })} disabled={disabled} />
+              </label>
+              <label className={styles.label}>
+                Описание
+                <input className={styles.input} value={b.description ?? ""} onChange={(e) => updateBlock(i, { description: e.target.value })} disabled={disabled} />
+              </label>
+              <label className={styles.label}>
+                Перевод описания
+                <input className={styles.input} value={b.descriptionTranslate ?? ""} onChange={(e) => updateBlock(i, { descriptionTranslate: e.target.value })} disabled={disabled} />
+              </label>
+            </div>
+            <div className={styles.mediaBlock}>
+              {objectUrls[i] ? <audio className={styles.audio} controls src={objectUrls[i] || undefined} /> : <div className={styles.label}>{b.audio ? `аудио загружено (id: ${b.audio})` : "аудио не выбрано"}</div>}
+            </div>
+            <label className={styles.label}>
+              Аудио
+              <input className={styles.input} type="file" accept="audio/*" onChange={(e) => setAudio(i, e.target.files?.[0] ?? null)} disabled={disabled} />
+            </label>
+          </div>
+        ))}
+      </div>
+      <div className={styles.header} style={{ marginTop: 8 }}>
+        <h4 className={styles.title} style={{ fontSize: "0.95rem" }}>Варианты ответа</h4>
+        {!disabled && <button className={styles.actionButton} onClick={addVariant}>Добавить вариант</button>}
+      </div>
+      <div className={styles.list}>
+        {value.variants.map(([t, c], i) => (
+          <div key={i} className={styles.card}>
+            {!disabled && <button className={styles.removeButton} onClick={() => removeVariant(i)}>✕ удалить</button>}
+            <div className={styles.fieldsGrid}>
+              <label className={styles.label}>
+                Текст
+                <input className={styles.input} value={t} onChange={(e) => setVariantText(i, e.target.value)} disabled={disabled} />
+              </label>
+              <div className={styles.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="radio" name="listen-correct" checked={c} onChange={() => setOnlyCorrect(i)} disabled={disabled} />
+                <span>Правильный</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ImageAndSelectEditor({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: ImageAndSelectModel;
+  onChange: (v: ImageAndSelectModel) => void;
+  disabled?: boolean;
+}) {
+  const [objectUrls, setObjectUrls] = React.useState<(string | null)[]>([]);
+  React.useEffect(() => {
+    let active = true;
+    const urlsToRevoke: string[] = [];
+    (async () => {
+      const res = await Promise.all(
+        value.imageBlocks.map(async (b) => {
+          const val = b.image;
+          if (isDataUrl(val)) return val;
+          if (isBareBase64(val)) return asDataUrl(val, "image/*");
+          if (/^https?:\/\//i.test(val)) return val;
+          const url = await getUrl(val);
+          if (url) urlsToRevoke.push(url);
+          return url;
+        })
+      );
+      if (active) setObjectUrls(res);
+    })();
+    return () => {
+      active = false;
+      urlsToRevoke.forEach((u) => u && URL.revokeObjectURL(u));
+    };
+  }, [value.imageBlocks]);
+
+  const addBlock = () => onChange({ ...value, imageBlocks: [...value.imageBlocks, { name: "", description: "", image: "", descriptionTranslate: "" }] });
+  const removeBlock = (idx: number) => onChange({ ...value, imageBlocks: value.imageBlocks.filter((_, i) => i !== idx) });
+  const updateBlock = (idx: number, patch: Partial<ImageAndSelectModel["imageBlocks"][number]>) =>
+    onChange({ ...value, imageBlocks: value.imageBlocks.map((b, i) => (i === idx ? { ...b, ...patch } : b)) });
+
+  const setImage = async (idx: number, file: File | null) => {
+    if (!file) return;
+    const base64 = await fileToBase64(file);
+    updateBlock(idx, { image: base64 });
+  };
+  const setVariantText = (idx: number, text: string) =>
+    onChange({ ...value, variants: value.variants.map((v, i) => (i === idx ? [text, v[1]] : v)) });
+  const setOnlyCorrect = (idx: number) =>
+    onChange({ ...value, variants: value.variants.map((v, i) => [v[0], i === idx]) });
+  const addVariant = () => onChange({ ...value, variants: [...value.variants, ["", false]] });
+  const removeVariant = (idx: number) => onChange({ ...value, variants: value.variants.filter((_, i) => i !== idx) });
+
+  return (
+    <div>
+      <div className={styles.header}>
+        <h4 className={styles.title} style={{ fontSize: "1rem" }}>Смотреть и выбирать</h4>
+        {!disabled && <button className={styles.actionButton} onClick={addBlock}>Добавить блок</button>}
+      </div>
+      <div className={styles.list}>
+        {value.imageBlocks.map((b, i) => (
+          <div key={i} className={styles.card}>
+            {!disabled && (
+              <button className={styles.removeButton} onClick={() => removeBlock(i)}>✕ удалить</button>
+            )}
+            <div className={styles.fieldsGrid}>
+              <label className={styles.label}>
+                Название
+                <input className={styles.input} value={b.name} onChange={(e) => updateBlock(i, { name: e.target.value })} disabled={disabled} />
+              </label>
+              <label className={styles.label}>
+                Описание
+                <input className={styles.input} value={b.description ?? ""} onChange={(e) => updateBlock(i, { description: e.target.value })} disabled={disabled} />
+              </label>
+              <label className={styles.label}>
+                Перевод описания
+                <input className={styles.input} value={b.descriptionTranslate ?? ""} onChange={(e) => updateBlock(i, { descriptionTranslate: e.target.value })} disabled={disabled} />
+              </label>
+            </div>
+            <div className={styles.mediaBlock}>
+              {objectUrls[i] ? <img className={styles.image} src={objectUrls[i] || undefined} /> : <div className={styles.label}>{b.image ? `изображение загружено (id: ${b.image})` : "изображение не выбрано"}</div>}
+            </div>
+            <label className={styles.label}>
+              Изображение
+              <input className={styles.input} type="file" accept="image/*" onChange={(e) => setImage(i, e.target.files?.[0] ?? null)} disabled={disabled} />
+            </label>
+          </div>
+        ))}
+      </div>
+      <div className={styles.header} style={{ marginTop: 8 }}>
+        <h4 className={styles.title} style={{ fontSize: "0.95rem" }}>Варианты ответа</h4>
+        {!disabled && <button className={styles.actionButton} onClick={addVariant}>Добавить вариант</button>}
+      </div>
+      <div className={styles.list}>
+        {value.variants.map(([t, c], i) => (
+          <div key={i} className={styles.card}>
+            {!disabled && <button className={styles.removeButton} onClick={() => removeVariant(i)}>✕ удалить</button>}
+            <div className={styles.fieldsGrid}>
+              <label className={styles.label}>
+                Текст
+                <input className={styles.input} value={t} onChange={(e) => setVariantText(i, e.target.value)} disabled={disabled} />
+              </label>
+              <div className={styles.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="radio" name="image-correct" checked={c} onChange={() => setOnlyCorrect(i)} disabled={disabled} />
+                <span>Правильный</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Новый редактор: Собери предложение
+function ConstructSentenceEditor({ value, onChange, disabled }: { value: ConstructSentenceModel; onChange: (v: ConstructSentenceModel) => void; disabled?: boolean }) {
+  const [audioPreview, setAudioPreview] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    let active = true;
+    (async () => {
+      const a = value.audio;
+      if (!a) { if (active) setAudioPreview(null); return; }
+      if (isDataUrl(a)) { if (active) setAudioPreview(a); return; }
+      if (isBareBase64(a)) { if (active) setAudioPreview(asDataUrl(a, "audio/*")); return; }
+      if (/^https?:\/\//i.test(a)) { if (active) setAudioPreview(a); return; }
+      const url = await getUrl(a);
+      if (active) setAudioPreview(url);
+    })();
+    return () => { active = false; };
+  }, [value.audio]);
+  const setAudio = async (file: File | null) => {
+    if (!file) return;
+    const b64 = await fileToBase64(file);
+    onChange({ ...value, audio: b64 });
+  };
+  const setWord = (idx: number, w: string) => onChange({ ...value, variants: value.variants.map((v, i) => i === idx ? w : v) });
+  const addWord = () => onChange({ ...value, variants: [...value.variants, ""] });
+  const removeWord = (idx: number) => onChange({ ...value, variants: value.variants.filter((_, i) => i !== idx) });
+  return (
+    <div>
+      <div className={styles.header}>
+        <h4 className={styles.title} style={{ fontSize: "1rem" }}>Собери предложение</h4>
+        {!disabled && <button className={styles.actionButton} onClick={addWord}>Добавить слово</button>}
+      </div>
+      <div className={styles.card}>
+        <label className={styles.label}>Аудио (опц.)
+          <input className={styles.input} type="file" accept="audio/*" onChange={(e) => setAudio(e.target.files?.[0] ?? null)} disabled={disabled} />
+        </label>
+        {audioPreview && <audio className={styles.audio} controls src={audioPreview} />}
+      </div>
+      <div className={styles.list}>
+        {value.variants.map((w, i) => (
+          <div key={i} className={styles.card}>
+            {!disabled && <button className={styles.removeButton} onClick={() => removeWord(i)}>✕</button>}
+            <label className={styles.label}>Слово {i + 1}
+              <input className={styles.input} value={w} onChange={(e) => setWord(i, e.target.value)} disabled={disabled} />
+            </label>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Новый редактор: Выбор слов
+function SelectWordsEditor({ value, onChange, disabled }: { value: SelectWordsModel; onChange: (v: SelectWordsModel) => void; disabled?: boolean }) {
+  const [audioPreview, setAudioPreview] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    let active = true;
+    (async () => {
+      const a = value.audio;
+      if (!a) { if (active) setAudioPreview(null); return; }
+      if (isDataUrl(a)) { if (active) setAudioPreview(a); return; }
+      if (isBareBase64(a)) { if (active) setAudioPreview(asDataUrl(a, "audio/*")); return; }
+      if (/^https?:\/\//i.test(a)) { if (active) setAudioPreview(a); return; }
+      const url = await getUrl(a);
+      if (active) setAudioPreview(url);
+    })();
+    return () => { active = false; };
+  }, [value.audio]);
+  const setAudio = async (file: File | null) => {
+    if (!file) return;
+    const b64 = await fileToBase64(file);
+    onChange({ ...value, audio: b64 });
+  };
+  const setVariantText = (idx: number, text: string) => onChange({ ...value, variants: value.variants.map((v, i) => i === idx ? [text, v[1]] : v) });
+  const setOnlyCorrect = (idx: number) => onChange({ ...value, variants: value.variants.map((v, i) => [v[0], i === idx]) });
+  const addVariant = () => onChange({ ...value, variants: [...value.variants, ["", false]] });
+  const removeVariant = (idx: number) => onChange({ ...value, variants: value.variants.filter((_, i) => i !== idx) });
+  return (
+    <div>
+      <div className={styles.header}>
+        <h4 className={styles.title} style={{ fontSize: "1rem" }}>Выбор слов</h4>
+        {!disabled && <button className={styles.actionButton} onClick={addVariant}>Добавить вариант</button>}
+      </div>
+      <div className={styles.card}>
+        <label className={styles.label}>Аудио
+          <input className={styles.input} type="file" accept="audio/*" onChange={(e) => setAudio(e.target.files?.[0] ?? null)} disabled={disabled} />
+        </label>
+        {audioPreview && <audio className={styles.audio} controls src={audioPreview} />}
+      </div>
+      <div className={styles.list}>
+        {value.variants.map(([t,c], i) => (
+          <div key={i} className={styles.card}>
+            {!disabled && <button className={styles.removeButton} onClick={() => removeVariant(i)}>✕ удалить</button>}
+            <div className={styles.fieldsGrid}>
+              <label className={styles.label}>Текст
+                <input className={styles.input} value={t} onChange={(e) => setVariantText(i, e.target.value)} disabled={disabled} />
+              </label>
+              <div className={styles.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input type="radio" name="select-words-correct" checked={c} onChange={() => setOnlyCorrect(i)} disabled={disabled} />
+                <span>Правильный</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Конвертация: Wire -> Internal
 function toInternalTaskBody(wire: WireTaskBody): TaskBody {
   switch (wire.type) {
-    case "TextTask":
-      return { type: "TextTask", variant: wire.variant.map(p => [p.first, p.second]) };
+    case "TextConnectTask":
+      return { type: "TextConnectTask", variant: wire.variant.map(p => [p.first, p.second]) };
     case "AudioTask":
       // first = mediaId/база64, second = текст
       return { type: "AudioTask", variant: wire.variant.map(p => [p.first, p.second]) };
@@ -1055,18 +1545,56 @@ function toInternalTaskBody(wire: WireTaskBody): TaskBody {
       // Бэкенд: first = подпись, second = media/url. Внутри: [image, caption]
       return { type: "ImageTask", variant: wire.variant.map(p => [p.second, p.first]) };
     case "TextInputWithVariantTask":
-      return { type: "TextInputWithVariantTask", variant: wire.variant.map(p => [p.first, p.second]) };
+      return { type: "TextInputWithVariantTask", task: {
+        ...wire.task,
+        gaps: (wire.task.gaps ?? []).map((g: any) => ({
+          indexWord: g.indexWord ?? g.index ?? 0,
+          variants: g.variants ?? [],
+          correctVariant: g.correctVariant ?? "",
+        }))
+      } } as TaskBody;
+    case "ListenAndSelect":
+      return {
+        type: "ListenAndSelect",
+        task: {
+          audioBlocks: wire.task.audioBlocks,
+          variants: wire.task.variants.map(v => [v.first, v.second]) as [string, boolean][],
+        },
+      } as TaskBody;
+    case "ImageAndSelect":
+      return {
+        type: "ImageAndSelect",
+        task: {
+          imageBlocks: wire.task.imageBlocks,
+          variants: wire.task.variants.map(v => [v.first, v.second]) as [string, boolean][],
+        },
+      } as TaskBody;
+    case "ConstructSentenceTask":
+      return { type: "ConstructSentenceTask", task: { audio: (wire as any).task.audio ?? null, variants: (wire as any).task.variants || [] } } as TaskBody;
+    case "SelectWordsTask":
+      return { type: "SelectWordsTask", task: { audio: (wire as any).task.audio || "", variants: (wire as any).task.variants?.map((v: any) => [v.first, v.second]) || [] } } as TaskBody;
     case "TextInputTask":
-      return { type: "TextInputTask", sentence: wire.sentence };
+      // sanitize gaps to drop any legacy fields and map indexWord -> index
+      return {
+        type: "TextInputTask",
+        task: wire.task.map((s: any) => ({
+          label: s.label ?? "",
+          text: s.text,
+          gaps: (s.gaps ?? []).map((g: any) => ({ correctWord: g.correctWord, index: g.indexWord ?? 0 })),
+        })),
+      };
+    default:
+      // fallback passthrough
+      return wire as unknown as TaskBody;
   }
 }
 
 // Конвертация: Internal -> Wire
 function toWireTaskBody(internal: TaskBody): WireTaskBody {
   switch (internal.type) {
-    case "TextTask":
+    case "TextConnectTask":
       return {
-        type: "TextTask",
+        type: "TextConnectTask",
         variant: internal.variant.map(([a, b]) => ({ first: a, second: b })),
       };
     case "AudioTask":
@@ -1083,10 +1611,44 @@ function toWireTaskBody(internal: TaskBody): WireTaskBody {
     case "TextInputWithVariantTask":
       return {
         type: "TextInputWithVariantTask",
-        variant: internal.variant.map(([q, opts]) => ({ first: q, second: opts })),
-      };
+        task: {
+          ...internal.task,
+          gaps: (internal.task as any).gaps.map((g: any) => ({ indexWord: g.indexWord, variants: g.variants, correctVariant: g.correctVariant }))
+        },
+      } as WireTaskBody;
+    case "ListenAndSelect":
+      return {
+        type: "ListenAndSelect",
+        task: {
+          audioBlocks: internal.task.audioBlocks,
+          variants: internal.task.variants.map(([t, c]) => ({ first: t, second: c })),
+        },
+      } as WireTaskBody;
+    case "ImageAndSelect":
+      return {
+        type: "ImageAndSelect",
+        task: {
+          imageBlocks: internal.task.imageBlocks,
+          variants: internal.task.variants.map(([t, c]) => ({ first: t, second: c })),
+        },
+      } as WireTaskBody;
+    case "ConstructSentenceTask":
+      return { type: "ConstructSentenceTask", task: { audio: internal.task.audio ?? null, variants: internal.task.variants } } as WireTaskBody;
+    case "SelectWordsTask":
+      return { type: "SelectWordsTask", task: { audio: internal.task.audio, variants: internal.task.variants.map(([t,c]) => ({ first: t, second: c })) } } as WireTaskBody;
     case "TextInputTask":
-      return { type: "TextInputTask", sentence: internal.sentence };
+      // Ensure we include label and don't send legacy 'enter' back to API
+      return {
+        type: "TextInputTask",
+        task: internal.task.map((s: Sentence) => ({
+          label: s.label ?? "",
+          text: s.text,
+          gaps: s.gaps.map((g) => ({ correctWord: g.correctWord, indexWord: g.index })) as any,
+        })) as any,
+      };
+    default:
+      // fallback passthrough
+      return internal as unknown as WireTaskBody;
   }
 }
 

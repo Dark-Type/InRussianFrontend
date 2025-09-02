@@ -163,6 +163,7 @@ export interface ContentContextType {
   deleteSection: (id: string) => Promise<void>;
   deleteTheme: (id: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
+  deleteTaskModel?: (id: string, themeId: string) => Promise<void>;
 
   createTask: (
     themeId: string,
@@ -469,7 +470,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
 
   const deleteCourse = async (id: string) => {
     try {
-      await contentService.deleteCourse(id);
+  await axiosInstance.delete(`/content/courses/${id}`);
       setCourses((prev) => prev.filter((course) => course.id !== id));
       setSections((prev) => {
         const newSections = { ...prev };
@@ -484,7 +485,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
 
   const deleteSection = async (id: string) => {
     try {
-      await contentService.deleteSection(id);
+  await axiosInstance.delete(`/content/sections/${id}`);
       setSections((prev) => {
         const newSections = { ...prev };
         Object.keys(newSections).forEach((courseId) => {
@@ -502,7 +503,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
 
   const deleteTheme = async (id: string) => {
     try {
-      await contentService.deleteTheme(id);
+  await axiosInstance.delete(`/content/themes/${id}`);
       setThemes((prev) => {
         const newThemes = { ...prev };
         Object.keys(newThemes).forEach((sectionId) => {
@@ -532,6 +533,20 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
       });
     } catch (error) {
       console.error("Ошибка удаления задачи:", error);
+      throw error;
+    }
+  };
+
+  const deleteTaskModel = async (id: string, themeId: string) => {
+    try {
+      await axiosInstance.delete(`/task/${id}`);
+      setTaskModels(prev => {
+        const next = { ...prev };
+        if (next[themeId]) next[themeId] = next[themeId].filter(t => t.id !== id);
+        return next;
+      });
+    } catch (error) {
+      console.error('Ошибка удаления TaskModel:', error);
       throw error;
     }
   };
@@ -663,6 +678,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
         deleteSection,
         deleteTheme,
         deleteTask,
+  deleteTaskModel,
         createTask,
         updateTask,
         uploadMediaFile,

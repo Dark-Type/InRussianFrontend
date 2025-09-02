@@ -24,8 +24,10 @@ export const CoursesManagement = () => {
         deleteCourse,
         deleteSection,
         deleteTheme,
+    deleteTaskModel,
     } = useContent();
 
+    const [isLoadingCourses, setIsLoadingCourses] = useState<boolean>(false);
     const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
     const [expandedSection, setExpandedSection] = useState<string | null>(null);
     const [expandedTheme, setExpandedTheme] = useState<string | null>(null);
@@ -63,7 +65,18 @@ export const CoursesManagement = () => {
     // Редактор TaskModel сам вызывает onCreated/onUpdated; тут ничего не сохраняем напрямую
 
     useEffect(() => {
-        loadCourses();
+        let isMounted = true;
+        setIsLoadingCourses(true);
+        (async () => {
+            try {
+                await loadCourses();
+            } finally {
+                if (isMounted) setIsLoadingCourses(false);
+            }
+        })();
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const handleCourseClick = async (courseId: string) => {
@@ -263,7 +276,25 @@ export const CoursesManagement = () => {
             </div>
 
             <div style={{display: "flex", flexDirection: "column", gap: "16px"}}>
-                {courses.map((course) => (
+                {isLoadingCourses ? (
+                    <div className="flex items-center justify-center h-64">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <span className="ml-3 text-gray-600">Загрузка курсов...</span>
+                    </div>
+                ) : courses.length === 0 ? (
+                    <div
+                        style={{
+                            border: "1px solid var(--color-border)",
+                            borderRadius: "8px",
+                            background: "var(--color-card)",
+                            padding: "16px 20px",
+                            color: "var(--color-text-secondary)",
+                        }}
+                    >
+                        Курсы не найдены
+                    </div>
+                ) : (
+                courses.map((course) => (
                     <div
                         key={course.id}
                         style={{
@@ -335,6 +366,19 @@ export const CoursesManagement = () => {
                                 >
                                     ✏️
                                 </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleDelete("course", course); }}
+                                    title="Удалить курс"
+                                    style={{
+                                        padding: "4px 8px",
+                                        background: "#f44336",
+                                        color: "#fff",
+                                        border: "none",
+                                        borderRadius: "4px",
+                                        cursor: "pointer",
+                                        fontSize: "0.8rem",
+                                    }}
+                                >🗑️</button>
                                 <span style={{fontSize: "1.2rem"}}>
                   {expandedCourse === course.id ? "▼" : "▶"}
                 </span>
@@ -431,6 +475,19 @@ export const CoursesManagement = () => {
                                                 >
                                                     ✏️
                                                 </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleDelete("section", section); }}
+                                                    title="Удалить секцию"
+                                                    style={{
+                                                        padding: "4px 8px",
+                                                        background: "#f44336",
+                                                        color: "#fff",
+                                                        border: "none",
+                                                        borderRadius: "4px",
+                                                        cursor: "pointer",
+                                                        fontSize: "0.8rem",
+                                                    }}
+                                                >🗑️</button>
                                                 <span>
                           {expandedSection === section.id ? "▼" : "▶"}
                         </span>
@@ -526,6 +583,19 @@ export const CoursesManagement = () => {
                                                                 >
                                                                     ✏️
                                                                 </button>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); handleDelete("theme", theme); }}
+                                                                    title="Удалить тему"
+                                                                    style={{
+                                                                        padding: "4px 8px",
+                                                                        background: "#f44336",
+                                                                        color: "#fff",
+                                                                        border: "none",
+                                                                        borderRadius: "4px",
+                                                                        cursor: "pointer",
+                                                                        fontSize: "0.8rem",
+                                                                    }}
+                                                                >🗑️</button>
                                                                 <span>
                                   {expandedTheme === theme.id ? "▼" : "▶"}
                                 </span>
@@ -606,6 +676,19 @@ export const CoursesManagement = () => {
                                                                             >
                                                                                 ✏️
                                                                             </button>
+                                                                            <button
+                                                                                onClick={() => deleteTaskModel && deleteTaskModel(task.id, theme.id)}
+                                                                                title="Удалить задачу"
+                                                                                style={{
+                                                                                    padding: "2px 6px",
+                                                                                    background: "#f44336",
+                                                                                    color: "#fff",
+                                                                                    border: "none",
+                                                                                    borderRadius: "2px",
+                                                                                    cursor: "pointer",
+                                                                                    fontSize: "0.7rem",
+                                                                                }}
+                                                                            >🗑️</button>
                                                                         </div>
                                                                     </div>
                                                                 ))}
@@ -620,7 +703,8 @@ export const CoursesManagement = () => {
                             </div>
                         )}
                     </div>
-                ))}
+                ))
+                )}
             </div>
 
             <CreateEditModal

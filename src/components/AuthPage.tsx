@@ -1,6 +1,6 @@
 import React, {useState, useEffect, useCallback} from "react";
 import {useNavigate} from "react-router-dom";
-import {UserRoleEnum, UserSystemLanguageEnum} from "../api";
+import {UserRoleEnum, UserSystemLanguageEnum, StaffRegisterRequestRoleEnum} from "../api";
 import {useAuth} from "../context/auth/UseAuth";
 import {useTheme} from "../context/theme/UseTheme.tsx";
 import {ThemeSwitcher} from "./shared/ThemeSwitcher.tsx";
@@ -22,6 +22,40 @@ export const AuthPage = () => {
 
     const navigate = useNavigate();
 
+    // Validation helpers aligned with backend constraints
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^\+\d{1,3}[-\s]?\d{1,14}([-\s]?\d{1,13})?$/;
+
+    const getRegistrationValidationErrors = () => {
+        const errs: string[] = [];
+        // Email
+        if (!emailRegex.test(email)) {
+            errs.push("Некорректный email"); // {email.invalid}
+        }
+        // Password: min 6, contains digit, contains one of !@#$%^&*()_
+        if (password.length < 6) {
+            errs.push("Пароль должен быть не короче 6 символов"); // {password.min}
+        }
+        if (!/\d/.test(password)) {
+            errs.push("Пароль должен содержать хотя бы одну цифру"); // {password.digit}
+        }
+        if (!/[!@#$%^&*()_]/.test(password)) {
+            errs.push("Пароль должен содержать хотя бы один спецсимвол"); // {password.special}
+        }
+        // Phone (required for registration)
+        const phoneValue = phone.trim();
+        if (phoneValue.length === 0) {
+            errs.push("Телефон обязателен");
+        } else if (!phoneRegex.test(phoneValue)) {
+            errs.push("Некорректный формат телефона"); // {phone.invalid}
+        }
+        // Role required for staff registration
+        if (mode === "register" && !role) {
+            errs.push("Пожалуйста, выберите роль");
+        }
+        return errs;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
@@ -37,13 +71,16 @@ export const AuthPage = () => {
                 }
                 redirectToPanel(user.role as UserRoleEnum);
             } else {
-                if (!role) {
-                    setError("Пожалуйста, выберите роль");
+                // Validate registration fields according to backend rules
+                const errs = getRegistrationValidationErrors();
+                if (errs.length > 0) {
+                    setError(errs.join("\n"));
                     setIsLoading(false);
                     return;
                 }
+                const selectedRole = role as unknown as StaffRegisterRequestRoleEnum; // validated above
                 const userRole = await registerWithStaffProfile(
-                    {email, password, phone, role, systemLanguage},
+                    {email, password, phone, role: selectedRole, systemLanguage},
                     {name, surname, patronymic}
                 );
                 redirectToPanel(userRole);
@@ -260,12 +297,13 @@ export const AuthPage = () => {
 
                     {mode === "register" && (
                         <>
-                            <div style={{marginBottom: "15px", width: "100%"}}>
+                <div style={{marginBottom: "15px", width: "100%"}}>
                                 <input
-                                    type="phone"
+                                    type="tel"
                                     value={phone}
                                     onChange={(e) => setPhone(e.target.value)}
-                                    placeholder="Телефон (необязательно)"
+                    required
+                    placeholder="Телефон"
                                     style={{
                                         width: "100%",
                                         minWidth: "0",
@@ -346,6 +384,7 @@ export const AuthPage = () => {
                                 color: "#721c24",
                                 borderRadius: "4px",
                                 width: "100%",
+                                whiteSpace: "pre-line",
                             }}
                         >
                             {error}
