@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import expertService from "../../services/ExpertService";
+import type { UserStatsDTO } from "../../services/ExpertService";
 import { useProfile } from "../../context/profile/UseProfile";
 import type { User, UserProfile } from "../../api";
 import * as XLSX from "xlsx";
@@ -13,7 +14,7 @@ interface UserLanguageSkill {
 }
 
 interface StudentWithProfile extends User {
-  profile?: UserProfile;
+  profile?: (UserProfile & Record<string, any>) | null; // allow extra dynamic fields like dateOfBirth
   languageSkills?: UserLanguageSkill[];
   avatarUrl?: string;
 }
@@ -52,7 +53,7 @@ export const StudentsSection = () => {
   );
 
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const { getAvatarIdByUserId } = useProfile();
+  const { getAvatarIdByUserId: _unusedGetAvatar } = useProfile();
 
   const toggleCategory = (key: string) => {
     setSelectedCategories((prev) => {
@@ -160,16 +161,43 @@ export const StudentsSection = () => {
     [loadStudents, students]
   );
 
-  const exportToExcel = useCallback(() => {
+  const exportToExcel = useCallback(async () => {
     try {
-      const exportData = students.map((student) => ({
+      // Fetch detailed stats for each student sequentially (could be optimized with Promise.all + batching)
+      const statsMap: Record<string, UserStatsDTO | null> = {};
+      for (const student of students) {
+        statsMap[student.id] = await expertService.getUserStats(student.id);
+      }
+
+      const exportData = students.map((student) => {
+        const stats = statsMap[student.id];
+        const courses = stats?.courses || [];
+        const flatCourseData: Record<string, string | number> = {};
+        courses.forEach((c, cIdx) => {
+          const prefix = `Курс ${cIdx + 1} (${c.courseId})`;
+          if (c.courseProgress) {
+            flatCourseData[`${prefix} Прогресс %`] = Number(c.courseProgress.percent.toFixed(1));
+            flatCourseData[`${prefix} Решено`] = c.courseProgress.solvedTasks;
+            flatCourseData[`${prefix} Всего задач`] = c.courseProgress.totalTasks;
+            flatCourseData[`${prefix} Среднее время (мин)`] = Math.round(c.courseProgress.averageTimeMs / 60000);
+          }
+          c.sections.forEach((s, sIdx) => {
+            const sp = `${prefix} Раздел ${sIdx + 1}`;
+            flatCourseData[`${sp} %`] = Number(s.percent.toFixed(1));
+            flatCourseData[`${sp} Решено`] = s.solvedTasks;
+            flatCourseData[`${sp} Всего`] = s.totalTasks;
+            flatCourseData[`${sp} Ср.время(мин)`] = Math.round(s.averageTimeMs / 60000);
+          });
+        });
+
+        return {
         Email: student.email || "",
         Имя: student.profile?.name || "",
         Фамилия: student.profile?.surname || "",
         Отчество: student.profile?.patronymic || "",
         Статус: student.status || "",
-        "Дата рождения": student.profile?.dateOfBirth
-          ? formatDate(student.profile.dateOfBirth)
+        "Дата рождения": (student.profile as any)?.dateOfBirth
+          ? formatDate((student.profile as any).dateOfBirth)
           : "",
         Пол: student.profile?.gender || "",
         Гражданство: student.profile?.citizenship || "",
@@ -195,7 +223,8 @@ export const StudentsSection = () => {
                   .join(", ")})`
             )
             .join("; ") || "",
-      }));
+        ...flatCourseData
+      };});
 
       const filteredData = exportData.map((row) => {
         if (selectedCategories.size === 0) return {};
@@ -442,10 +471,10 @@ export const StudentsSection = () => {
             >
               <div>
                 <strong>Личные данные:</strong>
-                {student.profile?.dateOfBirth && (
+        {(student.profile as any)?.dateOfBirth && (
                   <div>
                     <span style={{ fontWeight: "500" }}>Дата рождения:</span>
-                    {formatDate(student.profile.dateOfBirth)}
+          {formatDate((student.profile as any).dateOfBirth)}
                   </div>
                 )}
                 <p>

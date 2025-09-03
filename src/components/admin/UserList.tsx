@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import UserCreateModal from './UserCreateModal';
+import type { UserProfile } from '../../api';
 import { AdminService } from '../../services/AdminService';
 import { UserCard } from './UserCard';
 import type { User, StaffProfile, UserRoleEnum } from '../../api';
@@ -145,6 +147,7 @@ export const UserList = ({ searchTerm, onEditUser, excludedUserId }: UserListPro
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(true);
     const [searchLoading, setSearchLoading] = useState(false);
+    const [showCreateModal, setShowCreateModal] = useState(false);
     const { getStaffProfileById, getAvatarIdByUserId } = useProfile();
 
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([
@@ -306,6 +309,25 @@ export const UserList = ({ searchTerm, onEditUser, excludedUserId }: UserListPro
 
     return (
         <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Пользователи</h3>
+                <button
+                    type="button"
+                    onClick={() => setShowCreateModal(true)}
+                    style={{
+                        padding: '8px 14px',
+                        background: 'var(--color-primary)',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        fontSize: '0.9rem'
+                    }}
+                >
+                    + Новый
+                </button>
+            </div>
             <Filters
                 selectedStatuses={selectedStatuses}
                 selectedRoles={selectedRoles}
@@ -341,6 +363,19 @@ export const UserList = ({ searchTerm, onEditUser, excludedUserId }: UserListPro
                     )}
                 </>
             )}
+            <UserCreateModal
+                isOpen={showCreateModal}
+                onClose={() => setShowCreateModal(false)}
+                onCreated={() => {
+                    // Refresh list: reset state and reload first page
+                    setAllUsers([]);
+                    setPage(0);
+                    setHasMore(true);
+                    setShowCreateModal(false);
+                    // proactively load first page
+                    loadUsers(0);
+                }}
+            />
         </div>
     );
 };

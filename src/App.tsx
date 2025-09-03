@@ -2,6 +2,7 @@ import {BrowserRouter, Routes, Route} from 'react-router-dom';
 import {AuthProvider} from './context/auth/AuthProvider.tsx';
 import {AuthPage} from './components/AuthPage.tsx';
 import {AdminPanel} from './components/AdminPanel';
+import StatusErrorPage from './components/StatusErrorPage';
 import {ExpertPanel} from './components/ExpertPanel';
 import {ContentPanel} from './components/ContentPanel.tsx';
 import {ThemeProvider} from './context/theme/ThemeProvider.tsx';
@@ -22,6 +23,7 @@ export const App = () => (
                             <BrowserRouter>
                                 <Routes>
                                     <Route path="/" element={<AuthPage/>}/>
+                                    <Route path="/status-error" element={<StatusErrorPage/>} />
                                     <Route
                                         path="/admin"
                                         element={

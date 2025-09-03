@@ -9,10 +9,25 @@ import {AuthContext} from "./AuthContext";
 import {authApi} from "../../instances/axiosInstance.ts";
 import {profileApi} from "../../instances/profileApiInstance";
 
+// Safely decode JWT payload and extract custom 'status' claim
+function extractStatusFromToken(token: string | null): string | undefined {
+    if (!token) return undefined;
+    const parts = token.split('.');
+    if (parts.length < 2) return undefined;
+    try {
+        const payloadJson = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+        const payload = JSON.parse(decodeURIComponent(escape(payloadJson)));
+        return payload.status || payload.user_status || undefined; // fallback keys just in case
+    } catch {
+        return undefined;
+    }
+}
+
 type AuthUser = {
     id: string;
     email: string;
     role: UserRoleEnum;
+    status?: string; // ACTIVE, SUSPENDED, DEACTIVATED, PENDING_VERIFICATION
 };
 
 export type AuthContextType = {
@@ -62,11 +77,12 @@ export function AuthProvider({children}: AuthProviderProps) {
                 setToken(storedToken);
                 try {
                     const {data} = await authApi.authMeGet();
-                    setUser({
+                    setUser(prev => ({
                         id: data.user.id,
                         email: data.user.email,
                         role: data.user.role as UserRoleEnum,
-                    });
+                        status: extractStatusFromToken(localStorage.getItem('accessToken')) || prev?.status
+                    }));
                     localStorage.setItem('userId', data.user.id);
                 } catch (error) {
                     console.error("Failed to get user info:", error);
@@ -88,6 +104,7 @@ export function AuthProvider({children}: AuthProviderProps) {
                 id: data.user.id,
                 email: data.user.email,
                 role: data.user.role as UserRoleEnum,
+                status: extractStatusFromToken(data.accessToken)
             });
             // @ts-ignore
             localStorage.setItem('userId', user.id);
@@ -104,11 +121,12 @@ export function AuthProvider({children}: AuthProviderProps) {
         setLoading(true);
         try {
             const {data} = await authApi.authMeGet();
-            setUser({
+            setUser(prev => ({
                 id: data.user.id,
                 email: data.user.email,
                 role: data.user.role as UserRoleEnum,
-            });
+                status: extractStatusFromToken(localStorage.getItem('accessToken')) || prev?.status
+            }));
             localStorage.setItem('userId', user!.id);
         } catch (error) {
             console.error("Failed to get user info:", error);
@@ -131,6 +149,7 @@ export function AuthProvider({children}: AuthProviderProps) {
                 id: data.user.id,
                 email: data.user.email,
                 role: data.user.role as UserRoleEnum,
+                status: extractStatusFromToken(data.accessToken)
             });
             localStorage.setItem('userId', data.user.id);
             await profileApi.profilesStaffPost(staffProfileData);

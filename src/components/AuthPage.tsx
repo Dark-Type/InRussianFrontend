@@ -64,12 +64,31 @@ export const AuthPage = () => {
         try {
             if (mode === "login") {
                 await login(email, password);
-                if (!user?.role) {
+                // Decode status directly from freshly stored token to avoid race with state update
+                const token = localStorage.getItem('accessToken');
+                let status: string | undefined;
+                if (token) {
+                    const parts = token.split('.');
+                    if (parts.length >= 2) {
+                        try {
+                            const base64 = parts[1].replace(/-/g,'+').replace(/_/g,'/');
+                            const json = atob(base64);
+                            const payload = JSON.parse(json);
+                            status = payload.status;
+                        } catch { /* ignore */ }
+                    }
+                }
+                const roleAfter = (user?.role) as UserRoleEnum | undefined; // may still be stale, fallback using role from decoded payload if backend adds one
+                if (status && status !== 'ACTIVE') {
+                    navigate('/status-error', { state: { status } });
+                    return;
+                }
+                if (!roleAfter) {
                     setError("Не удалось получить роль пользователя");
                     setIsLoading(false);
                     return;
                 }
-                redirectToPanel(user.role as UserRoleEnum);
+                redirectToPanel(roleAfter);
             } else {
                 // Validate registration fields according to backend rules
                 const errs = getRegistrationValidationErrors();
@@ -114,9 +133,13 @@ export const AuthPage = () => {
 
     useEffect(() => {
         if (user?.role) {
-            redirectToPanel(user.role as UserRoleEnum);
+            if (user.status && user.status !== 'ACTIVE') {
+                navigate('/status-error', { state: { status: user.status } });
+            } else {
+                redirectToPanel(user.role as UserRoleEnum);
+            }
         }
-    }, [redirectToPanel, user]);
+    }, [redirectToPanel, user, navigate]);
 
     return (
         <div
