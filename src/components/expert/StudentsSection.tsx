@@ -180,6 +180,12 @@ export const StudentsSection = () => {
             flatCourseData[`${prefix} Решено`] = c.courseProgress.solvedTasks;
             flatCourseData[`${prefix} Всего задач`] = c.courseProgress.totalTasks;
             flatCourseData[`${prefix} Среднее время (мин)`] = Math.round(c.courseProgress.averageTimeMs / 60000);
+          } else {
+            // Нет данных по курсу – заполняем нулями
+            flatCourseData[`${prefix} Прогресс %`] = 0;
+            flatCourseData[`${prefix} Решено`] = 0;
+            flatCourseData[`${prefix} Всего задач`] = 0;
+            flatCourseData[`${prefix} Среднее время (мин)`] = 0;
           }
           c.sections.forEach((s, sIdx) => {
             const sp = `${prefix} Раздел ${sIdx + 1}`;

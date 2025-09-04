@@ -10,6 +10,7 @@ import type {
   StaffProfile,
   UpdateUserProfileRequest,
   UpdateStaffProfileRequest,
+  UserLanguageSkillRequest,
 } from "../../api";
 
 interface UserEditModalProps {
@@ -43,6 +44,7 @@ export const UserEditModal = ({
   const [userProfile, setUserProfile] = useState<Partial<UserProfile>>({});
   const [staffProfile, setStaffProfile] = useState<Partial<StaffProfile>>({});
   const [languageSkills, setLanguageSkills] = useState<UserLanguageSkill[]>([]);
+  const [initialLanguageSkills, setInitialLanguageSkills] = useState<UserLanguageSkill[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
 
@@ -71,7 +73,9 @@ export const UserEditModal = ({
           setUserProfile(profileData);
         }
 
-        setLanguageSkills(skillsData || []);
+  const ls = skillsData || [];
+  setLanguageSkills(ls);
+  setInitialLanguageSkills(ls);
       } else {
         const profileResponse = await profileApi.profilesStaffIdGet(
           userData.id
@@ -128,19 +132,20 @@ export const UserEditModal = ({
   const addLanguageSkill = () => {
     setLanguageSkills((prev) => [
       ...prev,
-      {
-        language: "",
-        understands: false,
-        speaks: false,
-        reads: false,
-        writes: false,
-      },
+      { language: "", understands: false, speaks: false, reads: false, writes: false },
     ]);
   };
 
   const removeLanguageSkill = (index: number) => {
     setLanguageSkills((prev) => prev.filter((_, i) => i !== index));
   };
+
+  const skillsEqual = (a: UserLanguageSkill, b: UserLanguageSkill) =>
+    a.language === b.language &&
+    a.understands === b.understands &&
+    a.speaks === b.speaks &&
+    a.reads === b.reads &&
+    a.writes === b.writes;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,10 +183,49 @@ export const UserEditModal = ({
             nationality: userProfile.nationality,
             countryOfResidence: userProfile.countryOfResidence,
             cityOfResidence: userProfile.cityOfResidence,
+                countryDuringEducation: userProfile.countryDuringEducation,
+                periodSpent: userProfile.periodSpent as any,
+                kindOfActivity: userProfile.kindOfActivity,
             education: userProfile.education,
             purposeOfRegister: userProfile.purposeOfRegister,
           };
           await AdminService.updateUserProfile(user.id, updateRequest);
+        }
+        // Language skills diff & sync
+        try {
+          const toCreate = languageSkills.filter((s) => !s.id && s.language.trim());
+          const toUpdate = languageSkills.filter(
+            (s) => s.id && initialLanguageSkills.some((o) => o.id === s.id && !skillsEqual(o, s))
+          );
+          const toDelete = initialLanguageSkills.filter(
+            (o) => !languageSkills.some((s) => s.id === o.id)
+          );
+
+          for (const skill of toCreate) {
+            const req: UserLanguageSkillRequest = {
+              language: skill.language.trim(),
+              understands: skill.understands,
+              speaks: skill.speaks,
+              reads: skill.reads,
+              writes: skill.writes,
+            };
+            await AdminService.createUserLanguageSkill(req, user.id);
+          }
+          for (const skill of toUpdate) {
+            const req: UserLanguageSkillRequest = {
+              language: skill.language.trim(),
+              understands: skill.understands,
+              speaks: skill.speaks,
+              reads: skill.reads,
+              writes: skill.writes,
+            };
+            await AdminService.updateUserLanguageSkill(skill.id as string, req, user.id);
+          }
+          for (const skill of toDelete) {
+            await AdminService.deleteUserLanguageSkill(skill.id as string, user.id);
+          }
+        } catch (lsErr) {
+          console.error("Ошибка синхронизации языковых навыков:", lsErr);
         }
       } else {
         if (Object.keys(staffProfile).length > 0) {
@@ -231,7 +275,8 @@ export const UserEditModal = ({
           width: "100%",
           maxWidth: "600px",
           maxHeight: "90vh",
-          overflow: "auto",
+          overflowY: "auto",
+          overscrollBehavior: "contain",
         }}
       >
         <h3 style={{ margin: "0 0 20px 0" }}>Редактирование пользователя</h3>
@@ -458,7 +503,7 @@ export const UserEditModal = ({
                       </label>
                       <input
                         type="date"
-                        name="dateOfBirth"
+                        name="dob" /* was dateOfBirth: must match profile field 'dob' so changes propagate */
                         value={formatDate(userProfile.dob || "")}
                         onChange={handleProfileChange}
                         style={{
@@ -490,6 +535,110 @@ export const UserEditModal = ({
                     </div>
                   </div>
 
+                  {/* Расширенные поля профиля */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", marginBottom: "16px" }}>
+                    <div style={{ flex: "1 1 200px" }}>
+                      <label style={{ display: "block", marginBottom: "4px" }}>Гражданство:</label>
+                      <input
+                        type="text"
+                        name="citizenship"
+                        value={userProfile.citizenship || ""}
+                        onChange={handleProfileChange}
+                        style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid var(--color-border)" }}
+                      />
+                    </div>
+                    <div style={{ flex: "1 1 200px" }}>
+                      <label style={{ display: "block", marginBottom: "4px" }}>Национальность:</label>
+                      <input
+                        type="text"
+                        name="nationality"
+                        value={userProfile.nationality || ""}
+                        onChange={handleProfileChange}
+                        style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid var(--color-border)" }}
+                      />
+                    </div>
+                    <div style={{ flex: "1 1 200px" }}>
+                      <label style={{ display: "block", marginBottom: "4px" }}>Страна проживания:</label>
+                      <input
+                        type="text"
+                        name="countryOfResidence"
+                        value={userProfile.countryOfResidence || ""}
+                        onChange={handleProfileChange}
+                        style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid var(--color-border)" }}
+                      />
+                    </div>
+                    <div style={{ flex: "1 1 200px" }}>
+                      <label style={{ display: "block", marginBottom: "4px" }}>Город проживания:</label>
+                      <input
+                        type="text"
+                        name="cityOfResidence"
+                        value={userProfile.cityOfResidence || ""}
+                        onChange={handleProfileChange}
+                        style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid var(--color-border)" }}
+                      />
+                    </div>
+                    <div style={{ flex: "1 1 200px" }}>
+                      <label style={{ display: "block", marginBottom: "4px" }}>Страна обучения:</label>
+                      <input
+                        type="text"
+                        name="countryDuringEducation"
+                        value={userProfile.countryDuringEducation || ""}
+                        onChange={handleProfileChange}
+                        style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid var(--color-border)" }}
+                      />
+                    </div>
+                    <div style={{ flex: "1 1 200px" }}>
+                      <label style={{ display: "block", marginBottom: "4px" }}>Период пребывания:</label>
+                      <select
+                        name="periodSpent"
+                        value={(userProfile as any).periodSpent || ""}
+                        onChange={handleProfileChange}
+                        style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid var(--color-border)" }}
+                      >
+                        <option value="">Не указан</option>
+                        <option value="MONTH_MINUS">До месяца</option>
+                        <option value="MONTH_SIX_MONTHS_MINUS">1-6 месяцев</option>
+                        <option value="SIX_MONTHS">6 месяцев</option>
+                        <option value="YEAR_MINUS">До года</option>
+                        <option value="YEAR_YEAR_PLUS">1+ года</option>
+                        <option value="YEAR_PLUS">Более года</option>
+                        <option value="FIVE_YEAR_PLUS">Более 5 лет</option>
+                        <option value="FIVE_YEARS_PLUS">5+ лет (альт.)</option>
+                        <option value="NEVER">Никогда</option>
+                      </select>
+                    </div>
+                    <div style={{ flex: "1 1 200px" }}>
+                      <label style={{ display: "block", marginBottom: "4px" }}>Вид деятельности:</label>
+                      <input
+                        type="text"
+                        name="kindOfActivity"
+                        value={userProfile.kindOfActivity || ""}
+                        onChange={handleProfileChange}
+                        style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid var(--color-border)" }}
+                      />
+                    </div>
+                    <div style={{ flex: "1 1 200px" }}>
+                      <label style={{ display: "block", marginBottom: "4px" }}>Образование:</label>
+                      <input
+                        type="text"
+                        name="education"
+                        value={userProfile.education || ""}
+                        onChange={handleProfileChange}
+                        style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid var(--color-border)" }}
+                      />
+                    </div>
+                    <div style={{ flex: "1 1 200px" }}>
+                      <label style={{ display: "block", marginBottom: "4px" }}>Цель регистрации:</label>
+                      <input
+                        type="text"
+                        name="purposeOfRegister"
+                        value={userProfile.purposeOfRegister || ""}
+                        onChange={handleProfileChange}
+                        style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid var(--color-border)" }}
+                      />
+                    </div>
+                  </div>
+
                   {/* Языковые навыки */}
                   <div style={{ marginTop: "20px" }}>
                     <div
@@ -501,7 +650,7 @@ export const UserEditModal = ({
                       }}
                     >
                       <h5 style={{ margin: 0 }}>Языковые навыки</h5>
-                      {/* <button
+                      <button
                         type="button"
                         onClick={addLanguageSkill}
                         style={{
@@ -515,7 +664,7 @@ export const UserEditModal = ({
                         }}
                       >
                         + Добавить
-                      </button> */}
+                      </button>
                     </div>
 
                     {languageSkills.map((skill, index) => (
@@ -536,23 +685,20 @@ export const UserEditModal = ({
                             marginBottom: "8px",
                           }}
                         >
-                          <div
+                          <input
+                            type="text"
+                            value={skill.language}
+                            onChange={(e) => handleLanguageSkillChange(index, "language", e.target.value)}
                             style={{
                               flex: 1,
-                              padding: "6px",
+                              padding: "6px 8px",
                               borderRadius: "4px",
                               border: "1px solid var(--color-border)",
-                              lineHeight: "1.4",
                               fontSize: "14px",
-                              color: "inherit",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
                             }}
-                          >
-                            {skill.language || "—"}
-                          </div>
-                          {/* <button
+                            placeholder="Язык"
+                          />
+                          <button
                             type="button"
                             onClick={() => removeLanguageSkill(index)}
                             style={{
@@ -565,7 +711,7 @@ export const UserEditModal = ({
                             }}
                           >
                             ✕
-                          </button> */}
+                          </button>
                         </div>
 
                         <div style={{ display: "flex", gap: "16px" }}>
@@ -587,18 +733,11 @@ export const UserEditModal = ({
                                 userSelect: "none",
                               }}
                             >
-                              <span
-                                style={{
-                                  fontSize: "16px",
-                                  color: skill[skillType] ? "green" : "red",
-                                  fontWeight: "bold",
-                                  width: "18px",
-                                  display: "inline-block",
-                                  textAlign: "center",
-                                }}
-                              >
-                                {skill[skillType] ? "✓" : "✗"}
-                              </span>
+                              <input
+                                type="checkbox"
+                                checked={skill[skillType]}
+                                onChange={(e) => handleLanguageSkillChange(index, skillType, e.target.checked)}
+                              />
                               <span style={{ fontSize: "12px" }}>
                                 {skillType === "understands"
                                   ? "Понимает"

@@ -32,6 +32,11 @@ export const AdminService = {
     getCourseStatistics(courseId: string) {
         return adminApi.adminStatisticsCourseCourseIdGet(courseId);
     },
+    /** Платформенная агрегированная статистика */
+    getPlatformStats() {
+        // эндпоинт не сгенерирован openapi (пока), делаем прямой вызов
+        return axiosInstance.get('/platform/stats');
+    },
     async getStudentProfile(userId: string): Promise<UserProfile | null> {
         try {
             const response = await profileApi.profilesUserIdGet(userId);

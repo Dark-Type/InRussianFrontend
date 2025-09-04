@@ -47,6 +47,8 @@
   border-radius: 8px;
   padding: 16px;
   position: relative;
+  /* Explicit surface so light theme doesn't inherit any dark parent */
+  background: var(--color-card);
 }
 
 .removeButton {
@@ -73,6 +75,8 @@
   resize: vertical;
   box-sizing: border-box;
   margin-bottom: 12px;
+  background: var(--color-input-bg);
+  color: var(--color-text);
 }
 
 .mediaBlock {
@@ -118,6 +122,9 @@
   border-radius: 4px;
   font-size: 0.9rem;
   box-sizing: border-box;
+  background: var(--color-input-bg);
+  color: var(--color-text);
+  transition: border-color .15s ease, background-color .15s ease;
 }
 
 .empty {
@@ -158,4 +165,132 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 12px;
+}
+
+/* Task type icon picker */
+.taskTypeGrid {
+  display: grid;
+  /* Exactly 5 per row (responsive under narrow width will wrap) */
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+
+/* Checkbox fallback list */
+.taskTypeCheckboxList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px 12px;
+}
+
+.taskTypeCheckboxItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  background: var(--color-card);
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.taskTypeCheckboxItem input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.taskTypeGridCompact {
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+}
+
+.taskTypeItem {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: var(--color-card, #fff);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 4px;
+  gap: 2px;
+  font-size: 0.55rem;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  transition: border-color .15s ease, background-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
+  position: relative;
+  width: 30px;
+  min-width: 30px;
+  max-width: 30px;
+  height: 30px;
+  min-height: 30px;
+  max-height: 30px;
+  text-align: center;
+  appearance: none;
+  -webkit-user-select: none;
+  user-select: none;
+  justify-self: center;
+}
+
+/* Provide a safe clickable area after all: unset */
+.taskTypeItem:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.taskTypeItem.selected {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  box-shadow: 0 0 0 2px rgba(224,65,27,0.25);
+  color: var(--color-text);
+  transform: translateY(-2px);
+}
+
+.taskTypeItem:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+
+.taskTypeItem:disabled {
+  cursor: not-allowed;
+  opacity: .6;
+}
+
+.taskTypeIconWrapper {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.taskTypeGridCompact .taskTypeIconWrapper { width: 32px; height: 32px; }
+
+.taskTypeIcon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: grayscale(1) opacity(.5);
+  transition: filter .15s ease, transform .15s ease;
+}
+
+.taskTypeItem.selected .taskTypeIcon {
+  filter: none;
+}
+
+.taskTypeItem:hover .taskTypeIcon { filter: grayscale(.15) opacity(.95); transform: scale(1.05); }
+
+/* Stronger guarantee against global button styling (fallback if any higher specificity) */
+.taskTypeGrid .taskTypeItem {
+  background: var(--color-card, #fff) !important;
+  color: var(--color-text-secondary) !important;
+}
+.taskTypeGrid .taskTypeItem.selected {
+  color: var(--color-text) !important;
+}
+
+.taskTypeLabel {
+  display: none; /* hidden due to very small button size; tooltip (title) still available */
 }

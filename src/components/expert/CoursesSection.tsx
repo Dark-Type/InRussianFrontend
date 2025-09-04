@@ -219,18 +219,6 @@ export const CoursesSection = () => {
             }}
           >
             <h3 style={{ margin: 0 }}>Просмотр задачи</h3>
-            <button
-              onClick={() => setSelectedTask(null)}
-              style={{
-                background: "transparent",
-                border: "none",
-                fontSize: "24px",
-                cursor: "pointer",
-                color: "var(--color-text-secondary)",
-              }}
-            >
-              ×
-            </button>
           </div>
 
           <div

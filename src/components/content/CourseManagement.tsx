@@ -2,6 +2,7 @@ import {useState, useEffect} from "react";
 import {useContent} from "../../context/content/UseContent.ts";
 import {CreateEditModal} from "./CreateEditModal";
 import TaskEditorModal from "./task-editor/TaskEditorModal.tsx";
+import { taskTypesToRu } from '../content/task-editor/TaskModels';
 import type { TaskModel } from "./task-editor/TaskModels";
 
 export const CoursesManagement = () => {
@@ -659,7 +660,7 @@ export const CoursesManagement = () => {
                                                                                     color: "var(--color-text-secondary)",
                                                                                 }}
                                                                             >
-                                                                                {task.taskType.join(", ")}
+                                                                                {taskTypesToRu(task.taskType as any)}
                                                                             </div>
                                                                         </div>
                                                                         <div style={{display: "flex", gap: "4px"}}>

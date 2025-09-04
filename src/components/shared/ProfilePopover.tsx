@@ -236,10 +236,11 @@ export const ProfilePopover = ({
               <label>
                 Имя:
                 <input
+                  type="text"
                   name="name"
                   value={staffForm.name}
                   onChange={handleStaffChange}
-                  style={{ width: "100%" }}
+                  style={{ width: "100%", background: 'var(--color-input-bg)', color: 'var(--color-text)', border: '1px solid var(--color-input-border)', borderRadius: 6, padding: '8px 10px' }}
                   required
                 />
               </label>
@@ -248,10 +249,11 @@ export const ProfilePopover = ({
               <label>
                 Фамилия:
                 <input
+                  type="text"
                   name="surname"
                   value={staffForm.surname}
                   onChange={handleStaffChange}
-                  style={{ width: "100%" }}
+                  style={{ width: "100%", background: 'var(--color-input-bg)', color: 'var(--color-text)', border: '1px solid var(--color-input-border)', borderRadius: 6, padding: '8px 10px' }}
                   required
                 />
               </label>
@@ -260,10 +262,11 @@ export const ProfilePopover = ({
               <label>
                 Отчество:
                 <input
+                  type="text"
                   name="patronymic"
                   value={staffForm.patronymic || ""}
                   onChange={handleStaffChange}
-                  style={{ width: "100%" }}
+                  style={{ width: "100%", background: 'var(--color-input-bg)', color: 'var(--color-text)', border: '1px solid var(--color-input-border)', borderRadius: 6, padding: '8px 10px' }}
                 />
               </label>
             </div>
@@ -275,7 +278,7 @@ export const ProfilePopover = ({
                   type="email"
                   value={userForm.email}
                   onChange={handleUserChange}
-                  style={{ width: "100%" }}
+                  style={{ width: "100%", background: 'var(--color-input-bg)', color: 'var(--color-text)', border: '1px solid var(--color-input-border)', borderRadius: 6, padding: '8px 10px' }}
                   disabled
                 />
               </label>
@@ -288,7 +291,7 @@ export const ProfilePopover = ({
                   type="tel"
                   value={userForm.phone || ""}
                   onChange={handleUserChange}
-                  style={{ width: "100%" }}
+                  style={{ width: "100%", background: 'var(--color-input-bg)', color: 'var(--color-text)', border: '1px solid var(--color-input-border)', borderRadius: 6, padding: '8px 10px' }}
                 />
               </label>
             </div>
@@ -296,11 +299,11 @@ export const ProfilePopover = ({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                style={{ marginRight: 12 }}
+                style={{ marginRight: 12, background: 'var(--color-primary)', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}
               >
                 Отмена
               </button>
-              <button type="submit">Сохранить</button>
+              <button type="submit" style={{ background: 'var(--color-primary)', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>Сохранить</button>
             </div>
           </form>
         </div>

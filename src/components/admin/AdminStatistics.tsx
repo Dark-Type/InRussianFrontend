@@ -4,6 +4,7 @@ import ContentService from '../../services/ContentService.ts';
 
 export const AdminStatistics = () => {
     const [overallStats, setOverallStats] = useState<any>(null);
+    const [platformStats, setPlatformStats] = useState<any>(null);
     const [courseStats, setCourseStats] = useState<any>(null);
     const [studentsOverallStats, setStudentsOverallStats] = useState<any>(null);
     const [courseStudentsStats, setCourseStudentsStats] = useState<any>(null);
@@ -31,6 +32,14 @@ export const AdminStatistics = () => {
         try {
             const overallResponse = await AdminService.getOverallStatistics();
             setOverallStats(overallResponse.data);
+
+            // Платформенная агрегированная статистика
+            try {
+                const platformResp = await AdminService.getPlatformStats();
+                setPlatformStats(platformResp.data);
+            } catch (e) {
+                console.warn('Не удалось загрузить платформенную статистику /platform/stats', e);
+            }
 
             const studentsOverallResponse = await AdminService.getOverallStudentsStatistics();
             setStudentsOverallStats(studentsOverallResponse.data);
@@ -355,7 +364,7 @@ export const AdminStatistics = () => {
                                         color: 'var(--color-text)'
                                     }}
                                 >
-                                    <option value="">Все курсы</option>
+                                    <option value="">Выберите курс</option>
                                     {filteredCourses.map((c) => (
                                         <option key={c.id} value={c.id}>{c.title || c.name || c.id}</option>
                                     ))}
@@ -425,6 +434,38 @@ export const AdminStatistics = () => {
                     gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
                     gap: '20px'
                 }}>
+                    {platformStats && (
+                        <StatCard
+                            title="Курсов всего"
+                            value={platformStats.totalCourses ?? 0}
+                            subtitle={`Обновлено ${platformStats.generatedAt ? new Date(platformStats.generatedAt).toLocaleString() : ''}`}
+                            color="#2563eb"
+                        />
+                    )}
+                    {platformStats?.totalUsersWithProgress !== undefined && (
+                        <StatCard
+                            title="Пользователи с прогрессом"
+                            value={platformStats.totalUsersWithProgress}
+                            subtitle="Имеют хотя бы 1 решённое задание"
+                            color="#0d9488"
+                        />
+                    )}
+                    {platformStats?.courseLevelAverage && (
+                        <StatCard
+                            title="Средний прогресс (курс)"
+                            value={`${platformStats.courseLevelAverage.percentAvg?.toFixed?.(1) ?? 0}%`}
+                            subtitle={`Участников: ${platformStats.courseLevelAverage.participants}`}
+                            color="#9333ea"
+                        />
+                    )}
+                    {platformStats?.sectionLevelAverage && (
+                        <StatCard
+                            title="Средний прогресс (секция)"
+                            value={`${platformStats.sectionLevelAverage.percentAvg?.toFixed?.(1) ?? 0}%`}
+                            subtitle={`Участников: ${platformStats.sectionLevelAverage.participants}`}
+                            color="#7c3aed"
+                        />
+                    )}
                     {usersCount && (
                         <StatCard
                             title="Общее количество пользователей"
@@ -463,6 +504,68 @@ export const AdminStatistics = () => {
                 </div>
             </div>
 
+            {/* Платформенная агрегированная статистика */}
+            {platformStats && (
+                <div style={{ marginBottom: '32px' }}>
+                    <SectionHeader
+                        title="Агрегированная статистика платформы"
+                        description="Консолидированные метрики прогресса по курсам и секциям"
+                    />
+                    <div style={{
+                        background: 'var(--color-card)',
+                        padding: '24px',
+                        borderRadius: '12px',
+                        border: '1px solid var(--color-border)',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                    }}>
+                        <ol style={{ margin: 0, paddingLeft: 20, fontSize: '0.9rem' }}>
+                            <li style={{ marginBottom: 8 }}>
+                                <strong style={{ width: 240, display: 'inline-block', color: 'var(--color-text-secondary)' }}>Всего курсов:</strong>
+                                <span>{platformStats.totalCourses}</span>
+                            </li>
+                            <li style={{ marginBottom: 8 }}>
+                                <strong style={{ width: 240, display: 'inline-block', color: 'var(--color-text-secondary)' }}>Пользователи с прогрессом:</strong>
+                                <span>{platformStats.totalUsersWithProgress}</span>
+                            </li>
+                            <li style={{ marginBottom: 12 }}>
+                                <strong style={{ width: 240, display: 'inline-block', color: 'var(--color-text-secondary)' }}>Сгенерировано:</strong>
+                                <span>{platformStats.generatedAt ? new Date(platformStats.generatedAt).toLocaleString() : '—'}</span>
+                            </li>
+                            {platformStats.courseLevelAverage && (
+                                <li style={{ marginBottom: 16 }}>
+                                    <details open>
+                                        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Средние показатели по курсам</summary>
+                                        <ul style={{ listStyle: 'disc', paddingLeft: 20, marginTop: 8 }}>
+                                            <li>Среднее решённых задач: {platformStats.courseLevelAverage.solvedTasksAvg?.toFixed?.(2) ?? 0}</li>
+                                            <li>Среднее всего задач: {platformStats.courseLevelAverage.totalTasksAvg?.toFixed?.(2) ?? 0}</li>
+                                            <li>Средний процент: {platformStats.courseLevelAverage.percentAvg?.toFixed?.(1) ?? 0}%</li>
+                                            <li>Среднее время (мс): {platformStats.courseLevelAverage.averageTimeMsAvg?.toFixed?.(0) ?? 0}</li>
+                                            <li>Участников: {platformStats.courseLevelAverage.participants}</li>
+                                            <li>Обновлено: {platformStats.courseLevelAverage.lastUpdatedAt ? new Date(platformStats.courseLevelAverage.lastUpdatedAt).toLocaleString() : '—'}</li>
+                                        </ul>
+                                    </details>
+                                </li>
+                            )}
+                            {platformStats.sectionLevelAverage && (
+                                <li style={{ marginBottom: 8 }}>
+                                    <details>
+                                        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Средние показатели по секциям</summary>
+                                        <ul style={{ listStyle: 'disc', paddingLeft: 20, marginTop: 8 }}>
+                                            <li>Среднее решённых задач: {platformStats.sectionLevelAverage.solvedTasksAvg?.toFixed?.(2) ?? 0}</li>
+                                            <li>Среднее всего задач: {platformStats.sectionLevelAverage.totalTasksAvg?.toFixed?.(2) ?? 0}</li>
+                                            <li>Средний процент: {platformStats.sectionLevelAverage.percentAvg?.toFixed?.(1) ?? 0}%</li>
+                                            <li>Среднее время (мс): {platformStats.sectionLevelAverage.averageTimeMsAvg?.toFixed?.(0) ?? 0}</li>
+                                            <li>Участников: {platformStats.sectionLevelAverage.participants}</li>
+                                            <li>Обновлено: {platformStats.sectionLevelAverage.lastUpdatedAt ? new Date(platformStats.sectionLevelAverage.lastUpdatedAt).toLocaleString() : '—'}</li>
+                                        </ul>
+                                    </details>
+                                </li>
+                            )}
+                        </ol>
+                    </div>
+                </div>
+            )}
+
             {/* Детальная статистика курса */}
             {courseStats && (
                 <div style={{ marginBottom: '32px' }}>
@@ -492,9 +595,9 @@ export const AdminStatistics = () => {
                                 const elements: any[] = [];
 
                                 const known: { k: string; label: string; fmt?: (v: any) => any }[] = [
-                                    { k: 'studentsCount', label: 'Количество студентов', fmt: (v: any) => (v === null || v === undefined ? 'Нет данных' : v) },
-                                    { k: 'averageTimeSpentSeconds', label: 'Среднее время', fmt: (v: any) => (v === null || v === undefined ? 'Нет данных' : formatTime(v)) },
-                                    { k: 'averageProgressPercentage', label: 'Средний прогресс', fmt: (v: any) => (v === null || v === undefined ? 'Нет данных' : formatPercentage(v)) },
+                                    { k: 'studentsCount', label: 'Количество студентов', fmt: (v: any) => (v === null || v === undefined ? '0' : v) },
+                                    { k: 'averageTimeSpentSeconds', label: 'Среднее время', fmt: (v: any) => (v === null || v === undefined ? '0ч 0м' : formatTime(v)) },
+                                    { k: 'averageProgressPercentage', label: 'Средний прогресс', fmt: (v: any) => (v === null || v === undefined ? '0%' : formatPercentage(v)) },
                                 ];
 
                                 const usedKeys = new Set<string>();

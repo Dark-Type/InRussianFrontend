@@ -32,6 +32,25 @@ type WireTaskBody =
   | { type: "ConstructSentenceTask"; task: { audio: string | null; variants: string[] } }
   | { type: "SelectWordsTask"; task: { audio: string; variants: PairObj<string, boolean>[] } };
 
+  const ALL_TASK_TYPES: TaskType[] = [
+  "LISTEN_AND_CHOOSE",
+  "READ_AND_CHOOSE",
+  "LOOK_AND_CHOOSE",
+  "MATCH_AUDIO_TEXT",
+  "MATCH_TEXT_TEXT",
+  "WRITE",
+  "LISTEN",
+  "READ",
+  "SPEAK",
+  "REMIND",
+  "MARK",
+  "FILL",
+  "CONNECT_AUDIO",
+  "CONNECT_IMAGE",
+  "CONNECT_TRANSLATE",
+  "SELECT",
+];
+
 type Props = {
   isOpen: boolean;
   onClose: () => void;
@@ -192,43 +211,7 @@ async function uploadTaskBodyMediaIfNeeded(body: TaskBody): Promise<TaskBody> {
   return body;
 }
 
-const ALL_TASK_TYPES: TaskType[] = [
-  "LISTEN_AND_CHOOSE",
-  "READ_AND_CHOOSE",
-  "LOOK_AND_CHOOSE",
-  "MATCH_AUDIO_TEXT",
-  "MATCH_TEXT_TEXT",
-  "WRITE",
-  "LISTEN",
-  "READ",
-  "SPEAK",
-  "REMIND",
-  "MARK",
-  "FILL",
-  "CONNECT_AUDIO",
-  "CONNECT_IMAGE",
-  "CONNECT_TRANSLATE",
-  "SELECT",
-];
-
-const TASK_TYPE_LABELS: Record<TaskType, string> = {
-  LISTEN_AND_CHOOSE: "Слушать и выбирать",
-  READ_AND_CHOOSE: "Читать и выбирать",
-  LOOK_AND_CHOOSE: "Смотреть и выбирать",
-  MATCH_AUDIO_TEXT: "Соответствие: Аудио — Текст",
-  MATCH_TEXT_TEXT: "Соответствие: Текст — Текст",
-  WRITE: "Писать",
-  LISTEN: "Слушать",
-  READ: "Читать",
-  SPEAK: "Говорить",
-  REMIND: "Повторить",
-  MARK: "Отметить",
-  FILL: "Заполнить",
-  CONNECT_AUDIO: "Соединить (аудио)",
-  CONNECT_IMAGE: "Соединить (изображение)",
-  CONNECT_TRANSLATE: "Соединить (перевод)",
-  SELECT: "Выбрать",
-};
+// task type labels & ordering come from TaskTypeIconPicker (TaskTypeIcons.tsx)
 
 const BODY_TYPE_OPTIONS: { value: TaskBody["type"]; label: string }[] = [
   { value: "TextConnectTask", label: "Текстовые варианты" },
@@ -458,21 +441,6 @@ export default function TaskEditorModal({ isOpen, onClose, onCreated, onUpdated,
       <div style={MODAL_STYLE} onClick={(e) => e.stopPropagation()}>
         <div className={`${styles.header} ${styles.modalHeader}`}>
       <h3 className={styles.title}>{readOnly ? "Просмотр задания" : initialTask ? "Редактировать задание" : "Создать задание"}</h3>
-          <div className={styles.actions}>
-            <button className={styles.actionButton} onClick={onClose} disabled={saving}>
-              {readOnly ? "Закрыть" : "Отмена"}
-            </button>
-            {!readOnly && (
-              <button
-                className={styles.actionButton}
-                onClick={onSubmit}
-                disabled={saving || submitDisabled}
-        title={submitDisabled ? "Заполните обязательные поля" : initialTask ? "Сохранить" : "Создать"}
-              >
-        {saving ? (initialTask ? "Сохранение..." : "Создание...") : (initialTask ? "Сохранить" : "Создать")}
-              </button>
-            )}
-          </div>
         </div>
 
         {error && (
@@ -611,33 +579,27 @@ export default function TaskEditorModal({ isOpen, onClose, onCreated, onUpdated,
   );
 }
 
-function TaskTypesPicker({
-  selected,
-  onToggle,
-  disabled,
-}: {
-  selected: TaskType[];
-  onToggle: (t: TaskType) => void;
-  disabled?: boolean;
-}) {
+import { TASK_TYPE_LABELS_RU } from './TaskModels';
+
+function TaskTypesPicker({ selected, onToggle, disabled }: { selected: TaskType[]; onToggle: (t: TaskType) => void; disabled?: boolean; }) {
   return (
     <div className={styles.card}>
-      <div className={styles.label} style={{ marginBottom: 8 }}>
-        Типы задания
-      </div>
-      <div className={styles.fieldsGrid}>
-        {ALL_TASK_TYPES.map((t) => (
-          <label key={t} className={styles.label} style={{ fontWeight: 400 }}>
-            <input
-              type="checkbox"
-              checked={selected.includes(t)}
-              onChange={() => onToggle(t)}
-              style={{ marginRight: 6 }}
-              disabled={disabled}
-            />
-            {TASK_TYPE_LABELS[t]}
-          </label>
-        ))}
+      <div className={styles.label} style={{ marginBottom: 8, fontWeight: 600 }}>Типы задания</div>
+      <div className={styles.taskTypeCheckboxList}>
+        {ALL_TASK_TYPES.map(t => {
+          const checked = selected.includes(t);
+          return (
+            <label key={t} className={styles.taskTypeCheckboxItem} title={TASK_TYPE_LABELS_RU?.[t] || t}>
+              <input
+                type="checkbox"
+                checked={checked}
+                disabled={disabled}
+                onChange={() => onToggle(t)}
+              />
+              <span>{TASK_TYPE_LABELS_RU?.[t] || t}</span>
+            </label>
+          );
+        })}
       </div>
     </div>
   );
