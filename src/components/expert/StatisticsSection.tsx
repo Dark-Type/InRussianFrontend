@@ -70,6 +70,8 @@ export const StatisticsSection = () => {
   const [overallAvgTime, setOverallAvgTime] = useState<number | null>(null);
   const [overallStudentsCount, setOverallStudentsCount] = useState<number | null>(null);
   const [students, setStudents] = useState<User[]>([]);
+  // Full raw list fetched once (workaround for broken backend pagination)
+  const [allStudents, setAllStudents] = useState<User[]>([]);
   const [page, setPage] = useState(0);
   const [size, setSize] = useState<number>(10);
   const [totalStudents, setTotalStudents] = useState<number>(0);
@@ -129,9 +131,7 @@ export const StatisticsSection = () => {
         setAvgProgress(typeof progress === "number" ? progress : parseFloat(String(progress)) || 0);
         setAvgTimeMinutes(typeof time === "number" ? time : parseFloat(String(time)) || 0);
         setCourseStudentsCount(typeof studentsCount === "number" ? studentsCount : parseInt(String(studentsCount), 10) || 0);
-        if (viewMode === "byCourse") {
-          setTotalStudents(typeof studentsCount === "number" ? studentsCount : parseInt(String(studentsCount), 10) || 0);
-        }
+  // totalStudents is now derived from locally cached list; no direct set here
       } catch (e) {
         console.error(e);
         if (!cancelled) setError("Ошибка загрузки статистики по курсу");
@@ -149,51 +149,55 @@ export const StatisticsSection = () => {
     };
   }, [selectedCourseId, viewMode]);
 
+  // Fetch all students once (workaround for broken server-side pagination)
   useEffect(() => {
     let cancelled = false;
     setLoadingStudents(true);
     setError(null);
-
-    const loadStudents = async () => {
+    const fetchAll = async () => {
       try {
-        if (viewMode === "all") {
-          const res = await ExpertService.getAllStudents(page, size);
-          const total = await ExpertService.getStudentsCount();
-          if (cancelled) return;
-          setStudents(res || []);
-          setTotalStudents(typeof total === "number" ? total : parseInt(String(total), 10) || 0);
-        } else {
-          const res = await ExpertService.getAllStudents(0, 1000);
-          if (cancelled) return;
-          const filtered = (res || []).filter((s: any) => studentEnrolledInCourse(s, selectedCourseId));
-          // local pagination for filtered array:
-          const start = page * size;
-          const paged = filtered.slice(start, start + size);
-          setStudents(paged);
-          setTotalStudents(filtered.length);
-        }
+        const res = await ExpertService.getAllStudents(0, 100000); // large size to get everything
+        if (cancelled) return;
+        setAllStudents(res || []);
       } catch (e) {
         console.error(e);
         if (!cancelled) setError("Ошибка загрузки студентов");
-        setStudents([]);
-        setTotalStudents(0);
+        setAllStudents([]);
       } finally {
         if (!cancelled) setLoadingStudents(false);
       }
     };
+    fetchAll();
+    return () => { cancelled = true; };
+  }, []);
 
-    if (viewMode === "byCourse" && !selectedCourseId) {
-      setStudents([]);
-      setTotalStudents(0);
-      setLoadingStudents(false);
-      return;
-    }
-
-    loadStudents();
-    return () => {
-      cancelled = true;
+  // Derive current page slice locally
+  useEffect(() => {
+    // Reset page if current page is out of range after filter changes
+    const apply = () => {
+      let base: any[] = allStudents;
+      if (viewMode === "byCourse") {
+        if (!selectedCourseId) {
+          setStudents([]);
+          setTotalStudents(0);
+          return;
+        }
+        base = base.filter((s: any) => studentEnrolledInCourse(s, selectedCourseId));
+      }
+      const total = base.length;
+      if (page > 0 && page * size >= total) {
+        // move to last valid page
+        const newPage = Math.max(0, Math.ceil(total / size) - 1);
+        setPage(newPage);
+        return; // will re-run with updated page
+      }
+      setTotalStudents(total);
+      const start = page * size;
+      const slice = base.slice(start, start + size);
+      setStudents(slice);
     };
-  }, [viewMode, selectedCourseId, page, size]);
+    apply();
+  }, [allStudents, viewMode, selectedCourseId, page, size]);
 
   const hasCourseStats = useMemo(() => {
     return avgProgress !== null || avgTimeMinutes !== null || (courseStudentsCount !== null && courseStudentsCount > 0);

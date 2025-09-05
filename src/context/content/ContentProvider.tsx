@@ -112,16 +112,23 @@ export interface Task {
   answerOptions: AnswerOption[];
 }
 
+export interface ThemeTreeNode {
+  theme: Theme;
+  children: ThemeTreeNode[];
+}
+
 export interface ContentContextType {
   courses: Course[];
   sections: { [courseId: string]: Section[] };
   themes: { [sectionId: string]: Theme[] };
+  themeTree: { [sectionId: string]: ThemeTreeNode[] };
   tasks: { [themeId: string]: Task[] };
   taskModels: { [themeId: string]: TaskModel[] };
 
   loadCourses: () => Promise<void>;
   loadSections: (courseId: string) => Promise<void>;
   loadThemes: (sectionId: string) => Promise<void>;
+  loadThemeTree: (id: string, type: "course" | "theme") => Promise<void>;
   loadTasks: (themeId: string) => Promise<void>;
   loadTaskModels: (themeId: string) => Promise<void>;
 
@@ -138,10 +145,14 @@ export interface ContentContextType {
     description?: string
   ) => Promise<void>;
   createTheme: (
-    sectionId: string,
-    name: string,
-    description?: string
-  ) => Promise<void>;
+    params: {
+      courseId: string;
+      parentThemeId?: string | null;
+      name: string;
+      description?: string;
+      position?: number | null;
+    }
+  ) => Promise<any>;
 
   updateCourse: (
     id: string,
@@ -229,6 +240,24 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
     {}
   );
   const [themes, setThemes] = useState<{ [sectionId: string]: Theme[] }>({});
+  const [themeTree, setThemeTree] = useState<{ [sectionId: string]: ThemeTreeNode[] }>({});
+  // Load theme tree for a section
+  // Load theme tree for a theme (root theme or course root)
+  // Load theme tree for a course (top-level) or theme (sub-tree)
+  const loadThemeTree = async (id: string, type: "course" | "theme") => {
+    try {
+      let resp;
+      if (type === "course") {
+        resp = await axiosInstance.get(`/content/courses/${id}/theme-tree`);
+      } else {
+        resp = await axiosInstance.get(`/content/themes/${id}/tree`);
+      }
+      setThemeTree(prev => ({ ...prev, [id]: Array.isArray(resp.data) ? resp.data : [resp.data] }));
+    } catch (error) {
+      console.error("Ошибка загрузки дерева тем:", error);
+      setThemeTree(prev => ({ ...prev, [id]: [] }));
+    }
+  };
   const [tasks, setTasks] = useState<{ [themeId: string]: Task[] }>({});
   const [taskModels, setTaskModels] = useState<{ [themeId: string]: TaskModel[] }>({});
 
@@ -355,21 +384,32 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  // Updated: createTheme to match backend CreateThemeRequest
   const createTheme = async (
-    sectionId: string,
-    name: string,
-    description?: string
+    params: {
+      courseId: string;
+      parentThemeId?: string | null;
+      name: string;
+      description?: string;
+      position?: number | null;
+    }
   ) => {
     try {
-      const newTheme = await contentService.createTheme(
-        sectionId,
-        name,
-        description || ""
-      );
-      setThemes((prev) => ({
-        ...prev,
-        [sectionId]: [...(prev[sectionId] || []), newTheme],
-      }));
+      // Send request to backend using correct model and route
+      const requestData = {
+        courseId: params.courseId,
+        parentThemeId: params.parentThemeId ?? null,
+        name: params.name,
+        description: params.description ?? "",
+        position: params.position ?? null,
+      };
+      // API route: /content/themes (POST)
+      const resp = await axiosInstance.post("/content/themes", requestData);
+      const newTheme = resp.data;
+      // Update themeTree (if needed) or reload courses/themes
+      await loadCourses();
+      // Optionally, update themeTree or themes state here if needed
+      return newTheme;
     } catch (error) {
       console.error("Ошибка создания темы:", error);
       throw error;
@@ -382,21 +422,17 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
     description?: string
   ) => {
     try {
-      const courseData: UpdateCourseRequest = { name, description };
+      const courseData: UpdateCourseRequest = { 
+        name, 
+        description,
+        // Additional fields from UpdateCourseRequest can be added here if needed:
+        // authorUrl, language, coursePoster, isPublished
+      };
       const apiCourse = await contentService.updateCourse(id, courseData);
 
-      const updatedCourse: Course = {
-        id: apiCourse.id,
-        name: apiCourse.name,
-        description: apiCourse.description,
-        sectionsCount: 0,
-        themesCount: 0,
-        tasksCount: await contentService.getTasksCountByCourse(id),
-      };
-
-      setCourses((prev) =>
-        prev.map((course) => (course.id === id ? updatedCourse : course))
-      );
+      // Don't try to update old course state structure, just refresh the data
+      // The courses will be updated when loadCourses is called
+      console.log('Course updated:', apiCourse);
     } catch (error) {
       console.error("Ошибка обновления курса:", error);
       throw error;
@@ -442,26 +478,17 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
     description?: string
   ) => {
     try {
-      const themeData: UpdateThemeRequest = { name, description };
+      const themeData: UpdateThemeRequest = { 
+        name, 
+        description,
+        // Include position and parentThemeId as per the UpdateThemeRequest schema
+        // These will be null/undefined if not specified, which the backend handles
+      };
       const apiTheme = await contentService.updateTheme(id, themeData);
 
-      const updatedTheme: Theme = {
-        id: apiTheme.id,
-        sectionId: apiTheme.sectionId,
-        name: apiTheme.name,
-        description: apiTheme.description,
-        tasksCount: await contentService.getTasksCountByTheme(id),
-      };
-
-      setThemes((prev) => {
-        const newThemes = { ...prev };
-        Object.keys(newThemes).forEach((sectionId) => {
-          newThemes[sectionId] = newThemes[sectionId].map((theme) =>
-            theme.id === id ? updatedTheme : theme
-          );
-        });
-        return newThemes;
-      });
+      // Don't try to update old theme state structure, just refresh the data
+      // The theme tree will be updated when loadThemeTree is called
+      console.log('Theme updated:', apiTheme);
     } catch (error) {
       console.error("Ошибка обновления темы:", error);
       throw error;
@@ -470,13 +497,10 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
 
   const deleteCourse = async (id: string) => {
     try {
-  await axiosInstance.delete(`/content/courses/${id}`);
-      setCourses((prev) => prev.filter((course) => course.id !== id));
-      setSections((prev) => {
-        const newSections = { ...prev };
-        delete newSections[id];
-        return newSections;
-      });
+      await axiosInstance.delete(`/content/courses/${id}`);
+      // Don't try to update old course state structure, just log success
+      // The courses will be updated when loadCourses is called from the component
+      console.log('Course deleted:', id);
     } catch (error) {
       console.error("Ошибка удаления курса:", error);
       throw error;
@@ -503,16 +527,10 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
 
   const deleteTheme = async (id: string) => {
     try {
-  await axiosInstance.delete(`/content/themes/${id}`);
-      setThemes((prev) => {
-        const newThemes = { ...prev };
-        Object.keys(newThemes).forEach((sectionId) => {
-          newThemes[sectionId] = newThemes[sectionId].filter(
-            (theme) => theme.id !== id
-          );
-        });
-        return newThemes;
-      });
+      await axiosInstance.delete(`/content/themes/${id}`);
+      // Don't try to update old theme state structure, just log success
+      // The theme tree will be updated when loadThemeTree is called from the component
+      console.log('Theme deleted:', id);
     } catch (error) {
       console.error("Ошибка удаления темы:", error);
       throw error;
@@ -521,7 +539,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
 
   const deleteTask = async (id: string) => {
     try {
-      await taskService.deleteTask(id);
+      await axiosInstance.delete("/task/" + id);
       setTasks((prev) => {
         const newTasks = { ...prev };
         Object.keys(newTasks).forEach((themeId) => {
@@ -539,7 +557,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
 
   const deleteTaskModel = async (id: string, themeId: string) => {
     try {
-      await axiosInstance.delete(`/task/${id}`);
+      await axiosInstance.delete("/task/" + id);
       setTaskModels(prev => {
         const next = { ...prev };
         if (next[themeId]) next[themeId] = next[themeId].filter(t => t.id !== id);
@@ -661,13 +679,15 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
         courses,
         sections,
         themes,
+        themeTree,
         tasks,
-  taskModels,
+        taskModels,
         loadCourses,
         loadSections,
         loadThemes,
+        loadThemeTree,
         loadTasks,
-  loadTaskModels,
+        loadTaskModels,
         createCourse,
         createSection,
         createTheme,
@@ -678,7 +698,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
         deleteSection,
         deleteTheme,
         deleteTask,
-  deleteTaskModel,
+        deleteTaskModel,
         createTask,
         updateTask,
         uploadMediaFile,

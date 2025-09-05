@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { AdminService } from "../../services/AdminService";
 import { profileApi } from "../../instances/profileApiInstance.ts";
+import { axiosInstance } from "../../instances/axiosInstance";
 import type {
   User,
   UserRoleEnum,
@@ -45,6 +46,8 @@ export const UserEditModal = ({
   const [staffProfile, setStaffProfile] = useState<Partial<StaffProfile>>({});
   const [languageSkills, setLanguageSkills] = useState<UserLanguageSkill[]>([]);
   const [initialLanguageSkills, setInitialLanguageSkills] = useState<UserLanguageSkill[]>([]);
+  const [skillLoading, setSkillLoading] = useState<{[id: string]: boolean}>({});
+  const [skillError, setSkillError] = useState<{[id: string]: string}>({});
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
 
@@ -117,17 +120,50 @@ export const UserEditModal = ({
     }
   };
 
-  const handleLanguageSkillChange = (
-    index: number,
-    field: keyof UserLanguageSkill,
-    value: string | boolean
-  ) => {
-    setLanguageSkills((prev) =>
-      prev.map((skill, i) =>
-        i === index ? { ...skill, [field]: value } : skill
-      )
-    );
+  // State-only update for language skill
+  const updateLanguageSkillState = (index: number, field: keyof UserLanguageSkill, value: string | boolean) => {
+    setLanguageSkills((prev) => prev.map((skill, i) => i === index ? { ...skill, [field]: value } : skill));
   };
+
+  // Handler for delete (network call first, then state update and initial sync)
+  const handleDeleteSkill = async (index: number) => {
+    console.log(index)
+    const skill = languageSkills[index];
+    console.log(skill)
+    // Warn if unsaved changes
+    if (skill.id) {
+      console.log(skill.id + " AAAAAAAA")
+      const initial = initialLanguageSkills.find((s) => s.id === skill.id);
+      if (initial && !skillsEqual(initial, skill)) {
+        if (!window.confirm("У этого навыка есть несохранённые изменения. Всё равно удалить?")) {
+          return;
+        }
+      }
+    }
+    if (skill.id) {
+      setSkillLoading((prev) => ({ ...prev, [skill.id!]: true }));
+      setSkillError((prev) => ({ ...prev, [skill.id!]: "" }));
+      try {
+        await axiosInstance.delete(`/profiles/user/language-skills/${skill.id}?targetUserId=${user?.id}`);
+        const updatedSkills = languageSkills.filter((_, i) => i !== index);
+        console.log(updatedSkills)
+        console.log("AAAAA")
+        setLanguageSkills(updatedSkills);
+        setInitialLanguageSkills(updatedSkills);
+      } catch (err) {
+        setSkillError((prev) => ({ ...prev, [skill.id!]: "Ошибка удаления навыка" }));
+      } finally {
+        setSkillLoading((prev) => ({ ...prev, [skill.id!]: false }));
+      }
+    } else {
+      // New skill, just remove from state
+      const updatedSkills = languageSkills.filter((_, i) => i !== index);
+      setLanguageSkills(updatedSkills);
+      setInitialLanguageSkills(updatedSkills);
+    }
+  };
+
+  // Remove effect for PUT on edit; handle in submit
 
   const addLanguageSkill = () => {
     setLanguageSkills((prev) => [
@@ -136,9 +172,7 @@ export const UserEditModal = ({
     ]);
   };
 
-  const removeLanguageSkill = (index: number) => {
-    setLanguageSkills((prev) => prev.filter((_, i) => i !== index));
-  };
+  // Removed unused removeLanguageSkill
 
   const skillsEqual = (a: UserLanguageSkill, b: UserLanguageSkill) =>
     a.language === b.language &&
@@ -168,7 +202,7 @@ export const UserEditModal = ({
       };
 
       //   await AdminService.updateUser(user.id, validatedUserData);
-    //   console.log("USER", user);
+      //   console.log("USER", user);
 
       if (userData.role === "STUDENT") {
         if (Object.keys(userProfile).length > 0) {
@@ -183,9 +217,9 @@ export const UserEditModal = ({
             nationality: userProfile.nationality,
             countryOfResidence: userProfile.countryOfResidence,
             cityOfResidence: userProfile.cityOfResidence,
-                countryDuringEducation: userProfile.countryDuringEducation,
-                periodSpent: userProfile.periodSpent as any,
-                kindOfActivity: userProfile.kindOfActivity,
+            countryDuringEducation: userProfile.countryDuringEducation,
+            periodSpent: userProfile.periodSpent as any,
+            kindOfActivity: userProfile.kindOfActivity,
             education: userProfile.education,
             purposeOfRegister: userProfile.purposeOfRegister,
           };
@@ -193,37 +227,46 @@ export const UserEditModal = ({
         }
         // Language skills diff & sync
         try {
+          const initialSkills = [...initialLanguageSkills];
+          // Find new skills to create
           const toCreate = languageSkills.filter((s) => !s.id && s.language.trim());
+          // Find existing skills to update (id present, changed)
           const toUpdate = languageSkills.filter(
-            (s) => s.id && initialLanguageSkills.some((o) => o.id === s.id && !skillsEqual(o, s))
-          );
-          const toDelete = initialLanguageSkills.filter(
-            (o) => !languageSkills.some((s) => s.id === o.id)
+            (s) => s.id && initialSkills.some((o) => o.id === s.id && !skillsEqual(o, s))
           );
 
+          // Create new skills only (no id)
           for (const skill of toCreate) {
-            const req: UserLanguageSkillRequest = {
-              language: skill.language.trim(),
-              understands: skill.understands,
-              speaks: skill.speaks,
-              reads: skill.reads,
-              writes: skill.writes,
-            };
-            await AdminService.createUserLanguageSkill(req, user.id);
+            try {
+              const req: UserLanguageSkillRequest = {
+                language: skill.language.trim(),
+                understands: skill.understands,
+                speaks: skill.speaks,
+                reads: skill.reads,
+                writes: skill.writes,
+              };
+              await AdminService.createUserLanguageSkill(req, user.id);
+            } catch (err) {
+              setSkillError((prev) => ({ ...prev, [skill.language]: "Ошибка создания навыка" }));
+            }
           }
+          // Update existing skills (PUT)
           for (const skill of toUpdate) {
-            const req: UserLanguageSkillRequest = {
-              language: skill.language.trim(),
-              understands: skill.understands,
-              speaks: skill.speaks,
-              reads: skill.reads,
-              writes: skill.writes,
-            };
-            await AdminService.updateUserLanguageSkill(skill.id as string, req, user.id);
+            try {
+              const req: UserLanguageSkillRequest = {
+                language: skill.language.trim(),
+                understands: skill.understands,
+                speaks: skill.speaks,
+                reads: skill.reads,
+                writes: skill.writes,
+              };
+              await axiosInstance.put(`/profiles/user/language-skills/${skill.id}?targetUserId=${user.id}`, req);
+            } catch (err) {
+              setSkillError((prev) => ({ ...prev, [skill.id!]: "Ошибка обновления навыка" }));
+            }
           }
-          for (const skill of toDelete) {
-            await AdminService.deleteUserLanguageSkill(skill.id as string, user.id);
-          }
+          // After successful sync, update initialLanguageSkills to match current
+          setInitialLanguageSkills([...languageSkills]);
         } catch (lsErr) {
           console.error("Ошибка синхронизации языковых навыков:", lsErr);
         }
@@ -253,6 +296,7 @@ export const UserEditModal = ({
   if (!user) return null;
 
   return (
+    
     <div
       style={{
         position: "fixed",
@@ -669,12 +713,13 @@ export const UserEditModal = ({
 
                     {languageSkills.map((skill, index) => (
                       <div
-                        key={index}
+                        key={skill.id || index}
                         style={{
                           border: "1px solid var(--color-border)",
                           borderRadius: "4px",
                           padding: "12px",
                           marginBottom: "8px",
+                          opacity: skillLoading[skill.id!] ? 0.5 : 1,
                         }}
                       >
                         <div
@@ -688,7 +733,7 @@ export const UserEditModal = ({
                           <input
                             type="text"
                             value={skill.language}
-                            onChange={(e) => handleLanguageSkillChange(index, "language", e.target.value)}
+                            onChange={(e) => updateLanguageSkillState(index, "language", e.target.value)}
                             style={{
                               flex: 1,
                               padding: "6px 8px",
@@ -697,23 +742,29 @@ export const UserEditModal = ({
                               fontSize: "14px",
                             }}
                             placeholder="Язык"
+                            disabled={skillLoading[skill.id!]}
                           />
                           <button
                             type="button"
-                            onClick={() => removeLanguageSkill(index)}
+                            onClick={() => handleDeleteSkill(index)}
                             style={{
                               padding: "6px",
                               borderRadius: "4px",
                               border: "1px solid #dc3545",
                               background: "transparent",
                               color: "#dc3545",
-                              cursor: "pointer",
+                              cursor: skillLoading[skill.id!] ? "not-allowed" : "pointer",
                             }}
+                            disabled={skillLoading[skill.id!]}
                           >
-                            ✕
+                            {skillLoading[skill.id!] ? "..." : "✕"}
                           </button>
                         </div>
-
+                        {skillError[skill.id!] && (
+                          <div style={{ color: "#dc3545", fontSize: "12px", marginBottom: "4px" }}>
+                            {skillError[skill.id!]}
+                          </div>
+                        )}
                         <div style={{ display: "flex", gap: "16px" }}>
                           {(
                             [
@@ -736,7 +787,8 @@ export const UserEditModal = ({
                               <input
                                 type="checkbox"
                                 checked={skill[skillType]}
-                                onChange={(e) => handleLanguageSkillChange(index, skillType, e.target.checked)}
+                                onChange={(e) => updateLanguageSkillState(index, skillType, e.target.checked)}
+                                disabled={skillLoading[skill.id!]}
                               />
                               <span style={{ fontSize: "12px" }}>
                                 {skillType === "understands"
