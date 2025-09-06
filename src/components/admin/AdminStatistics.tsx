@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminService } from "../../services/AdminService.ts";
 import ContentService from '../../services/ContentService.ts';
 
 export const AdminStatistics = () => {
     const [overallStats, setOverallStats] = useState<any>(null);
     const [platformStats, setPlatformStats] = useState<any>(null);
+    const [contentStats, setContentStats] = useState<any>(null);
     const [courseStats, setCourseStats] = useState<any>(null);
+    const [courseDetailedStats, setCourseDetailedStats] = useState<any>(null);
+    const [courseTasksCount, setCourseTasksCount] = useState<number | null>(null);
     const [studentsOverallStats, setStudentsOverallStats] = useState<any>(null);
     const [courseStudentsStats, setCourseStudentsStats] = useState<any>(null);
     const [usersCount, setUsersCount] = useState<any>(null);
@@ -36,9 +39,18 @@ export const AdminStatistics = () => {
             // Платформенная агрегированная статистика
             try {
                 const platformResp = await AdminService.getPlatformStats();
+                console.log(platformResp.data)
                 setPlatformStats(platformResp.data);
             } catch (e) {
                 console.warn('Не удалось загрузить платформенную статистику /platform/stats', e);
+            }
+
+            // Content statistics (tasks, courses, themes count)
+            try {
+                const contentResp = await AdminService.getContentStats();
+                setContentStats(contentResp.data);
+            } catch (e) {
+                console.warn('Не удалось загрузить статистику контента /content/stats', e);
             }
 
             const studentsOverallResponse = await AdminService.getOverallStudentsStatistics();
@@ -92,16 +104,37 @@ export const AdminStatistics = () => {
         if (!courseId) {
             setCourseStats(null);
             setCourseStudentsStats(null);
+            setCourseDetailedStats(null);
+            setCourseTasksCount(null);
             return;
         }
 
         setLoading(true);
         try {
+            // Load existing course stats
             const courseStatsResponse = await AdminService.getCourseStatistics(courseId);
             setCourseStats(courseStatsResponse.data);
 
             const courseStudentsResponse = await AdminService.getCourseStudentsStatistics(courseId);
             setCourseStudentsStats(courseStudentsResponse.data);
+
+            // Load enhanced course stats with theme-level details
+            try {
+                const detailedStatsResponse = await AdminService.getCourseAverageStats(courseId);
+                setCourseDetailedStats(detailedStatsResponse.data);
+            } catch (e) {
+                console.warn(`Не удалось загрузить детальную статистику курса ${courseId}`, e);
+            }
+
+            // Load tasks count for the course
+            try {
+                const tasksCountResponse = await AdminService.getTasksCountByCourse(courseId);
+                const taskCountMap = tasksCountResponse.data as Record<string, number>;
+                const totalTasks = Object.values(taskCountMap).reduce((sum, count) => sum + (typeof count === 'number' ? count : 0), 0);
+                setCourseTasksCount(totalTasks);
+            } catch (e) {
+                console.warn(`Не удалось загрузить количество задач курса ${courseId}`, e);
+            }
         } catch (err) {
             console.error('Ошибка загрузки статистики курса:', err);
             setError('Ошибка загрузки статистики курса');
@@ -437,9 +470,25 @@ export const AdminStatistics = () => {
                     {platformStats && (
                         <StatCard
                             title="Курсов всего"
-                            value={platformStats.totalCourses ?? 0}
+                            value={platformStats.totalCourses ?? contentStats?.coursesCount ?? 0}
                             subtitle={`Обновлено ${platformStats.generatedAt ? new Date(platformStats.generatedAt).toLocaleString() : ''}`}
                             color="#2563eb"
+                        />
+                    )}
+                    {(contentStats || platformStats) && (
+                        <StatCard
+                            title="Всего задач"
+                            value={platformStats?.totalTasks ?? contentStats?.tasksCount ?? 0}
+                            subtitle="Задач в системе"
+                            color="#dc2626"
+                        />
+                    )}
+                    {contentStats && (
+                        <StatCard
+                            title="Всего тем"
+                            value={contentStats.themesCount ?? 0}
+                            subtitle="Тем в курсах"
+                            color="#059669"
                         />
                     )}
                     {platformStats?.totalUsersWithProgress !== undefined && (
@@ -448,14 +497,6 @@ export const AdminStatistics = () => {
                             value={platformStats.totalUsersWithProgress}
                             subtitle="Имеют хотя бы 1 решённое задание"
                             color="#0d9488"
-                        />
-                    )}
-                    {platformStats?.courseLevelAverage && (
-                        <StatCard
-                            title="Средний прогресс (курс)"
-                            value={`${platformStats.courseLevelAverage.percentAvg?.toFixed?.(1) ?? 0}%`}
-                            subtitle={`Участников: ${platformStats.courseLevelAverage.participants}`}
-                            color="#9333ea"
                         />
                     )}
                     {platformStats?.sectionLevelAverage && (
@@ -488,14 +529,22 @@ export const AdminStatistics = () => {
                         <>
                             <StatCard
                                 title="Среднее время обучения"
-                                value={formatTime(overallStats.averageTimeSpentSeconds)}
-                                subtitle="На одного студента"
+                                value={
+                                    platformStats?.courseLevelAverage && platformStats.courseLevelAverage.averageTimeMsAvg !== undefined
+                                        ? `${(platformStats.courseLevelAverage.averageTimeMsAvg / 3600000).toFixed(1)}ч`
+                                        : formatTime(overallStats.averageTimeSpentSeconds)
+                                }
+                                subtitle={
+                                    platformStats?.courseLevelAverage && platformStats.courseLevelAverage.averageTimeMsAvg !== undefined
+                                        ? "Среднее время по курсам (из platform stats)"
+                                        : "На одного студента"
+                                }
                                 color="#f59e0b"
                             />
 
                             <StatCard
                                 title="Средний прогресс"
-                                value={formatPercentage(overallStats.averageProgressPercentage)}
+                                value={`${platformStats?.courseLevelAverage?.percentAvg?.toFixed?.(1) ?? overallStats.averageProgressPercentage?.toFixed?.(1) ?? 0}%`}
                                 subtitle="Завершенность курсов"
                                 color="#8b5cf6"
                             />
@@ -635,6 +684,136 @@ export const AdminStatistics = () => {
                         </ol>
                         </pre>
                     </div>
+                </div>
+            )}
+
+            {/* Enhanced Course Statistics */}
+            {courseDetailedStats && (
+                <div style={{ marginBottom: '32px' }}>
+                    <SectionHeader
+                        title={`Расширенная статистика курса ${selectedCourseTitle}`}
+                        description="Детальная аналитика по темам и метрикам курса"
+                    />
+                    
+                    {/* Course Summary Cards */}
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                        gap: '16px',
+                        marginBottom: '24px'
+                    }}>
+                        {courseDetailedStats.courseAverage && (
+                            <>
+                                <StatCard
+                                    title="Средний прогресс"
+                                    value={`${courseDetailedStats.courseAverage.percentAvg?.toFixed(1) ?? 0}%`}
+                                    subtitle={`${courseDetailedStats.courseAverage.participants} участников`}
+                                    color="#10b981"
+                                />
+                                <StatCard
+                                    title="Решённые задачи"
+                                    value={`${courseDetailedStats.courseAverage.solvedTasksAvg?.toFixed(1) ?? 0}/${courseDetailedStats.courseAverage.totalTasksAvg?.toFixed(1) ?? 0}`}
+                                    subtitle="В среднем на студента"
+                                    color="#3b82f6"
+                                />
+                                <StatCard
+                                    title="Среднее время"
+                                    value={formatTime(Math.round((courseDetailedStats.courseAverage.averageTimeMsAvg || 0) / 1000))}
+                                    subtitle="На курс"
+                                    color="#f59e0b"
+                                />
+                            </>
+                        )}
+                        {courseTasksCount !== null && (
+                            <StatCard
+                                title="Всего задач в курсе"
+                                value={courseTasksCount}
+                                subtitle="Задач доступно"
+                                color="#8b5cf6"
+                            />
+                        )}
+                    </div>
+
+                    {/* Theme-level Statistics */}
+                    {courseDetailedStats.themesAverage && courseDetailedStats.themesAverage.length > 0 && (
+                        <div>
+                            <h4 style={{
+                                fontSize: '1.2rem',
+                                fontWeight: '600',
+                                margin: '0 0 16px 0',
+                                color: 'var(--color-text)'
+                            }}>
+                                Статистика по темам ({courseDetailedStats.themesAverage.length} тем)
+                            </h4>
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                                gap: '16px'
+                            }}>
+                                {courseDetailedStats.themesAverage.map((theme: any, index: number) => (
+                                    <div key={theme.themeId || index} style={{
+                                        background: 'var(--color-card)',
+                                        padding: '20px',
+                                        borderRadius: '12px',
+                                        border: '1px solid var(--color-border)',
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                                    }}>
+                                        <div style={{ marginBottom: 12 }}>
+                                            <h5 style={{
+                                                fontSize: '1rem',
+                                                fontWeight: '600',
+                                                margin: '0 0 4px 0',
+                                                color: 'var(--color-text)'
+                                            }}>
+                                                Тема {index + 1}
+                                            </h5>
+                                            <div style={{
+                                                fontSize: '0.75rem',
+                                                color: 'var(--color-text-secondary)',
+                                                fontFamily: 'monospace'
+                                            }}>
+                                                ID: {theme.themeId}
+                                            </div>
+                                        </div>
+                                        
+                                        <div style={{ display: 'grid', gap: '8px', fontSize: '0.9rem' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span>Прогресс:</span>
+                                                <span style={{ fontWeight: '600' }}>{theme.percentAvg?.toFixed(1) ?? 0}%</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span>Время:</span>
+                                                <span style={{ fontWeight: '600' }}>
+                                                    {formatTime(Math.round((theme.averageTimeMsAvg || 0) / 1000))}
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span>Участники:</span>
+                                                <span style={{ fontWeight: '600' }}>{theme.participants || 0}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span>Решено задач:</span>
+                                                <span style={{ fontWeight: '600' }}>
+                                                    {theme.solvedTasksAvg?.toFixed(1) ?? 0}/{theme.totalTasksAvg?.toFixed(1) ?? 0}
+                                                </span>
+                                            </div>
+                                            {theme.lastUpdatedAt && (
+                                                <div style={{ 
+                                                    fontSize: '0.75rem', 
+                                                    color: 'var(--color-text-secondary)',
+                                                    borderTop: '1px solid var(--color-border)',
+                                                    paddingTop: '8px',
+                                                    marginTop: '8px'
+                                                }}>
+                                                    Обновлено: {new Date(theme.lastUpdatedAt).toLocaleString('ru-RU')}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

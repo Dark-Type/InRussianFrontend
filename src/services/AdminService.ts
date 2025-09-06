@@ -37,6 +37,27 @@ export const AdminService = {
         // эндпоинт не сгенерирован openapi (пока), делаем прямой вызов
         return axiosInstance.get('/platform/stats');
     },
+    
+    /** NEW: Enhanced statistics endpoints */
+    getCourseAverageStats(courseId: string) {
+        return axiosInstance.get(`/course/${courseId}/stats`);
+    },
+    
+    getUserStats(userId: string) {
+        return axiosInstance.get(`/users/${userId}/stats`);
+    },
+    
+    getContentStats() {
+        return axiosInstance.get('/content/stats');
+    },
+    
+    getTasksCountByCourse(courseId: string) {
+        return axiosInstance.get(`/content/stats/course/${courseId}/tasks-count`);
+    },
+    
+    getTasksCountByTheme(themeId: string) {
+        return axiosInstance.get(`/content/stats/theme/${themeId}/tasks-count`);
+    },
     async getStudentProfile(userId: string): Promise<UserProfile | null> {
         try {
             const response = await profileApi.profilesUserIdGet(userId);

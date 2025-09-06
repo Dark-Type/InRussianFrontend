@@ -4,39 +4,25 @@ import { axiosInstance } from "../../instances/axiosInstance.ts";
 import type { TaskModel } from "../content/task-editor/TaskModels";
 import TaskEditorModal from "../content/task-editor/TaskEditorModal";
 import { taskTypesToRu } from "../content/task-editor/TaskModels";
+import type { ThemeTreeNode } from '../../context/content/ContentProvider';
 import type {
   Course,
-  Section,
-  Theme,
   TaskWithDetails,
   CountStats,
 } from "../../api";
 
 interface ExtendedCourse extends Course {
-  sectionsCount: number;
   themesCount: number;
   tasksCount: number;
   enrolledStudents: number;
 }
 
-interface ExtendedSection extends Section {
-  themesCount: number;
-  tasksCount: number;
-}
-
-interface ExtendedTheme extends Theme {
-  tasksCount: number;
-}
-
 export const CoursesSection = () => {
   const [courses, setCourses] = useState<ExtendedCourse[]>([]);
-  const [sections, setSections] = useState<{
-    [courseId: string]: ExtendedSection[];
+  const [themeTree, setThemeTree] = useState<{
+    [courseId: string]: ThemeTreeNode[];
   }>({});
-  const [themes, setThemes] = useState<{
-    [sectionId: string]: ExtendedTheme[];
-  }>({});
-  const [tasks, setTasks] = useState<{ [themeId: string]: TaskWithDetails[] }>(
+  const [tasks] = useState<{ [themeId: string]: TaskWithDetails[] }>(
     {}
   );
   const [taskModels, setTaskModels] = useState<{ [themeId: string]: TaskModel[] }>({});
@@ -49,8 +35,9 @@ export const CoursesSection = () => {
   );
 
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
-  const [expandedTheme, setExpandedTheme] = useState<string | null>(null);
+  const [expandedThemes, setExpandedThemes] = useState<{ [themeId: string]: boolean }>(
+    {}
+  );
 
   useEffect(() => {
     loadAllData();
@@ -70,67 +57,51 @@ export const CoursesSection = () => {
     setLoading(true);
     try {
       const coursesData = await expertService.getAllCourses();
-
       const coursesWithCounts: ExtendedCourse[] = [];
-      const allSections: { [courseId: string]: ExtendedSection[] } = {};
-      const allThemes: { [sectionId: string]: ExtendedTheme[] } = {};
-      const allTasks: { [themeId: string]: TaskWithDetails[] } = {};
 
       for (const course of coursesData) {
-        const sectionsData = await expertService.getSectionsByCourse(course.id);
-        const sectionsWithCounts: ExtendedSection[] = [];
-
-        let totalThemesCount = 0;
-        let totalTasksCount = 0;
-
-        for (const section of sectionsData) {
-          const themesData = await expertService.getThemesBySection(section.id);
-          const themesWithCounts: ExtendedTheme[] = [];
-
-          let sectionTasksCount = 0;
-
-          for (const theme of themesData) {
-            const tasksData = await expertService.getTasksByTheme(theme.id);
-            allTasks[theme.id] = tasksData;
-
-            themesWithCounts.push({
-              ...theme,
-              tasksCount: tasksData.length,
-            });
-
-            sectionTasksCount += tasksData.length;
+        // Load theme tree for this course
+        const response = await axiosInstance.get(`/content/courses/${course.id}/theme-tree`);
+        const treeData = Array.isArray(response.data) ? response.data : [response.data];
+        
+        // Count total themes and tasks recursively
+        const countThemesAndTasks = async (nodes: ThemeTreeNode[]): Promise<{ themes: number, tasks: number }> => {
+          let themeCount = 0;
+          let taskCount = 0;
+          
+          for (const node of nodes) {
+            themeCount += 1;
+            // Load tasks for this theme
+            const themeTasks = await expertService.getTasksByTheme(node.theme.id);
+            taskCount += themeTasks.length;
+            
+            // Recursively count children
+            if (node.children && node.children.length > 0) {
+              const childCounts = await countThemesAndTasks(node.children);
+              themeCount += childCounts.themes;
+              taskCount += childCounts.tasks;
+            }
           }
+          
+          return { themes: themeCount, tasks: taskCount };
+        };
 
-          sectionsWithCounts.push({
-            ...section,
-            themesCount: themesData.length,
-            tasksCount: sectionTasksCount,
-          });
-
-          allThemes[section.id] = themesWithCounts;
-          totalThemesCount += themesData.length;
-          totalTasksCount += sectionTasksCount;
-        }
-
-        const enrolledStudents = await expertService.getCourseStudentsCount(
-          course.id
-        );
+        const { themes: totalThemesCount, tasks: totalTasksCount } = await countThemesAndTasks(treeData);
+        
+        const enrolledStudents = await expertService.getCourseStudentsCount(course.id);
 
         coursesWithCounts.push({
           ...course,
-          sectionsCount: sectionsData.length,
           themesCount: totalThemesCount,
           tasksCount: totalTasksCount,
           enrolledStudents,
         });
 
-        allSections[course.id] = sectionsWithCounts;
+        // Store the theme tree
+        setThemeTree(prev => ({ ...prev, [course.id]: treeData }));
       }
 
       setCourses(coursesWithCounts);
-      setSections(allSections);
-      setThemes(allThemes);
-      setTasks(allTasks);
     } catch (error) {
       console.error("Ошибка загрузки данных курсов:", error);
     } finally {
@@ -138,36 +109,226 @@ export const CoursesSection = () => {
     }
   };
 
+  const renderThemeTree = (nodes: ThemeTreeNode[], level = 0) => {
+    return nodes.map((node) => (
+      <div key={node.theme.id} style={{ marginBottom: "8px" }}>
+        <div
+          onClick={() => handleThemeClick(node.theme.id)}
+          style={{
+            padding: "10px",
+            marginLeft: `${level * 24}px`,
+            cursor: "pointer",
+            background:
+              expandedThemes[node.theme.id]
+                ? "var(--color-bg)"
+                : "var(--color-card)",
+            borderRadius: "4px",
+            border: "1px solid var(--color-border)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <h5 style={{ margin: "0 0 2px 0" }}>
+                {node.theme.name}
+              </h5>
+              <p
+                style={{
+                  margin: "0",
+                  color: "var(--color-text-secondary)",
+                  fontSize: "0.75rem",
+                }}
+              >
+                {node.theme.description}
+              </p>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                alignItems: "center",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "0.75rem",
+                  color: "var(--color-text-secondary)",
+                }}
+              >
+                {node.children && node.children.length > 0 ? `${node.children.length} подтем` : ''}
+              </span>
+              {(node.children && node.children.length > 0) && (
+                <span
+                  style={{
+                    fontSize: "0.9rem",
+                    transform:
+                      expandedThemes[node.theme.id]
+                        ? "rotate(90deg)"
+                        : "rotate(0deg)",
+                    transition: "transform 0.2s",
+                  }}
+                >
+                  ▶
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {expandedThemes[node.theme.id] && (
+          <div
+            style={{
+              padding: "0 0 0 24px",
+              marginTop: "8px",
+            }}
+          >
+            {/* Only show tasks section if theme has no children */}
+            {(!node.children || node.children.length === 0) && (
+              <>
+                {/* Новые задания (TaskModel) */}
+                <h6
+                  style={{
+                    margin: "0 0 8px 0",
+                    fontWeight: 600,
+                  }}
+                >
+                  Задания:
+                </h6>
+                {taskModels[node.theme.id] && taskModels[node.theme.id].length > 0 ? (
+                  taskModels[node.theme.id].map((tm) => (
+                    <div
+                      key={tm.id}
+                      style={{
+                        padding: "8px 12px",
+                        marginBottom: "4px",
+                        background: "var(--color-bg)",
+                        borderRadius: "4px",
+                        border: "1px solid var(--color-border)",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => { setPreviewTask(tm); setPreviewThemeId(String(node.theme.id)); }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 500 }}>
+                          {tm.question || "Без вопроса"}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "0.8rem",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          {tm.taskType && tm.taskType.length > 0
+                            ? taskTypesToRu(tm.taskType)
+                            : "Типы не указаны"}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div
+                    style={{
+                      fontSize: "0.85rem",
+                      color: "var(--color-text-secondary)",
+                    }}
+                  >
+                    Заданий нет
+                  </div>
+                )}
+
+                {/* Старые задачи */}
+                {tasks[node.theme.id] && tasks[node.theme.id].length > 0 && (
+                  <div style={{ marginTop: 10 }}>
+                    <h6
+                      style={{
+                        margin: "0 0 8px 0",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Старые задачи:
+                    </h6>
+                    {tasks[node.theme.id].map((task) => (
+                      <div
+                        key={task.id}
+                        onClick={() => setSelectedTask(task)}
+                        style={{
+                          padding: "8px 12px",
+                          marginBottom: "4px",
+                          cursor: "pointer",
+                          background: "var(--color-bg)",
+                          borderRadius: "4px",
+                          border: "1px solid var(--color-border)",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 500 }}>
+                            {task.name || "Задача без названия"}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.8rem",
+                              color: "var(--color-text-secondary)",
+                            }}
+                          >
+                            {task.taskType} {task.isTraining && "(Тренировка)"}
+                          </div>
+                        </div>
+                        <span
+                          style={{
+                            fontSize: "0.9rem",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          #{task.orderNum !== undefined ? task.orderNum : "?"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Render children themes */}
+            {node.children && node.children.length > 0 && (
+              <div style={{ marginTop: "8px" }}>
+                {renderThemeTree(node.children, level + 1)}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    ));
+  };
+
   const handleCourseClick = (courseId: string) => {
     if (expandedCourse === courseId) {
       setExpandedCourse(null);
-      setExpandedSection(null);
-      setExpandedTheme(null);
+      setExpandedThemes({});
     } else {
       setExpandedCourse(courseId);
-      setExpandedSection(null);
-      setExpandedTheme(null);
-    }
-  };
-
-  const handleSectionClick = (sectionId: string) => {
-    if (expandedSection === sectionId) {
-      setExpandedSection(null);
-      setExpandedTheme(null);
-    } else {
-      setExpandedSection(sectionId);
-      setExpandedTheme(null);
+      setExpandedThemes({});
     }
   };
 
   const handleThemeClick = (themeId: string) => {
-    if (expandedTheme === themeId) {
-      setExpandedTheme(null);
-    } else {
-      setExpandedTheme(themeId);
-      if (!taskModels[themeId]) {
-        loadTaskModels(themeId);
-      }
+    setExpandedThemes(prev => ({
+      ...prev,
+      [themeId]: !prev[themeId]
+    }));
+    
+    if (!taskModels[themeId]) {
+      loadTaskModels(themeId);
     }
   };
 
@@ -478,7 +639,6 @@ export const CoursesSection = () => {
             }}
           >
             <span>Курсов: {contentStats.coursesCount || 0}</span>
-            <span>Разделов: {contentStats.sectionsCount || 0}</span>
             <span>Тем: {contentStats.themesCount || 0}</span>
             <span>Задач: {contentStats.tasksCount || 0}</span>
           </div>
@@ -544,8 +704,7 @@ export const CoursesSection = () => {
                         color: "var(--color-text-secondary)",
                       }}
                     >
-                      {course.sectionsCount} разделов | {course.themesCount} тем
-                      | {course.tasksCount} задач | {course.enrolledStudents}{" "}
+                      {course.themesCount} тем | {course.tasksCount} задач | {course.enrolledStudents}{" "}
                       студентов
                     </span>
                     <span
@@ -564,268 +723,9 @@ export const CoursesSection = () => {
                 </div>
               </div>
 
-              {expandedCourse === course.id && sections[course.id] && (
+              {expandedCourse === course.id && themeTree[course.id] && (
                 <div style={{ padding: "0 16px 16px 32px" }}>
-                  {sections[course.id].map((section) => (
-                    <div key={section.id} style={{ marginBottom: "12px" }}>
-                      <div
-                        onClick={() => handleSectionClick(section.id)}
-                        style={{
-                          padding: "12px",
-                          cursor: "pointer",
-                          background:
-                            expandedSection === section.id
-                              ? "var(--color-bg)"
-                              : "var(--color-card)",
-                          borderRadius: "6px",
-                          border: "1px solid var(--color-border)",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                          }}
-                        >
-                          <div>
-                            <h4 style={{ margin: "0 0 4px 0" }}>
-                              {section.name}
-                            </h4>
-                            <p
-                              style={{
-                                margin: "0",
-                                color: "var(--color-text-secondary)",
-                                fontSize: "0.8rem",
-                              }}
-                            >
-                              {section.description}
-                            </p>
-                          </div>
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: "12px",
-                              alignItems: "center",
-                            }}
-                          >
-                            <span
-                              style={{
-                                fontSize: "0.8rem",
-                                color: "var(--color-text-secondary)",
-                              }}
-                            >
-                              {section.themesCount} тем | {section.tasksCount}{" "}
-                              задач
-                            </span>
-                            <span
-                              style={{
-                                fontSize: "1rem",
-                                transform:
-                                  expandedSection === section.id
-                                    ? "rotate(90deg)"
-                                    : "rotate(0deg)",
-                                transition: "transform 0.2s",
-                              }}
-                            >
-                              ▶
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {expandedSection === section.id && themes[section.id] && (
-                        <div
-                          style={{ padding: "0 0 0 24px", marginTop: "8px" }}
-                        >
-                          {themes[section.id].map((theme) => (
-                            <div key={theme.id} style={{ marginBottom: "8px" }}>
-                              <div
-                                onClick={() => handleThemeClick(theme.id)}
-                                style={{
-                                  padding: "10px",
-                                  cursor: "pointer",
-                                  background:
-                                    expandedTheme === theme.id
-                                      ? "var(--color-bg)"
-                                      : "var(--color-card)",
-                                  borderRadius: "4px",
-                                  border: "1px solid var(--color-border)",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center",
-                                  }}
-                                >
-                                  <div>
-                                    <h5 style={{ margin: "0 0 2px 0" }}>
-                                      {theme.name}
-                                    </h5>
-                                    <p
-                                      style={{
-                                        margin: "0",
-                                        color: "var(--color-text-secondary)",
-                                        fontSize: "0.75rem",
-                                      }}
-                                    >
-                                      {theme.description}
-                                    </p>
-                                  </div>
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      gap: "8px",
-                                      alignItems: "center",
-                                    }}
-                                  >
-                                    <span
-                                      style={{
-                                        fontSize: "0.75rem",
-                                        color: "var(--color-text-secondary)",
-                                      }}
-                                    >
-                                      {theme.tasksCount} задач
-                                    </span>
-                                    <span
-                                      style={{
-                                        fontSize: "0.9rem",
-                                        transform:
-                                          expandedTheme === theme.id
-                                            ? "rotate(90deg)"
-                                            : "rotate(0deg)",
-                                        transition: "transform 0.2s",
-                                      }}
-                                    >
-                                      ▶
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {expandedTheme === theme.id && (
-                                <div
-                                  style={{
-                                    padding: "0 0 0 24px",
-                                    marginTop: "8px",
-                                  }}
-                                >
-                                  {/* Новые задания (TaskModel) */}
-                                  <h6
-                                    style={{
-                                      margin: "0 0 8px 0",
-                                      fontWeight: 600,
-                                    }}
-                                  >
-                                    Новые задания:
-                                  </h6>
-                                  {taskModels[theme.id] && taskModels[theme.id].length > 0 ? (
-                                    taskModels[theme.id].map((tm) => (
-                                      <div
-                                        key={tm.id}
-                                        style={{
-                                          padding: "8px 12px",
-                                          marginBottom: "4px",
-                                          background: "var(--color-bg)",
-                                          borderRadius: "4px",
-                                          border: "1px solid var(--color-border)",
-                                          display: "flex",
-                                          justifyContent: "space-between",
-                                          alignItems: "center",
-                                          cursor: "pointer",
-                                        }}
-                                        onClick={() => { setPreviewTask(tm); setPreviewThemeId(String(theme.id)); }}
-                                      >
-                                        <div>
-                                          <div style={{ fontWeight: 500 }}>
-                                            {tm.question || "Без вопроса"}
-                                          </div>
-                                          <div
-                                            style={{
-                                              fontSize: "0.8rem",
-                                              color: "var(--color-text-secondary)",
-                                            }}
-                                          >
-                                            {tm.taskType && tm.taskType.length > 0
-                                              ? taskTypesToRu(tm.taskType)
-                                              : "Типы не указаны"}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))
-                                  ) : (
-                                    <div
-                                      style={{
-                                        fontSize: "0.85rem",
-                                        color: "var(--color-text-secondary)",
-                                      }}
-                                    >
-                                      Новых заданий нет
-                                    </div>
-                                  )}
-
-                                  {/* Старые задачи */}
-                                  {tasks[theme.id] && tasks[theme.id].length > 0 && (
-                                    <div style={{ marginTop: 10 }}>
-                                      <h6
-                                        style={{
-                                          margin: "0 0 8px 0",
-                                          fontWeight: 600,
-                                        }}
-                                      >
-                                        Старые задачи:
-                                      </h6>
-                                      {tasks[theme.id].map((task) => (
-                                        <div
-                                          key={task.id}
-                                          onClick={() => setSelectedTask(task)}
-                                          style={{
-                                            padding: "8px 12px",
-                                            marginBottom: "4px",
-                                            cursor: "pointer",
-                                            background: "var(--color-bg)",
-                                            borderRadius: "4px",
-                                            border: "1px solid var(--color-border)",
-                                            display: "flex",
-                                            justifyContent: "space-between",
-                                            alignItems: "center",
-                                          }}
-                                        >
-                                          <div>
-                                            <div style={{ fontWeight: 500 }}>
-                                              {task.name || "Задача без названия"}
-                                            </div>
-                                            <div
-                                              style={{
-                                                fontSize: "0.8rem",
-                                                color: "var(--color-text-secondary)",
-                                              }}
-                                            >
-                                              {task.taskType} {task.isTraining && "(Тренировка)"}
-                                            </div>
-                                          </div>
-                                          <span
-                                            style={{
-                                              fontSize: "0.9rem",
-                                              color: "var(--color-text-secondary)",
-                                            }}
-                                          >
-                                            #{task.orderNum !== undefined ? task.orderNum : "?"}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  {renderThemeTree(themeTree[course.id])}
                 </div>
               )}
             </div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import ExpertService from "../../services/ExpertService";
 import type { Course, User } from "../../api";
+import type { CourseAverageStatsDTO, ThemeAverageDTO } from "../../services/ExpertService";
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20];
 
@@ -31,8 +32,8 @@ const styles = {
     color: "var(--color-text)",
     outline: "none"
   }),
-  table: { width: "100%", borderCollapse: "collapse", marginTop: 12 },
-  th: { textAlign: "left", padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.04)", fontSize: 14 },
+  table: { width: "100%", borderCollapse: "collapse" as const, marginTop: 12 },
+  th: { textAlign: "left" as const, padding: "10px 8px", borderBottom: "1px solid rgba(255,255,255,0.04)", fontSize: 14 },
   td: { padding: "4px 8px", borderBottom: "1px solid rgba(255,255,255,0.02)" },
   pill: { display: "inline-block", padding: "4px 8px", borderRadius: 999, fontSize: 12, background: "rgba(0,0,0,0.06)" },
   footerRow: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 },
@@ -69,9 +70,16 @@ export const StatisticsSection = () => {
   const [overallAvgProgress, setOverallAvgProgress] = useState<number | null>(null);
   const [overallAvgTime, setOverallAvgTime] = useState<number | null>(null);
   const [overallStudentsCount, setOverallStudentsCount] = useState<number | null>(null);
+  const [totalCoursesCount, setTotalCoursesCount] = useState<number | null>(null);
+  const [totalTasksCount, setTotalTasksCount] = useState<number | null>(null);
+
+  // Course-specific detailed stats
+  const [courseDetailedStats, setCourseDetailedStats] = useState<CourseAverageStatsDTO | null>(null);
+  const [courseTasksCount, setCourseTasksCount] = useState<number | null>(null);
   const [students, setStudents] = useState<User[]>([]);
   // Full raw list fetched once (workaround for broken backend pagination)
   const [allStudents, setAllStudents] = useState<User[]>([]);
+  const [studentStats, setStudentStats] = useState<Record<string, any>>({});
   const [page, setPage] = useState(0);
   const [size, setSize] = useState<number>(10);
   const [totalStudents, setTotalStudents] = useState<number>(0);
@@ -82,20 +90,42 @@ export const StatisticsSection = () => {
     let cancelled = false;
     const loadInit = async () => {
       try {
-        const [coursesResp, overallProg, overallTime, studentsCount] = await Promise.all([
+        const [coursesResp, platformStats, contentStats] = await Promise.all([
           ExpertService.getAllCourses(),
-          ExpertService.getOverallAverageProgress(),
-          ExpertService.getOverallAverageTime(),
-          ExpertService.getStudentsCount(),
+          ExpertService.getPlatformStats(),
+          ExpertService.getContentStats(),
         ]);
 
         
         if (cancelled) return;
         
         setCourses(coursesResp || []);
-        setOverallAvgProgress(typeof overallProg === "number" ? overallProg : parseFloat(String(overallProg)) || 0);
-        setOverallAvgTime(typeof overallTime === "number" ? overallTime : parseFloat(String(overallTime)) || 0);
-        setOverallStudentsCount(typeof studentsCount === "number" ? studentsCount : parseInt(String(studentsCount), 10) || 0);
+        
+        // Debug logging
+        console.log('Platform stats:', platformStats);
+        console.log('Content stats:', contentStats);
+        
+        // Use platform stats if available, with fallbacks for missing fields
+        if (platformStats) {
+          setOverallAvgProgress(platformStats.avgProgress || 0);
+          setOverallAvgTime(platformStats.avgTimeSpent || 0);
+          setOverallStudentsCount(platformStats.totalUsers || 0);
+          setTotalCoursesCount(platformStats.totalCourses || contentStats?.coursesCount || coursesResp?.length || 0);
+          setTotalTasksCount(platformStats.totalTasks || contentStats?.tasksCount || 0);
+        } else {
+          // Fallback to existing methods
+          const [overallProg, overallTime, studentsCount] = await Promise.all([
+            ExpertService.getOverallAverageProgress(),
+            ExpertService.getOverallAverageTime(),
+            ExpertService.getStudentsCount(),
+          ]);
+          
+          setOverallAvgProgress(typeof overallProg === "number" ? overallProg : parseFloat(String(overallProg)) || 0);
+          setOverallAvgTime(typeof overallTime === "number" ? overallTime : parseFloat(String(overallTime)) || 0);
+          setOverallStudentsCount(typeof studentsCount === "number" ? studentsCount : parseInt(String(studentsCount), 10) || 0);
+          setTotalCoursesCount(contentStats?.coursesCount || coursesResp?.length || 0);
+          setTotalTasksCount(contentStats?.tasksCount || 0);
+        }
       } catch (e) {
         console.error(e);
         if (!cancelled) setError("Не удалось загрузить общую информацию");
@@ -112,6 +142,8 @@ export const StatisticsSection = () => {
       setAvgProgress(null);
       setAvgTimeMinutes(null);
       setCourseStudentsCount(null);
+      setCourseDetailedStats(null);
+      setCourseTasksCount(null);
       return;
     }
 
@@ -121,23 +153,45 @@ export const StatisticsSection = () => {
 
     const loadCourseStats = async () => {
       try {
-        const [progress, time, studentsCount] = await Promise.all([
-          ExpertService.getCourseAverageProgress(selectedCourseId),
-          ExpertService.getCourseAverageTime(selectedCourseId),
-          ExpertService.getCourseStudentsCount(selectedCourseId),
+        // Try to get detailed course stats first
+        const [detailedStats, tasksCount] = await Promise.all([
+          ExpertService.getCourseAverageStats(selectedCourseId),
+          ExpertService.getTasksCountByCourse(selectedCourseId),
         ]);
-
+        
         if (cancelled) return;
-        setAvgProgress(typeof progress === "number" ? progress : parseFloat(String(progress)) || 0);
-        setAvgTimeMinutes(typeof time === "number" ? time : parseFloat(String(time)) || 0);
-        setCourseStudentsCount(typeof studentsCount === "number" ? studentsCount : parseInt(String(studentsCount), 10) || 0);
-  // totalStudents is now derived from locally cached list; no direct set here
+        
+        setCourseTasksCount(tasksCount);
+        
+        if (detailedStats && detailedStats.courseAverage) {
+          const courseAvg = detailedStats.courseAverage;
+          setAvgProgress(courseAvg.percentAvg || 0);
+          setAvgTimeMinutes((courseAvg.averageTimeMsAvg || 0) / 60000); // Convert ms to minutes
+          setCourseStudentsCount(courseAvg.participants || 0);
+          setCourseDetailedStats(detailedStats);
+        } else {
+          // Fallback to existing methods if detailed stats not available
+          const [progress, time, studentsCount] = await Promise.all([
+            ExpertService.getCourseAverageProgress(selectedCourseId),
+            ExpertService.getCourseAverageTime(selectedCourseId),
+            ExpertService.getCourseStudentsCount(selectedCourseId),
+          ]);
+
+          if (cancelled) return;
+          setAvgProgress(typeof progress === "number" ? progress : parseFloat(String(progress)) || 0);
+          setAvgTimeMinutes(typeof time === "number" ? time : parseFloat(String(time)) || 0);
+          setCourseStudentsCount(typeof studentsCount === "number" ? studentsCount : parseInt(String(studentsCount), 10) || 0);
+          setCourseDetailedStats(null);
+        }
+        
       } catch (e) {
         console.error(e);
         if (!cancelled) setError("Ошибка загрузки статистики по курсу");
         setAvgProgress(null);
         setAvgTimeMinutes(null);
         setCourseStudentsCount(null);
+        setCourseDetailedStats(null);
+        setCourseTasksCount(null);
       } finally {
         if (!cancelled) setLoadingStats(false);
       }
@@ -174,7 +228,7 @@ export const StatisticsSection = () => {
   // Derive current page slice locally
   useEffect(() => {
     // Reset page if current page is out of range after filter changes
-    const apply = () => {
+    const apply = async () => {
       let base: any[] = allStudents;
       if (viewMode === "byCourse") {
         if (!selectedCourseId) {
@@ -195,9 +249,32 @@ export const StatisticsSection = () => {
       const start = page * size;
       const slice = base.slice(start, start + size);
       setStudents(slice);
+
+      // Load stats for visible students
+      const statsPromises = slice.map(async (student: any) => {
+        if (!studentStats[student.id]) {
+          try {
+            const stats = await ExpertService.getUserStats(student.id);
+            return { [student.id]: stats };
+          } catch (e) {
+            console.error(`Error loading stats for user ${student.id}:`, e);
+            return { [student.id]: null };
+          }
+        }
+        return null;
+      });
+
+      const statsResults = await Promise.all(statsPromises);
+      const newStats = statsResults
+        .filter(Boolean)
+        .reduce((acc, curr) => ({ ...acc, ...curr }), {});
+      
+      if (newStats && Object.keys(newStats).length > 0) {
+        setStudentStats(prev => ({ ...prev, ...newStats }));
+      }
     };
     apply();
-  }, [allStudents, viewMode, selectedCourseId, page, size]);
+  }, [allStudents, viewMode, selectedCourseId, page, size, studentStats]);
 
   const hasCourseStats = useMemo(() => {
     return avgProgress !== null || avgTimeMinutes !== null || (courseStudentsCount !== null && courseStudentsCount > 0);
@@ -258,7 +335,12 @@ export const StatisticsSection = () => {
 
         <div style={styles.card}>
           <div>Курсы</div>
-          <div style={styles.bigStat}>{courses.length}</div>
+          <div style={styles.bigStat}>{totalCoursesCount ?? courses.length}</div>
+        </div>
+
+        <div style={styles.card}>
+          <div>Всего задач</div>
+          <div style={styles.bigStat}>{totalTasksCount ?? "—"}</div>
         </div>
       </div>
 
@@ -310,20 +392,59 @@ export const StatisticsSection = () => {
         ) : !hasCourseStats ? (
           <div style={{ padding: 16, color: "var(--color-text-secondary)" }}>Статистики по выбранному курсу пока нет.</div>
         ) : (
-          <div style={styles.cardsRow}>
-            <div style={styles.card}>
-              <div>Средний прогресс (курс)</div>
-              <div style={styles.bigStat}>{avgProgress !== null ? `${Number(avgProgress).toFixed(1)}%` : "—"}</div>
+          <>
+            <div style={styles.cardsRow}>
+              <div style={styles.card}>
+                <div>Средний прогресс (курс)</div>
+                <div style={styles.bigStat}>{avgProgress !== null ? `${Number(avgProgress).toFixed(1)}%` : "—"}</div>
+              </div>
+              <div style={styles.card}>
+                <div>Среднее время (курс)</div>
+                <div style={styles.bigStat}>{avgTimeMinutes !== null ? formatTime(Math.round(avgTimeMinutes)) : "—"}</div>
+              </div>
+              <div style={styles.card}>
+                <div>Всего студентов (курс)</div>
+                <div style={styles.bigStat}>{courseStudentsCount ?? "—"}</div>
+              </div>
+              <div style={styles.card}>
+                <div>Задач в курсе</div>
+                <div style={styles.bigStat}>{courseTasksCount ?? "—"}</div>
+              </div>
             </div>
-            <div style={styles.card}>
-              <div>Среднее время (курс)</div>
-              <div style={styles.bigStat}>{avgTimeMinutes !== null ? formatTime(Math.round(avgTimeMinutes)) : "—"}</div>
-            </div>
-            <div style={styles.card}>
-              <div>Всего студентов (курс)</div>
-              <div style={styles.bigStat}>{courseStudentsCount ?? "—"}</div>
-            </div>
-          </div>
+
+            {/* Theme-level statistics */}
+            {courseDetailedStats && courseDetailedStats.themesAverage && courseDetailedStats.themesAverage.length > 0 && (
+              <div style={{ marginTop: 20 }}>
+                <div style={styles.sectionTitle}>Статистика по темам курса</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 14 }}>
+                  {courseDetailedStats.themesAverage.map((theme: ThemeAverageDTO, index: number) => (
+                    <div key={theme.themeId || index} style={styles.card}>
+                      <div style={{ marginBottom: 8 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>Тема {index + 1}</div>
+                        <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>ID: {theme.themeId}</div>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                        <span>Прогресс:</span>
+                        <span style={{ fontWeight: 700 }}>{theme.percentAvg?.toFixed(1) || 0}%</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                        <span>Время:</span>
+                        <span style={{ fontWeight: 700 }}>{formatTime(Math.round((theme.averageTimeMsAvg || 0) / 60000))}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                        <span>Участники:</span>
+                        <span style={{ fontWeight: 700 }}>{theme.participants || 0}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span>Решено задач:</span>
+                        <span style={{ fontWeight: 700 }}>{theme.solvedTasksAvg?.toFixed(1) || 0}/{theme.totalTasksAvg?.toFixed(1) || 0}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )
       ) : (
         <div style={{ color: "var(--color-text-secondary)", marginBottom: 8 }}>Чтобы увидеть статистику по курсу — выберите курс в списке.</div>
@@ -382,29 +503,50 @@ export const StatisticsSection = () => {
               </tr>
             </thead>
             <tbody>
-              {students.map((s: any) => (
-                <tr key={s.id}>
-                  <td style={styles.td}>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <div style={{ width: 40, height: 40, borderRadius: 8, background: "rgba(0,0,0,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
-                        {String(getStudentName(s)).slice(0, 1).toUpperCase()}
+              {students.map((s: any) => {
+                const userStats = studentStats[s.id];
+                const courseStats = userStats?.courses?.find((c: any) => c.courseId === selectedCourseId);
+                const displayProgress = courseStats?.courseProgress?.percent ?? s.progressPercent ?? s.progress;
+                const displayTime = courseStats?.courseProgress?.averageTimeMs 
+                  ? Math.round(courseStats.courseProgress.averageTimeMs / 60000)
+                  : (s.timeSpentMinutes ? Math.round(s.timeSpentMinutes) : null);
+                
+                return (
+                  <tr key={s.id}>
+                    <td style={styles.td}>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 8, background: "rgba(0,0,0,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+                          {String(getStudentName(s)).slice(0, 1).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700 }}>{getStudentName(s)}</div>
+                          <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{s.profile?.title || s.profile?.role || ""}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div style={{ fontWeight: 700 }}>{getStudentName(s)}</div>
-                        <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{s.profile?.title || s.profile?.role || ""}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td style={styles.td}>{s.email ?? "—"}</td>
-                  <td style={styles.td}>{(s.progressPercent ?? s.progress ?? "—") !== "—" ? `${Number(s.progressPercent ?? s.progress).toFixed(1)}%` : "—"}</td>
-                  <td style={styles.td}>{s.timeSpentMinutes ? formatTime(Math.round(s.timeSpentMinutes)) : "—"}</td>
-                  <td style={styles.td}>{formatDateTime(getLastActivity(s))}</td>
-
-                  <td style={styles.td}>
-                    {s.completed ? <span style={{ ...styles.pill, background: "rgba(40,167,69,0.12)" }}>Завершил</span> : <span style={styles.pill}>В процессе</span>}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td style={styles.td}>{s.email ?? "—"}</td>
+                    <td style={styles.td}>
+                      {displayProgress !== undefined && displayProgress !== null && displayProgress !== "—" 
+                        ? `${Number(displayProgress).toFixed(1)}%` 
+                        : "—"}
+                      {userStats && courseStats && (
+                        <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>
+                          {courseStats.courseProgress?.solvedTasks || 0}/{courseStats.courseProgress?.totalTasks || 0} задач
+                        </div>
+                      )}
+                    </td>
+                    <td style={styles.td}>
+                      {displayTime ? formatTime(displayTime) : "—"}
+                    </td>
+                    <td style={styles.td}>{formatDateTime(getLastActivity(s))}</td>
+                    <td style={styles.td}>
+                      {s.completed || (courseStats?.courseProgress?.percent >= 100) ? 
+                        <span style={{ ...styles.pill, background: "rgba(40,167,69,0.12)" }}>Завершил</span> : 
+                        <span style={styles.pill}>В процессе</span>}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

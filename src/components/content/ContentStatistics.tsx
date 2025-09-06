@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useContent } from '../../context/content/UseContent.ts';
-import type { Course, Section, Theme } from '../../context/content/ContentProvider';
+import type { ThemeTreeNode } from '../../context/content/ContentProvider';
+import { axiosInstance } from '../../instances/axiosInstance';
 
 interface SystemStats {
     coursesCount: number;
-    sectionsCount: number;
     themesCount: number;
     tasksCount: number;
 }
@@ -12,23 +12,17 @@ interface SystemStats {
 export const Statistics: React.FC = () => {
     const {
         courses,
-        sections,
-        themes,
+        themeTree,
         loadCourses,
-        loadSections,
-        loadThemes,
-        getTasksCountByCourse,
-        getTasksCountBySection,
-        getTasksCountByTheme,
+        loadThemeTree,
         getContentStats,
         isLoadingCourses
     } = useContent();
 
     const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
-    const [expandedSection, setExpandedSection] = useState<string | null>(null);
+    const [expandedThemes, setExpandedThemes] = useState<string[]>([]);
     const [taskCounts, setTaskCounts] = useState<{ [id: string]: number }>({});
     const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
-    const [isLoadingStats, setIsLoadingStats] = useState(false);
 
     useEffect(() => {
         loadInitialData();
@@ -45,38 +39,32 @@ export const Statistics: React.FC = () => {
 
     const loadGeneralStats = async () => {
         try {
-            setIsLoadingStats(true);
             const stats = await getContentStats() as SystemStats;
             setSystemStats(stats);
         } catch (error) {
             console.error('Ошибка загрузки общей статистики:', error);
-        } finally {
-            setIsLoadingStats(false);
         }
     };
 
     const loadTaskCountForCourse = async (courseId: string) => {
         try {
-            const count = await getTasksCountByCourse(courseId);
-            setTaskCounts(prev => ({ ...prev, [`course-${courseId}`]: count }));
+            const response = await axiosInstance.get(`/content/stats/course/${courseId}/tasks-count`);
+            // Sum all values in the returned map
+            const taskCountMap = response.data as Record<string, number>;
+            const totalTasks = Object.values(taskCountMap).reduce((sum, count) => sum + (typeof count === 'number' ? count : 0), 0);
+            setTaskCounts(prev => ({ ...prev, [`course-${courseId}`]: totalTasks }));
         } catch (error) {
             console.error('Ошибка загрузки количества задач курса:', error);
         }
     };
 
-    const loadTaskCountForSection = async (sectionId: string) => {
-        try {
-            const count = await getTasksCountBySection(sectionId);
-            setTaskCounts(prev => ({ ...prev, [`section-${sectionId}`]: count }));
-        } catch (error) {
-            console.error('Ошибка загрузки количества задач секции:', error);
-        }
-    };
-
     const loadTaskCountForTheme = async (themeId: string) => {
         try {
-            const count = await getTasksCountByTheme(themeId);
-            setTaskCounts(prev => ({ ...prev, [`theme-${themeId}`]: count }));
+            const response = await axiosInstance.get(`/content/stats/theme/${themeId}/tasks-count`);
+            // Sum all values in the returned map
+            const taskCountMap = response.data as Record<string, number>;
+            const totalTasks = Object.values(taskCountMap).reduce((sum, count) => sum + (typeof count === 'number' ? count : 0), 0);
+            setTaskCounts(prev => ({ ...prev, [`theme-${themeId}`]: totalTasks }));
         } catch (error) {
             console.error('Ошибка загрузки количества задач темы:', error);
         }
@@ -87,37 +75,89 @@ export const Statistics: React.FC = () => {
             setExpandedCourse(null);
         } else {
             setExpandedCourse(courseId);
-            await loadSections(courseId);
+            await loadThemeTree(courseId, "course");
             await loadTaskCountForCourse(courseId);
 
-            const courseSections = sections[courseId] || [];
-            for (const section of courseSections) {
-                await loadTaskCountForSection(section.id);
+            // Load task counts for all themes in the course
+            const courseThemes = themeTree[courseId] || [];
+            await loadTaskCountsForThemeTree(courseThemes);
+        }
+    };
+
+    const loadTaskCountsForThemeTree = async (nodes: ThemeTreeNode[]) => {
+        for (const node of nodes) {
+            await loadTaskCountForTheme(node.theme.id);
+            if (node.children && node.children.length > 0) {
+                await loadTaskCountsForThemeTree(node.children);
             }
         }
     };
 
-    const handleSectionClick = async (sectionId: string) => {
-        if (expandedSection === sectionId) {
-            setExpandedSection(null);
-        } else {
-            setExpandedSection(sectionId);
-            await loadThemes(sectionId);
-
-            const sectionThemes = themes[sectionId] || [];
-            for (const theme of sectionThemes) {
-                await loadTaskCountForTheme(theme.id);
-            }
-        }
+    const handleThemeClick = (themeId: string) => {
+        setExpandedThemes(prev =>
+            prev.includes(themeId)
+                ? prev.filter(tid => tid !== themeId)
+                : [...prev, themeId]
+        );
     };
 
-    const getTotalStats = () => {
-        const totalCourses = courses.length;
-        const totalSections = Object.values(sections).flat().length;
-        const totalThemes = Object.values(themes).flat().length;
-        const totalTasks = Object.values(taskCounts).reduce((sum, count) => sum + count, 0);
+    const getTotalThemeCount = (courseId: string): number => {
+        if (!themeTree[courseId]) return 0;
+        
+        const countThemes = (nodes: ThemeTreeNode[]): number => {
+            let count = 0;
+            for (const node of nodes) {
+                count += 1; // Count this theme
+                if (node.children && node.children.length > 0) {
+                    count += countThemes(node.children); // Count children recursively
+                }
+            }
+            return count;
+        };
+        
+        return countThemes(themeTree[courseId]);
+    };
 
-        return { totalCourses, totalSections, totalThemes, totalTasks };
+    // Helper component to render theme tree recursively
+    const renderThemeTree = (nodes: ThemeTreeNode[], level: number = 0) => {
+        return nodes.map(node => (
+            <div key={node.theme.id} className={`mb-4 last:mb-0 pl-${level * 4}`}>
+                <div
+                    className="cursor-pointer hover:bg-gray-50 p-3 rounded transition-colors border-l-4 border-blue-300"
+                    onClick={() => handleThemeClick(node.theme.id)}
+                >
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <h5 className="font-medium text-gray-800">{node.theme.name}</h5>
+                            {node.theme.description && (
+                                <p className="text-gray-600 text-sm">{node.theme.description}</p>
+                            )}
+                        </div>
+                        <div className="flex items-center space-x-3">
+                            <div className="flex space-x-2 text-sm">
+                                {node.children && node.children.length > 0 && (
+                                    <p className="text-sm font-medium text-gray-900">Подтемы: {node.children.length}</p>
+                                )}
+                                <p className="text-sm font-medium text-gray-900">Задачи: {taskCounts[`theme-${node.theme.id}`] ?? 0}</p>
+                            </div>
+                            {(node.children && node.children.length > 0) && (
+                                <div className={`text-gray-400 transition-transform ${expandedThemes.includes(node.theme.id) ? 'rotate-90' : ''}`}>
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/>
+                                    </svg>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {expandedThemes.includes(node.theme.id) && node.children && node.children.length > 0 && (
+                    <div className="ml-6 mt-3">
+                        {renderThemeTree(node.children, level + 1)}
+                    </div>
+                )}
+            </div>
+        ));
     };
 
     if (isLoadingCourses) {
@@ -139,7 +179,7 @@ export const Statistics: React.FC = () => {
 
                 {/* Основная статистика */}
                 {systemStats && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                         <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-lg transform hover:scale-105 transition-transform">
                             <div className="flex items-center justify-between">
                                 <div>
@@ -149,20 +189,6 @@ export const Statistics: React.FC = () => {
                                 <div className="bg-gray-200 bg-opacity-30 p-3 rounded-lg flex">
                                     <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                                         <path fillRule="evenodd" d="M10.496 2.132a1 1 0 00-.992 0l-7 4A1 1 0 003 8v7a1 1 0 100 2h14a1 1 0 100-2V8a1 1 0 00.496-1.868l-7-4zM6 9a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/>
-                                    </svg>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-lg transform hover:scale-105 transition-transform">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-gray-600 text-sm font-medium">Секции</p>
-                                    <p className="text-3xl font-bold text-gray-900">{systemStats.sectionsCount}</p>
-                                </div>
-                                <div className="bg-gray-200 bg-opacity-30 p-3 rounded-lg flex">
-                                    <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                        <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd"/>
                                     </svg>
                                 </div>
                             </div>
@@ -218,9 +244,8 @@ export const Statistics: React.FC = () => {
                                         </div>
                                         <div className="flex items-center space-x-6">
                                             <div className="flex space-x-3 text-sm">
-                                                <p className="text-1 font-m text-gray-900">Секции: {sections[course.id]?.length || course.sectionsCount}</p>
-                                                <p className="text-1 font-m text-gray-900">Темы: {course.themesCount}</p>
-                                                <p className="text-1 font-m text-gray-900">Задачи: {taskCounts[`course-${course.id}`] ?? course.tasksCount}</p>
+                                                <p className="text-1 font-m text-gray-900">Темы: {getTotalThemeCount(course.id)}</p>
+                                                <p className="text-1 font-m text-gray-900">Задачи: {taskCounts[`course-${course.id}`] ?? 0}</p>
                                             </div>
                                             <div className={`text-gray-400 transition-transform ${expandedCourse === course.id ? 'rotate-90' : ''}`}>
                                                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -233,57 +258,12 @@ export const Statistics: React.FC = () => {
 
                                 {expandedCourse === course.id && (
                                     <div className="p-6 bg-white border-t border-gray-200">
-                                        {sections[course.id]?.map(section => (
-                                            <div key={section.id} className="mb-4 last:mb-0 border-l-4 border-gray-200 pl-4">
-                                                <div
-                                                    className="cursor-pointer hover:bg-gray-50 p-3 rounded transition-colors"
-                                                    onClick={() => handleSectionClick(section.id)}
-                                                >
-                                                    <div className="flex justify-between items-center">
-                                                        <div>
-                                                            <h4 className="font-semibold text-lg text-gray-800">{section.name}</h4>
-                                                            {section.description && (
-                                                                <p className="text-gray-600 text-sm">{section.description}</p>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex items-center space-x-3">
-                                                            <div className="flex space-x-2 text-sm">
-                                                                <p className="text-1 font-s text-gray-900">Темы: {themes[section.id]?.length || section.themesCount}</p>
-                                                                <p className="text-1 font-s text-gray-900">Задачи: {taskCounts[`section-${section.id}`] ?? section.tasksCount}</p>
-                                                            </div>
-                                                            <div className={`text-gray-400 transition-transform ${expandedSection === section.id ? 'rotate-90' : ''}`}>
-                                                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                                                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"/>
-                                                                </svg>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {expandedSection === section.id && (
-                                                    <div className="ml-6 mt-3 space-y-2">
-                                                        {themes[section.id]?.map(theme => (
-                                                            <div key={theme.id} className="bg-gray-50 p-3 rounded border-l-2 border-yellow-300">
-                                                                <div className="flex justify-between items-center">
-                                                                    <div>
-                                                                        <h5 className="font-medium text-gray-800">{theme.name}</h5>
-                                                                        {theme.description && (
-                                                                            <p className="text-gray-600 text-sm">{theme.description}</p>
-                                                                        )}
-                                                                    </div>
-                                                                    <p className="text-1 font-m text-gray-900">Задачи: {taskCounts[`theme-${theme.id}`] ?? theme.tasksCount}</p>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                        {(!themes[section.id] || themes[section.id].length === 0) && (
-                                                            <p className="text-gray-500 italic text-sm ml-3">Темы не найдены</p>
-                                                        )}
-                                                    </div>
-                                                )}
+                                        {themeTree[course.id] && themeTree[course.id].length > 0 ? (
+                                            <div className="space-y-2">
+                                                {renderThemeTree(themeTree[course.id])}
                                             </div>
-                                        ))}
-                                        {(!sections[course.id] || sections[course.id].length === 0) && (
-                                            <p className="text-gray-500 italic">Секции не найдены</p>
+                                        ) : (
+                                            <p className="text-gray-500 italic">Темы не найдены</p>
                                         )}
                                     </div>
                                 )}

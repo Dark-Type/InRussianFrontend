@@ -134,6 +134,16 @@ class ExpertService {
         }
     }
 
+    async getThemeTree(courseId: string): Promise<any[]> {
+        try {
+            const response = await axiosInstance.get(`/content/courses/${courseId}/theme-tree`);
+            return Array.isArray(response.data) ? response.data : [response.data];
+        } catch (error: any) {
+            console.error(`Ошибка загрузки дерева тем курса ${courseId}:`, error);
+            return [];
+        }
+    }
+
     async getSectionsByCourse(courseId: string): Promise<Section[]> {
         try {
             const response = await this.contentApi.contentSectionsByCourseCourseIdGet(courseId);
@@ -193,25 +203,46 @@ class ExpertService {
     }
     async getTasksCountByTheme(themeId: string): Promise<number> {
         try {
-            const response = await this.contentApi.contentStatsThemeThemeIdTasksCountGet(themeId);
-            return parseInt(response.data, 10) || 0;
+            const response = await axiosInstance.get(`/content/stats/theme/${themeId}/tasks-count`);
+            // The response is a Map_String, so we need to sum the values
+            const taskCountMap = response.data as Record<string, number>;
+            return Object.values(taskCountMap).reduce((sum, count) => sum + (typeof count === 'number' ? count : 0), 0);
         } catch (error) {
-            const tasks = await this.getTasksByTheme(themeId);
-            return tasks.length;
+            console.error(`Ошибка подсчета задач темы ${themeId}:`, error);
+            return 0;
         }
     }
 
     async getTasksCountByCourse(courseId: string): Promise<number> {
         try {
-            const sections = await this.getSectionsByCourse(courseId);
-            let totalTasks = 0;
-            for (const section of sections) {
-                const taskCount = await this.getTasksCountBySection(section.id);
-                totalTasks += taskCount;
-            }
-            return totalTasks;
+            const response = await axiosInstance.get(`/content/stats/course/${courseId}/tasks-count`);
+            // The response is a Map_String, so we need to sum the values
+            const taskCountMap = response.data as Record<string, number>;
+            return Object.values(taskCountMap).reduce((sum, count) => sum + (typeof count === 'number' ? count : 0), 0);
         } catch (error) {
             console.error(`Ошибка подсчета задач курса ${courseId}:`, error);
+            return 0;
+        }
+    }
+
+    // Helper method to recursively count themes in a tree
+    private countThemesInTree(nodes: any[]): number {
+        let count = 0;
+        for (const node of nodes) {
+            count += 1; // Count this theme
+            if (node.children && node.children.length > 0) {
+                count += this.countThemesInTree(node.children); // Count children recursively
+            }
+        }
+        return count;
+    }
+
+    async getThemeCountByCourse(courseId: string): Promise<number> {
+        try {
+            const themeTree = await this.getThemeTree(courseId);
+            return this.countThemesInTree(themeTree);
+        } catch (error) {
+            console.error(`Ошибка подсчета тем курса ${courseId}:`, error);
             return 0;
         }
     }
@@ -276,6 +307,28 @@ class ExpertService {
         }
     }
 
+    // ============ NEW STATISTICS API ENDPOINTS ============
+    
+    async getPlatformStats(): Promise<PlatformStatsDTO | null> {
+        try {
+            const response = await axiosInstance.get('/platform/stats');
+            return response.data as PlatformStatsDTO;
+        } catch (error) {
+            console.error('Ошибка загрузки общей статистики платформы:', error);
+            return null;
+        }
+    }
+
+    async getCourseAverageStats(courseId: string): Promise<CourseAverageStatsDTO | null> {
+        try {
+            const response = await axiosInstance.get(`/course/${courseId}/stats`);
+            return response.data as CourseAverageStatsDTO;
+        } catch (error) {
+            console.error(`Ошибка загрузки статистики курса ${courseId}:`, error);
+            return null;
+        }
+    }
+
     // ============ REPORTS ============
     async createReport(reportData: CreateReportRequest): Promise<Report> {
         const response = await this.contentApi.contentReportsPost(reportData);
@@ -336,4 +389,40 @@ export interface CourseStatsDTO {
 export interface UserStatsDTO {
     userId: string;
     courses: CourseStatsDTO[];
+}
+
+// ---- Additional Statistics DTOs based on OpenAPI spec ----
+
+export interface PlatformStatsDTO {
+    totalUsers: number;
+    totalCourses: number;
+    totalTasks: number;
+    avgProgress: number;
+    avgTimeSpent: number;
+}
+
+export interface AverageProgressDTO {
+    solvedTasksAvg: number;
+    totalTasksAvg: number;
+    percentAvg: number;
+    averageTimeMsAvg: number;
+    participants: number;
+    lastUpdatedAt?: string; // ISO Instant
+}
+
+export interface ThemeAverageDTO {
+    themeId: string;
+    courseId: string;
+    solvedTasksAvg: number;
+    totalTasksAvg: number;
+    percentAvg: number;
+    averageTimeMsAvg: number;
+    participants: number;
+    lastUpdatedAt?: string; // ISO Instant
+}
+
+export interface CourseAverageStatsDTO {
+    courseId: string;
+    courseAverage?: AverageProgressDTO | null;
+    themesAverage: ThemeAverageDTO[];
 }
