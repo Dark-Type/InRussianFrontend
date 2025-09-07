@@ -27,13 +27,11 @@ import { default as ConnectTranslationToWordIcon } from "./IconsSVG/ConnectTrans
 import { default as FillInTheBlanksIcon } from "./IconsSVG/FillInTheBlanks.svg?react";
 import { default as ListenIcon } from "./IconsSVG/Listen.svg?react";
 import { default as PickRightWordsIcon } from "./IconsSVG/PickRightWords.svg?react";
-import { default as QuestionIcon } from "./IconsSVG/Question.svg?react";
 import { default as ReadIcon } from "./IconsSVG/Read.svg?react";
 import { default as RememberIcon } from "./IconsSVG/Remember.svg?react";
 import { default as RepeatIcon } from "./IconsSVG/Repeat.svg?react";
-import { default as SetTheStressIcon } from "./IconsSVG/SetTheStress.svg?react";
+// Removed unused import for SetTheStressIcon
 import { default as SpeakIcon } from "./IconsSVG/Speak.svg?react";
-import { default as TaskIcon } from "./IconsSVG/Task.svg?react";
 import { default as WriteIcon } from "./IconsSVG/Write.svg?react";
 
 // Представление Pair на проводе (бэкенд): { first, second }
@@ -49,12 +47,24 @@ type WireTaskBody =
   | { type: "ConstructSentenceTask"; task: { audio: string | null; variants: string[] } }
   | { type: "SelectWordsTask"; task: { audio: string; variants: PairObj<string, boolean>[] } };
 
+// Updated TaskType enum to match backend
+export type TaskType =
+  | "WRITE"
+  | "LISTEN"
+  | "READ"
+  | "SPEAK"
+  | "REPEAT"
+  | "REMIND"
+  | "MARK"
+  | "FILL"
+  | "CONNECT_AUDIO"
+  | "CONNECT_IMAGE"
+  | "CONNECT_TRANSLATE"
+  | "SELECT"
+  | "SET_THE_STRESS";
+
+// Only include types with icons in ALL_TASK_TYPES
 const ALL_TASK_TYPES: TaskType[] = [
-  "LISTEN_AND_CHOOSE",
-  "READ_AND_CHOOSE",
-  "LOOK_AND_CHOOSE",
-  "MATCH_AUDIO_TEXT",
-  "MATCH_TEXT_TEXT",
   "WRITE",
   "LISTEN",
   "READ",
@@ -596,18 +606,16 @@ export default function TaskEditorModal({ isOpen, onClose, onCreated, onUpdated,
   );
 }
 
-const TASK_TYPE_ICON_COMPONENT: Record<TaskType, React.ComponentType<any>> = {
-  LISTEN_AND_CHOOSE: RepeatIcon,
-  READ_AND_CHOOSE: PickRightWordsIcon,
-  LOOK_AND_CHOOSE: QuestionIcon,
-  MATCH_AUDIO_TEXT: ConnectTranslationToWordIcon,
-  MATCH_TEXT_TEXT: TaskIcon,
+// Icons mapping for TaskType (only those with icons)
+// Duplicate icon imports removed
+
+const TASK_TYPE_ICON_COMPONENT: Partial<Record<TaskType, React.ComponentType<any>>> = {
   WRITE: WriteIcon,
   LISTEN: ListenIcon,
   READ: ReadIcon,
   SPEAK: SpeakIcon,
   REMIND: RememberIcon,
-  MARK: SetTheStressIcon,
+  MARK: PickRightWordsIcon,
   FILL: FillInTheBlanksIcon,
   CONNECT_AUDIO: RepeatIcon,
   CONNECT_IMAGE: ConnectImageToTextIcon,

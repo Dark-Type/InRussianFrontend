@@ -169,7 +169,7 @@ export const AuthPage = () => {
             >
                 <div style={{display: "flex", alignItems: "center"}}>
                     <img
-                        src="/assets/inRussian.png"
+                        src={theme === 'light' ? "/assets/WhiteThemeIcon.png" : "/assets/inRussian.png"}
                         alt="На русском"
                         style={{ height: "2.5rem", marginRight: "0.5rem" }}
                     />

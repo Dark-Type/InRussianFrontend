@@ -49,7 +49,7 @@ export const ThemeSwitcher = ({ theme, toggle }: { theme: string; toggle: () => 
           boxShadow: '0 0 2px rgba(0,0,0,0.3)',
         }}
       >
-        {theme === 'light' ? <MoonIcon width={16} height={16} color="white" /> : <SunIcon width={16} height={16} color="white" />}
+        {theme === 'light' ? <SunIcon width={16} height={16} color="white" /> : <MoonIcon width={16} height={16} color="white" />}
       </span>
     </label>
   );

@@ -44,7 +44,7 @@ export const CommonHeader: React.FC<CommonHeaderProps> = ({
     >
       <div style={{ display: "flex", alignItems: "center" }}>
         <img
-          src="/assets/inRussian.png"
+          src={theme === 'light' ? "/assets/WhiteThemeIcon.png" : "/assets/inRussian.png"}
           alt="На русском"
           style={{ height: "1.6rem", marginRight: "0.5rem" }}
         />

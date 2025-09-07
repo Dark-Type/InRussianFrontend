@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import expertService from "../../services/ExpertService";
 import { axiosInstance } from "../../instances/axiosInstance.ts";
 import type { TaskModel } from "../content/task-editor/TaskModels";
-import TaskEditorModal from "../content/task-editor/TaskEditorModal";
 import { taskTypesToRu } from "../content/task-editor/TaskModels";
+import TaskEditorModal from "../content/task-editor/TaskEditorModal";
 import type { ThemeTreeNode } from '../../context/content/ContentProvider';
 import type {
   Course,
@@ -745,15 +745,15 @@ export const CoursesSection = () => {
 
       {renderTaskPopup()}
 
-      {previewTask && previewThemeId && (
-        <TaskEditorModal
-          isOpen={!!previewTask}
-          onClose={() => { setPreviewTask(null); setPreviewThemeId(null); }}
-          readOnly
-          initialTask={previewTask}
-          themeId={previewThemeId}
-        />
-      )}
+        {previewTask && previewThemeId && (
+          <TaskEditorModal
+            isOpen={!!previewTask}
+            onClose={() => { setPreviewTask(null); setPreviewThemeId(null); }}
+            readOnly
+            initialTask={previewTask}
+            themeId={previewThemeId}
+          />
+        )}
     </div>
   );
 };
