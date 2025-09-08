@@ -24,14 +24,17 @@ import taskTypeBtnStyles from './TaskTypeButtons.module.css';
 import { default as ChooseRightVariantIcon } from "./IconsSVG/ChooseRightVariant.svg?react";
 import { default as ConnectImageToTextIcon } from "./IconsSVG/ConnectImageToText.svg?react";
 import { default as ConnectTranslationToWordIcon } from "./IconsSVG/ConnectTranslationToWord.svg?react";
+import { default as ConnectAudioToTranslationIcon } from "./IconsSVG/ConnectAudioToTranslation.svg?react";
 import { default as FillInTheBlanksIcon } from "./IconsSVG/FillInTheBlanks.svg?react";
 import { default as ListenIcon } from "./IconsSVG/Listen.svg?react";
 import { default as PickRightWordsIcon } from "./IconsSVG/PickRightWords.svg?react";
+import { default as QuestionIcon } from "./IconsSVG/Question.svg?react";
 import { default as ReadIcon } from "./IconsSVG/Read.svg?react";
 import { default as RememberIcon } from "./IconsSVG/Remember.svg?react";
 import { default as RepeatIcon } from "./IconsSVG/Repeat.svg?react";
-// Removed unused import for SetTheStressIcon
+import { default as SetTheStressIcon } from "./IconsSVG/SetTheStress.svg?react";
 import { default as SpeakIcon } from "./IconsSVG/Speak.svg?react";
+import { default as TaskIcon } from "./IconsSVG/Task.svg?react";
 import { default as WriteIcon } from "./IconsSVG/Write.svg?react";
 
 // Представление Pair на проводе (бэкенд): { first, second }
@@ -47,28 +50,13 @@ type WireTaskBody =
   | { type: "ConstructSentenceTask"; task: { audio: string | null; variants: string[] } }
   | { type: "SelectWordsTask"; task: { audio: string; variants: PairObj<string, boolean>[] } };
 
-// Updated TaskType enum to match backend
-export type TaskType =
-  | "WRITE"
-  | "LISTEN"
-  | "READ"
-  | "SPEAK"
-  | "REPEAT"
-  | "REMIND"
-  | "MARK"
-  | "FILL"
-  | "CONNECT_AUDIO"
-  | "CONNECT_IMAGE"
-  | "CONNECT_TRANSLATE"
-  | "SELECT"
-  | "SET_THE_STRESS";
-
-// Only include types with icons in ALL_TASK_TYPES
+// Include all task types with icons
 const ALL_TASK_TYPES: TaskType[] = [
   "WRITE",
   "LISTEN",
   "READ",
   "SPEAK",
+  "REPEAT",
   "REMIND",
   "MARK",
   "FILL",
@@ -76,6 +64,9 @@ const ALL_TASK_TYPES: TaskType[] = [
   "CONNECT_IMAGE",
   "CONNECT_TRANSLATE",
   "SELECT",
+  "TASK",
+  "QUESTION",
+  "SET_THE_STRESS",
 ];
 
 type Props = {
@@ -609,18 +600,22 @@ export default function TaskEditorModal({ isOpen, onClose, onCreated, onUpdated,
 // Icons mapping for TaskType (only those with icons)
 // Duplicate icon imports removed
 
-const TASK_TYPE_ICON_COMPONENT: Partial<Record<TaskType, React.ComponentType<any>>> = {
+const TASK_TYPE_ICON_COMPONENT: Record<TaskType, React.ComponentType<any>> = {
   WRITE: WriteIcon,
   LISTEN: ListenIcon,
   READ: ReadIcon,
   SPEAK: SpeakIcon,
+  REPEAT: RepeatIcon,
   REMIND: RememberIcon,
   MARK: PickRightWordsIcon,
   FILL: FillInTheBlanksIcon,
-  CONNECT_AUDIO: RepeatIcon,
+  CONNECT_AUDIO: ConnectAudioToTranslationIcon,
   CONNECT_IMAGE: ConnectImageToTextIcon,
   CONNECT_TRANSLATE: ConnectTranslationToWordIcon,
   SELECT: ChooseRightVariantIcon,
+  TASK: TaskIcon,
+  QUESTION: QuestionIcon,
+  SET_THE_STRESS: SetTheStressIcon,
 };
 
 function TaskTypesPicker({ selected, onToggle, disabled }: { selected: TaskType[]; onToggle: (t: TaskType) => void; disabled?: boolean; }) {
@@ -631,6 +626,7 @@ function TaskTypesPicker({ selected, onToggle, disabled }: { selected: TaskType[
         {ALL_TASK_TYPES.map(t => {
           const active = selected.includes(t);
           const SvgComp = TASK_TYPE_ICON_COMPONENT[t];
+          if (!SvgComp) return null; // Skip if no icon component found
           return (
             <button
               key={t}

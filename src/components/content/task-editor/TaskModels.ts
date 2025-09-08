@@ -1,20 +1,19 @@
 export type TaskType =
-  | "LISTEN_AND_CHOOSE"
-  | "READ_AND_CHOOSE"
-  | "LOOK_AND_CHOOSE"
-  | "MATCH_AUDIO_TEXT"
-  | "MATCH_TEXT_TEXT"
   | "WRITE"
   | "LISTEN"
   | "READ"
   | "SPEAK"
+  | "REPEAT"
   | "REMIND"
   | "MARK"
   | "FILL"
   | "CONNECT_AUDIO"
   | "CONNECT_IMAGE"
   | "CONNECT_TRANSLATE"
-  | "SELECT";
+  | "SELECT"
+  | "TASK"
+  | "QUESTION"
+  | "SET_THE_STRESS";
 
 export type Pair<A, B> = [A, B];
 
@@ -148,22 +147,21 @@ export const isTextInputWithVariantTask = (
 ): b is Extract<TaskBody, { type: "TextInputWithVariantTask" }> => b.type === "TextInputWithVariantTask";
 
 export const TASK_TYPE_LABELS_RU: Record<TaskType, string> = {
-  LISTEN_AND_CHOOSE: "Слушать и выбирать",
-  READ_AND_CHOOSE: "Читать и выбирать",
-  LOOK_AND_CHOOSE: "Смотреть и выбирать",
-  MATCH_AUDIO_TEXT: "Соответствие: Аудио — Текст",
-  MATCH_TEXT_TEXT: "Соответствие: Текст — Текст",
-  WRITE: "Писать",
-  LISTEN: "Слушать",
-  READ: "Читать",
-  SPEAK: "Говорить",
-  REMIND: "Повторить",
-  MARK: "Отметить",
-  FILL: "Заполнить",
-  CONNECT_AUDIO: "Соединить (аудио)",
-  CONNECT_IMAGE: "Соединить (изображение)",
-  CONNECT_TRANSLATE: "Соединить (перевод)",
-  SELECT: "Выбрать",
+  WRITE: "Пишите",
+  LISTEN: "Слушайте", 
+  READ: "Читайте",
+  SPEAK: "Говорите",
+  REPEAT: "Повторяйте",
+  REMIND: "Запоминайте",
+  MARK: "Выберите правильные слова",
+  FILL: "Заполните пропуски",
+  CONNECT_AUDIO: "Соедините аудио с переводом",
+  CONNECT_IMAGE: "Соедините изображение с текстом",
+  CONNECT_TRANSLATE: "Соедините перевод со словом",
+  SELECT: "Выберите правильный вариант",
+  TASK: "Задание",
+  QUESTION: "Что это?",
+  SET_THE_STRESS: "Поставьте ударение",
 };
 
 export const taskTypeToRu = (t: TaskType): string => TASK_TYPE_LABELS_RU[t];
