@@ -561,20 +561,21 @@ export const UserEditModal = ({
                     </div>
                     <div style={{ flex: 1 }}>
                       <label style={{ display: "block", marginBottom: "4px" }}>
-                        Дата регистрации*:
+                        Дата регистрации:
                       </label>
                       <input
                         type="date"
                         name="dor"
                         value={userProfile.dor || ""}
-                        onChange={handleProfileChange}
                         style={{
                           width: "100%",
                           padding: "8px",
                           borderRadius: "4px",
                           border: "1px solid var(--color-border)",
+                          backgroundColor: "var(--color-bg)",
+                          cursor: "not-allowed",
                         }}
-                        required
+                        readOnly
                       />
                     </div>
                   </div>

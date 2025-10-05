@@ -125,55 +125,82 @@ export const ExpertPanel = () => {
                 avatarUrl={avatarUrl}
             />
 
-            <nav style={{
-                width: '100%',
-                padding: '0 32px',
-                background: 'var(--color-card)',
-                borderBottom: '1px solid var(--color-border)'
-            }}>
-                <div style={{
-                    display: 'flex',
-                    gap: '0',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    border: '1px solid var(--color-border)',
-                    marginTop: '16px',
-                    marginBottom: '16px'
-                }}>
-                    {[
-                        { key: 'students' as Section, label: 'Студенты' },
-                        { key: 'courses' as Section, label: 'Курсы' },
-                        { key: 'statistics' as Section, label: 'Статистика' }
-                    ].map(({ key, label }, idx, arr) => (
-                        <button
-                            key={key}
-                            onClick={() => setActiveSection(key)}
-                            style={{
-                                flex: 1,
-                                padding: '12px 24px',
-                                border: 'none',
-                                background: activeSection === key ? 'var(--color-primary)' : 'var(--color-card)',
-                                color: activeSection === key ? 'white' : 'var(--color-text)',
-                                cursor: 'pointer',
-                                fontSize: '1rem',
-                                fontWeight: activeSection === key ? 'bold' : 'normal',
-                                borderRight: idx < arr.length - 1 ? '1px solid var(--color-border)' : 'none'
-                            }}
-                        >
-                            {label}
-                        </button>
-                    ))}
-                </div>
-            </nav>
-
-            <main style={{
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
                 flex: 1,
-                padding: '32px',
-                maxWidth: '100%',
-                boxSizing: 'border-box'
+                maxWidth: '1200px',
+                margin: '0 auto',
+                width: '100%',
+                padding: '0 24px'
             }}>
-                {renderContent()}
-            </main>
+                <nav style={{
+                    display: 'flex',
+                    gap: '8px',
+                    padding: '24px 0 16px 0',
+                    borderBottom: '1px solid var(--color-border)',
+                    marginBottom: '24px'
+                }}>
+                    <button
+                        onClick={() => setActiveSection('students')}
+                        style={{
+                            flex: 1,
+                            padding: '12px 24px',
+                            border: 'none',
+                            outline: 'none',
+                            borderRadius: '6px',
+                            background: activeSection === 'students' ? 'var(--color-primary)' : 'var(--color-card)',
+                            color: activeSection === 'students' ? 'white' : 'var(--color-text)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            fontWeight: '500'
+                        }}
+                    >
+                        Студенты
+                    </button>
+                    <button
+                        onClick={() => setActiveSection('courses')}
+                        style={{
+                            flex: 1,
+                            padding: '12px 24px',
+                            border: 'none',
+                            outline: 'none',
+                            borderRadius: '6px',
+                            background: activeSection === 'courses' ? 'var(--color-primary)' : 'var(--color-card)',
+                            color: activeSection === 'courses' ? 'white' : 'var(--color-text)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            fontWeight: '500'
+                        }}
+                    >
+                        Курсы
+                    </button>
+                    <button
+                        onClick={() => setActiveSection('statistics')}
+                        style={{
+                            flex: 1,
+                            padding: '12px 24px',
+                            border: 'none',
+                            outline: 'none',
+                            borderRadius: '6px',
+                            background: activeSection === 'statistics' ? 'var(--color-primary)' : 'var(--color-card)',
+                            color: activeSection === 'statistics' ? 'white' : 'var(--color-text)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            fontWeight: '500'
+                        }}
+                    >
+                        Статистика
+                    </button>
+                </nav>
+
+                <main style={{
+                    flex: 1,
+                    background: 'var(--color-bg)'
+                }}>
+                    {renderContent()}
+                </main>
+            </div>
         </div>
     );
 };

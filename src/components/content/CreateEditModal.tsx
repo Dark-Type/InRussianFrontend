@@ -353,7 +353,7 @@ export const CreateEditModal = ({
                                 </label>
 
                                 <div style={{ marginTop: 12 }}>
-                                    <div style={{ marginBottom: 6, fontWeight: 600 }}>Постер курса (IMAGE)</div>
+                                    <div style={{ marginBottom: 6, fontWeight: 600 }}>Постер курса (изображение)</div>
                                     {!coursePosterId ? (
                                         <input type="file" accept="image/*" onChange={handleImageChange} />
                                     ) : (

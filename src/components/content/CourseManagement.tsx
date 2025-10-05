@@ -644,7 +644,7 @@ export const CoursesManagement = () => {
 
                                     {/* Theme Tree (no sections) */}
                                     {expandedCourse === course.id && (
-                                        <div style={{padding: "0 20px 16px 40px"}}>
+                                        <div style={{padding: "16px 20px 16px 40px"}}>
                                             <div
                                                 style={{
                                                     display: "flex",

@@ -105,6 +105,7 @@ export const ContentPanel = () => {
                     <button
                         onClick={() => setActiveSection('courses')}
                         style={{
+                            flex: 1,
                             padding: '12px 24px',
                             border: 'none',
                             outline: 'none',
@@ -121,6 +122,7 @@ export const ContentPanel = () => {
                     <button
                         onClick={() => setActiveSection('statistics')}
                         style={{
+                            flex: 1,
                             padding: '12px 24px',
                             border: 'none',
                             outline: 'none',
@@ -137,6 +139,7 @@ export const ContentPanel = () => {
                     <button
                         onClick={() => setActiveSection('reports')}
                         style={{
+                            flex: 1,
                             padding: '12px 24px',
                             border: 'none',
                             outline: 'none',

@@ -168,8 +168,10 @@ export const AdminPanel = () => {
                     <button
                         onClick={() => setActiveSection('users')}
                         style={{
+                            flex: 1,
                             padding: '12px 24px',
                             border: 'none',
+                            outline: 'none',
                             borderRadius: '6px',
                             background: activeSection === 'users' ? 'var(--color-primary)' : 'var(--color-card)',
                             color: activeSection === 'users' ? 'white' : 'var(--color-text)',
@@ -183,8 +185,10 @@ export const AdminPanel = () => {
                     <button
                         onClick={() => setActiveSection('statistics')}
                         style={{
+                            flex: 1,
                             padding: '12px 24px',
                             border: 'none',
+                            outline: 'none',
                             borderRadius: '6px',
                             background: activeSection === 'statistics' ? 'var(--color-primary)' : 'var(--color-card)',
                             color: activeSection === 'statistics' ? 'white' : 'var(--color-text)',

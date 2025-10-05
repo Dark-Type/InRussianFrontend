@@ -628,7 +628,7 @@ export const CoursesSection = () => {
           marginBottom: "24px",
         }}
       >
-        <h2 style={{ margin: 0 }}>Управление курсами</h2>
+        <h2 style={{ margin: 0 }}>Просмотр курсов</h2>
         {contentStats && (
           <div
             style={{

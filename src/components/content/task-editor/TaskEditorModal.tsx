@@ -621,7 +621,7 @@ const TASK_TYPE_ICON_COMPONENT: Record<TaskType, React.ComponentType<any>> = {
 function TaskTypesPicker({ selected, onToggle, disabled }: { selected: TaskType[]; onToggle: (t: TaskType) => void; disabled?: boolean; }) {
   return (
     <div className={styles.card}>
-      <div className={styles.label} style={{ marginBottom: 8, fontWeight: 600 }}>Типы задания</div>
+      <div className={styles.label} style={{ marginBottom: 8, fontWeight: 600 }}>Значки</div>
       <div className={taskTypeBtnStyles.grid}>
         {ALL_TASK_TYPES.map(t => {
           const active = selected.includes(t);
