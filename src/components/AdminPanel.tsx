@@ -8,6 +8,7 @@ import type {User} from "../api";
 import {useProfile} from '../context/profile/UseProfile';
 import {mediaService} from '../services/MediaService';
 import {CommonHeader} from './shared/CommonHeader';
+import {RetrySwitch} from './shared/RetrySwitch';
 
 type Section = 'users' | 'statistics';
 
@@ -23,6 +24,7 @@ export const AdminPanel = () => {
     const [displayName, setDisplayName] = useState('Гость');
     const [searchTerm, setSearchTerm] = useState('');
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [configError, setConfigError] = useState<string | null>(null);
 
     const loadUserData = useCallback(async () => {
         if (!user?.id) {
@@ -163,7 +165,8 @@ export const AdminPanel = () => {
                     gap: '8px',
                     padding: '24px 0 16px 0',
                     borderBottom: '1px solid var(--color-border)',
-                    marginBottom: '24px'
+                    marginBottom: '24px',
+                    alignItems: 'center'
                 }}>
                     <button
                         onClick={() => setActiveSection('users')}
@@ -199,6 +202,29 @@ export const AdminPanel = () => {
                     >
                         Статистика
                     </button>
+                    
+                    <div style={{
+                        marginLeft: '24px',
+                        paddingLeft: '24px',
+                        borderLeft: '1px solid var(--color-border)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px'
+                    }}>
+                        <RetrySwitch
+                            onError={(error) => setConfigError(error)}
+                            onStatusChange={() => setConfigError(null)}
+                        />
+                        {configError && (
+                            <div style={{
+                                fontSize: '12px',
+                                color: '#ef4444',
+                                textAlign: 'center'
+                            }}>
+                                {configError}
+                            </div>
+                        )}
+                    </div>
                 </nav>
 
                 <main style={{
