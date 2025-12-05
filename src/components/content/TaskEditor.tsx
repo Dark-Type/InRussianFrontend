@@ -11,6 +11,7 @@ import type {
 } from "../../context/content/ContentProvider.tsx";
 import ContentService from "../../services/ContentService.ts";
 import { TaskAnswerItemAnswerTypeEnum } from "../../api/api.ts";
+import { UntranslatableField } from "./task-editor/UntranslatableField";
 
 interface TaskEditorProps {
   isOpen: boolean;
@@ -225,11 +226,10 @@ export const TaskEditor = ({
                   >
                     Название задачи *
                   </label>
-                  <input
-                    type="text"
+                  <UntranslatableField
                     value={formData.name}
-                    onChange={(e) => handleInputChange("name", e.target.value)}
-                    required
+                    onChange={(v) => handleInputChange("name", v)}
+                    placeholder="Название задачи"
                     style={{
                       width: "100%",
                       padding: "10px 12px",
@@ -292,24 +292,23 @@ export const TaskEditor = ({
                 >
                   Вопрос задачи *
                 </label>
-                <textarea
+                <UntranslatableField
                   value={formData.question}
-                  onChange={(e) =>
-                    handleInputChange("question", e.target.value)
+                  onChange={(v) =>
+                    handleInputChange("question", v)
                   }
-                  required
-                  rows={2}
+                  placeholder="Введите вопрос"
                   style={{
                     width: "100%",
                     padding: "10px 12px",
                     border: "1px solid var(--color-border)",
                     borderRadius: "4px",
                     fontSize: "0.95rem",
-                    resize: "vertical",
                     boxSizing: "border-box",
                     background: "var(--color-bg)",
                     color: "var(--color-text)",
                   }}
+                  multiline={true}
                 />
               </div>
 
@@ -329,21 +328,22 @@ export const TaskEditor = ({
                 >
                   Инструкции (необязательно)
                 </label>
-                <textarea
+                <UntranslatableField
                   value={formData.instructions}
-                  onChange={(e) =>
-                    handleInputChange("instructions", e.target.value)
+                  onChange={(v) =>
+                    handleInputChange("instructions", v)
                   }
-                  rows={2}
+                  placeholder="Введите инструкции"
                   style={{
                     width: "100%",
                     padding: "10px 12px",
                     border: "1px solid var(--color-border)",
                     borderRadius: "4px",
                     fontSize: "0.95rem",
-                    resize: "vertical",
+                    resize: "vertical" as any,
                     boxSizing: "border-box",
                   }}
+                  multiline={true}
                 />
               </div>
 

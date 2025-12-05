@@ -1,24 +1,11 @@
-import {ContentApi, ContentManagerApi, type MediaFileMeta} from "../api";
-import {axiosInstance} from "../instances/axiosInstance.ts";
-
+// src/services/ContentService.ts
+import { ContentApi, ContentManagerApi, type MediaFileMeta } from "../api";
+import { axiosInstance } from "../instances/axiosInstance.ts";
 import {
     CreateTaskContentRequestContentTypeEnum,
-    type Course as ApiCourse,
-    type CreateCourseRequest,
-    type UpdateCourseRequest,
-    // ...existing code...
-    type UpdateThemeRequest,
-    type Theme as ApiTheme,
-    type CreateReportRequest,
-    type Report,
     CreateTaskAnswerRequestAnswerTypeEnum,
 } from "../api";
-import type {AxiosResponse} from "axios";
-import {mediaService} from "./MediaService";
-import type {
-    Course,
-    Theme,
-} from "../context/content/ContentProvider";
+import { mediaService } from "./MediaService";
 
 class ContentService {
     private contentApi: ContentApi;
@@ -30,16 +17,31 @@ class ContentService {
 
     constructor() {
         this.contentApi = new ContentApi(undefined, undefined, axiosInstance);
-        this.managerApi = new ContentManagerApi(
-            undefined,
-            undefined,
-            axiosInstance
-        );
+        this.managerApi = new ContentManagerApi(undefined, undefined, axiosInstance);
+    }
+    async getAllCourses(): Promise<any[]> {
+        return this.getCourses();
     }
 
-    private mapFileTypeToContentType(
-        fileType: string
-    ): CreateTaskContentRequestContentTypeEnum {
+    async getAllReports(params?: Record<string, any>): Promise<any[]> {
+        return this.getReports(params);
+    }
+
+    async getReportById(reportId: string): Promise<any> {
+        return this.getReport(reportId);
+    }
+
+    async getThemeById(themeId: string): Promise<any> {
+        const { data } = await this.contentApi.contentThemesThemeIdGet(themeId);
+        return data;
+    }
+
+    async getContentStats(): Promise<any> {
+        const { data } = await this.contentApi.contentStatsGet();
+        return data;
+    }
+
+    private mapFileTypeToContentType(fileType: string): CreateTaskContentRequestContentTypeEnum {
         switch (fileType.toUpperCase()) {
             case "AUDIO":
                 return CreateTaskContentRequestContentTypeEnum.Audio;
@@ -52,9 +54,7 @@ class ContentService {
         }
     }
 
-    private mapAnswerTypeToBackend(
-        answerType: string
-    ): CreateTaskAnswerRequestAnswerTypeEnum {
+    private mapAnswerTypeToBackend(answerType: string): CreateTaskAnswerRequestAnswerTypeEnum {
         switch (answerType) {
             case "SINGLE_CHOICE":
                 return CreateTaskAnswerRequestAnswerTypeEnum.SingleChoiceShort;
@@ -75,155 +75,128 @@ class ContentService {
         formData.append("file", file);
         formData.append("fileName", file.name);
         formData.append("mimeType", file.type);
-        formData.append("fileSize", file.size.toString());
+        formData.append("fileSize", String(file.size));
 
         let fileType = "CONTENT";
-        if (file.type.startsWith("image/")) {
-            fileType = "IMAGE";
-        } else if (file.type.startsWith("audio/")) {
-            fileType = "AUDIO";
-        } else if (file.type.startsWith("video/")) {
-            fileType = "VIDEO";
-        }
+        if (file.type.startsWith("image/")) fileType = "IMAGE";
+        else if (file.type.startsWith("audio/")) fileType = "AUDIO";
+        else if (file.type.startsWith("video/")) fileType = "VIDEO";
         formData.append("fileType", fileType);
 
-        return await mediaService.uploadMediaWithMeta(formData, userId);
+        return mediaService.uploadMediaWithMeta(formData, userId);
     }
 
     // ============ COURSES ============
-    async getAllCourses(): Promise<Course[]> {
-        const response: AxiosResponse<ApiCourse[]> = await this.contentApi.contentCoursesGet();
-        const apiCourses = response.data;
-
-        const courses: Course[] = await Promise.all(
-            apiCourses.map(async (apiCourse) => ({
-                id: apiCourse.id,
-                name: apiCourse.name,
-                description: apiCourse.description,
-                authorUrl: (apiCourse as any).authorUrl,
-                language: (apiCourse as any).language,
-                isPublished: (apiCourse as any).isPublished,
-                courseId: (apiCourse as any).courseId ?? null,
-                themesCount: await this.getThemesCountByCourse(apiCourse.id),
-                tasksCount: await this.getTasksCountByCourse(apiCourse.id),
-                posterId: (apiCourse as any).posterId
+    async getCourses(): Promise<any[]> {
+        const { data } = await this.contentApi.contentCoursesGet();
+        const courses = await Promise.all(
+            (data || []).map(async (c: any) => ({
+                id: c.id,
+                name: c.name,
+                description: c.description,
+                authorUrl: c.authorUrl,
+                language: c.language,
+                isPublished: c.isPublished,
+                courseId: c.courseId ?? null,
+                themesCount: await this.getThemesCountByCourse(c.id),
+                tasksCount: await this.getTasksCountByCourse(c.id),
+                posterId: c.posterId,
             }))
         );
-
         return courses;
     }
 
-    async getCourseById(courseId: string): Promise<Course> {
-        const response: AxiosResponse<ApiCourse> = await this.contentApi.contentCoursesCourseIdGet(courseId);
-        const apiCourse = response.data;
-
+    async getCourseById(courseId: string): Promise<any> {
+        const { data: c } = await this.contentApi.contentCoursesCourseIdGet(courseId);
         return {
-            id: apiCourse.id,
-            name: apiCourse.name,
-            description: apiCourse.description,
-            authorUrl: (apiCourse as any).authorUrl,
-            language: (apiCourse as any).language,
-            isPublished: (apiCourse as any).isPublished,
-            courseId: (apiCourse as any).courseId ?? null,
+            id: c.id,
+            name: c.name,
+            description: c.description,
+            authorUrl: c.authorUrl,
+            language: c.language,
+            isPublished: c.isPublished,
+            courseId: c.courseId ?? null,
             themesCount: await this.getThemesCountByCourse(courseId),
             tasksCount: await this.getTasksCountByCourse(courseId),
-        } as unknown as Course;
+            posterId: c.posterId,
+        };
     }
 
-    async getTasksByTheme(themeId: string): Promise<unknown[]> {
-        try {
-            const response = await this.contentApi.contentThemesThemeIdTasksGet(
-                themeId
-            );
-            return response.data || [];
-        } catch (error) {
-            console.error(`Ошибка загрузки задач темы ${themeId}:`, error);
-            return [];
-        }
-    }
-
-    async createCourse(courseData: CreateCourseRequest): Promise<Course> {
-        const response: AxiosResponse<ApiCourse> = await this.managerApi.contentCoursesPost(courseData);
-        const apiCourse = response.data;
-
+    async createCourse(courseData: any): Promise<any> {
+        const { data: c } = await this.managerApi.contentCoursesPost(courseData);
         return {
-            id: apiCourse.id,
-            name: apiCourse.name,
-            description: apiCourse.description,
-                // ...existing code...
-            authorUrl: (apiCourse as any).authorUrl,
-            // ...existing code...
-            language: (apiCourse as any).language,
-            // ...existing code...
-            isPublished: (apiCourse as any).isPublished,
-            // @ts-expect-error
-            courseId: (apiCourse as any).courseId ?? courseData.courseId ?? null,
-
+            id: c.id,
+            name: c.name,
+            description: c.description,
+            authorUrl: c.authorUrl,
+            language: c.language,
+            isPublished: c.isPublished,
+            courseId: c.courseId ?? courseData.courseId ?? null,
             sectionsCount: 0,
             themesCount: 0,
             tasksCount: 0,
-        } as unknown as Course;
+            posterId: c.posterId,
+        };
     }
 
-    async updateCourse(courseId: string, courseData: UpdateCourseRequest) {
-        const response = await axiosInstance.put(`/content/courses/${courseId}`, courseData);
-        return response.data;
+    async updateCourse(courseId: string, courseData: any): Promise<any> {
+        const { data } = await axiosInstance.put(`/content/courses/${courseId}`, courseData);
+        return data;
     }
-
 
     async deleteCourse(courseId: string): Promise<void> {
         await this.managerApi.contentCoursesCourseIdDelete(courseId);
     }
 
-
-    // ============ THEMES ============
-    /**
-     * Create a theme (replaces old createSection logic)
-     * @param courseId - ID of the course
-     * @param parentThemeId - ID of the parent theme (null for root)
-     * @param name - Name of the theme
-     * @param description - Description of the theme
-     * @param position - Position/order in tree
-     */
-    // ...existing code...
-
-    // ============ THEMES ============
-
-    // Use theme tree endpoint to get all themes (tree structure)
-    // ...existing code...
-
-    async getThemeById(themeId: string): Promise<ApiTheme> {
-        const response: AxiosResponse<ApiTheme> =
-            await this.contentApi.contentThemesThemeIdGet(themeId);
-        return response.data;
+    async importCourse(
+        payload: unknown,
+        options: { targetCourseId?: string; createIfMissing?: boolean; language?: string; addOnly?: boolean }
+    ): Promise<any> {
+        const { data } = await axiosInstance.post(`/content/courses/import`, payload, {
+            params: { ...options },
+        });
+        return data;
     }
 
-    // ...existing code...
-
-    async updateTheme(
-        themeId: string,
-        themeData: UpdateThemeRequest
-    ): Promise<ApiTheme> {
-        const response: AxiosResponse<ApiTheme> =
-            await axiosInstance.put(`/content/themes/${themeId}`, themeData);
-        return response.data;
+    async exportCourse(courseId: string, since?: string): Promise<any> {
+        const { data } = await axiosInstance.get(
+            `/content/courses/${encodeURIComponent(courseId)}/export`,
+            { params: { since }, responseType: "json" }
+        );
+        return data;
     }
-    // Get theme tree
+
+    async cloneCourseStructure(
+        sourceCourseId: string,
+        options: { language?: string; name?: string }
+    ): Promise<any> {
+        const { data } = await axiosInstance.post(
+            `/content/courses/${encodeURIComponent(sourceCourseId)}/clone-structure`,
+            null,
+            { params: { ...options } }
+        );
+        return data;
+    }
+
+    // ============ THEMES ============
+    async updateTheme(themeId: string, themeData: any): Promise<any> {
+        const { data } = await this.managerApi.contentThemesThemeIdPut(themeId, themeData);
+        return data;
+    }
+
     async getThemeTree(themeId: string): Promise<any> {
-        const response = await axiosInstance.get(`/content/themes/${themeId}/tree`);
-        return response.data;
+        const { data } = await axiosInstance.get(`/content/themes/${themeId}/tree`);
+        return data;
     }
 
-    // Get theme tasks
     async getThemeTasks(themeId: string): Promise<any[]> {
-        const response = await axiosInstance.get(`/content/themes/${themeId}/tasks`);
-        return response.data;
+        const { data } = await axiosInstance.get(`/content/themes/${themeId}/tasks`);
+        return data || [];
     }
 
-    // Get theme contents
-    async getThemeContents(themeId: string): Promise<any> {
-        const response = await axiosInstance.get(`/content/themes/${themeId}/contents`);
-        return response.data;
+    async getThemeContents(themeId: string): Promise<any[]> {
+        const { data } = await axiosInstance.get(`/content/themes/${themeId}/contents`);
+        return data || [];
     }
 
     async deleteTheme(themeId: string): Promise<void> {
@@ -231,22 +204,19 @@ class ContentService {
     }
 
     // ============ REPORTS ============
-    async getAllReports(): Promise<Report[]> {
-        const response: AxiosResponse<Report[]> =
-            await this.contentApi.contentReportsGet();
-        return response.data;
+    async getReports(params?: Record<string, any>): Promise<any[]> {
+        const { data } = await axiosInstance.get(`/content/reports`, { params });
+        return data || [];
     }
 
-    async getReportById(reportId: string): Promise<Report> {
-        const response: AxiosResponse<Report> =
-            await this.contentApi.contentReportsReportIdGet(reportId);
-        return response.data;
+    async getReport(reportId: string): Promise<any> {
+        const { data } = await axiosInstance.get(`/content/reports/${reportId}`);
+        return data;
     }
 
-    async createReport(reportData: CreateReportRequest): Promise<Report> {
-        const response: AxiosResponse<Report> =
-            await this.contentApi.contentReportsPost(reportData);
-        return response.data;
+    async createReport(payload: any): Promise<any> {
+        const { data } = await axiosInstance.post(`/content/reports`, payload);
+        return data;
     }
 
     async deleteReport(reportId: string): Promise<void> {
@@ -254,68 +224,44 @@ class ContentService {
     }
 
     // ============ STATS ============
-    async getContentStats(): Promise<unknown> {
-        const response: AxiosResponse<unknown> =
-            await this.contentApi.contentStatsGet();
-        return response.data;
-    }
-
     async getTasksCountByCourse(courseId: string): Promise<number> {
         try {
-            const response: AxiosResponse<string> = await this.contentApi.contentStatsCourseCourseIdTasksCountGet(
-                courseId
-            );
+            const response = await this.contentApi.contentStatsCourseCourseIdTasksCountGet(courseId);
             return Number(response.data) || 0;
         } catch (error) {
-            console.error(
-                `Ошибка получения количества задач курса ${courseId}:`,
-                error
-            );
+            console.error(`Ошибка получения количества задач курса ${courseId}:`, error);
             return 0;
         }
     }
 
     async getTasksCountBySection(sectionId: string): Promise<number> {
         try {
-            const response: AxiosResponse<string> = await this.contentApi.contentStatsSectionSectionIdTasksCountGet(
-                sectionId
-            );
+            const response = await this.contentApi.contentStatsSectionSectionIdTasksCountGet(sectionId);
             return Number(response.data) || 0;
         } catch (error) {
-            console.error(
-                `Ошибка получения количества задач секции ${sectionId}:`,
-                error
-            );
+            console.error(`Ошибка получения количества задач секции ${sectionId}:`, error);
             return 0;
         }
     }
 
     async getTasksCountByTheme(themeId: string): Promise<number> {
         try {
-            const response: AxiosResponse<string> = await this.contentApi.contentStatsThemeThemeIdTasksCountGet(themeId);
+            const response = await this.contentApi.contentStatsThemeThemeIdTasksCountGet(themeId);
             return Number(response.data) || 0;
         } catch (error) {
             try {
                 const tasks = await this.getTasksByTheme(themeId);
-                console.log(`Manual count for theme ${themeId}:`, tasks.length);
-                return tasks.length;
-            } catch {
-                console.error(
-                    `Ошибка получения количества задач темы ${themeId}:`,
-                    error
-                );
+                return Array.isArray(tasks) ? tasks.length : 0;
+            } catch (inner) {
+                console.error(`Ошибка получения количества задач темы ${themeId}:`, inner);
                 return 0;
             }
         }
     }
 
-
-    private async getThemesCountByCourse(courseId: string): Promise<number> {
-    // To count all themes, traverse the tree from a root theme using getThemeTree
-    // You must know the root themeId for the course
-    // Example: const tree = await this.getThemeTree(rootThemeId);
-    // Implement a recursive count if needed
-    return 0; // Placeholder, implement as needed
+    private async getThemesCountByCourse(_courseId: string): Promise<number> {
+        // TODO: реализовать реальное вычисление через дерево тем
+        return 0;
     }
 
     // ============ TASKS ============
@@ -340,7 +286,7 @@ class ContentService {
                 text?: string;
                 file?: File;
                 orderNum: number;
-                contentId?: string
+                contentId?: string;
             }>;
             answer?: {
                 answerType: string;
@@ -360,27 +306,21 @@ class ContentService {
         }
     ): Promise<unknown> {
         try {
-            // Получаем правильный orderNum
             const existingTasks = await this.getTasksByTheme(themeId);
-            const orderNum = Array.isArray(existingTasks)
-                ? existingTasks.length + 1
-                : 1;
+            const orderNum = Array.isArray(existingTasks) ? existingTasks.length + 1 : 1;
 
-                const createTaskRequest = {
+            const createTaskRequest = {
                 themeId,
                 name: taskData.name,
                 question: taskData.question,
-                    taskType: taskData.taskType as import("../api").CreateTaskRequestTaskTypeEnum,
+                taskType: taskData.taskType as import("../api").CreateTaskRequestTaskTypeEnum,
                 instructions: taskData.instructions || "",
                 isTraining: taskData.isTraining || false,
                 orderNum,
             };
 
-            const {data: createdTask} = await this.managerApi.contentTasksPost(
-                createTaskRequest
-            );
+            const { data: createdTask } = await this.managerApi.contentTasksPost(createTaskRequest);
 
-            // Загрузка контента
             for (const content of taskData.contents || []) {
                 await this.managerApi.contentTasksTaskIdContentPost(createdTask.id, {
                     contentType: this.mapFileTypeToContentType(content.contentType),
@@ -392,46 +332,32 @@ class ContentService {
                 });
             }
 
-            // Обработка ответа
             if (taskData.answer) {
-                // Для вариантов ответа
                 if (taskData.answer.options?.length) {
-                    // Сначала создаем варианты
                     for (const option of taskData.answer.options) {
-                        await this.managerApi.contentTasksTaskIdOptionsPost(
-                            createdTask.id,
-                            {
-                                optionText: option.text,
-                                isCorrect: option.isCorrect,
-                                orderNum: option.orderNum,
-                            }
-                        );
+                        await this.managerApi.contentTasksTaskIdOptionsPost(createdTask.id, {
+                            optionText: option.text,
+                            isCorrect: option.isCorrect,
+                            orderNum: option.orderNum,
+                        });
                     }
-                    // Затем создаем сам ответ
                     await this.managerApi.contentTasksTaskIdAnswerPost(createdTask.id, {
                         answerType: this.mapAnswerTypeToBackend(taskData.answer.answerType),
                         correctAnswer: taskData.answer.correctAnswer || {},
                     });
-                }
-                // Для текстового ответа
-                else if (taskData.answer.answerType === "TEXT_INPUT") {
+                } else if (taskData.answer.answerType === "TEXT_INPUT") {
                     await this.managerApi.contentTasksTaskIdAnswerPost(createdTask.id, {
                         answerType: CreateTaskAnswerRequestAnswerTypeEnum.TextInput,
-                        correctAnswer: {text: taskData.answer.correctAnswer?.text || ""},
+                        correctAnswer: { text: taskData.answer.correctAnswer?.text || "" },
                     });
-                }
-                // Для сопоставления пар
-                else if (
-                    taskData.answer.answerType === "MATCH_PAIRS" &&
-                    taskData.answer.matchPairs?.length
-                ) {
+                } else if (taskData.answer.answerType === "MATCH_PAIRS" && taskData.answer.matchPairs?.length) {
                     const pairs = taskData.answer.matchPairs.map((pair) => ({
                         leftItem: pair.leftItem,
                         rightItem: pair.rightItem,
                     }));
                     await this.managerApi.contentTasksTaskIdAnswerPost(createdTask.id, {
-                        answerType: "MATCH_PAIRS",
-                        correctAnswer: {pairs},
+                        answerType: "MATCH_PAIRS" as unknown as CreateTaskAnswerRequestAnswerTypeEnum,
+                        correctAnswer: { pairs },
                     });
                 }
             }
@@ -440,6 +366,16 @@ class ContentService {
         } catch (error) {
             console.error("Ошибка создания задачи:", error);
             throw error;
+        }
+    }
+
+    async getTasksByTheme(themeId: string): Promise<any[]> {
+        try {
+            const response = await this.contentApi.contentThemesThemeIdTasksGet(themeId);
+            return response.data || [];
+        } catch (error) {
+            console.error(`Ошибка загрузки задач темы ${themeId}:`, error);
+            return [];
         }
     }
 
@@ -455,10 +391,7 @@ class ContentService {
 
     async updateTask(taskId: string, taskData: any): Promise<any> {
         try {
-            const response = await this.managerApi.contentTasksTaskIdPut(
-                taskId,
-                taskData
-            );
+            const response = await this.managerApi.contentTasksTaskIdPut(taskId, taskData);
             return response.data;
         } catch (error) {
             console.error(`Ошибка обновления задачи ${taskId}:`, error);
@@ -492,10 +425,7 @@ class ContentService {
                 isCorrect: option.isCorrect ?? false,
                 orderNum: option.orderNum ?? 0,
             };
-            const response = await this.managerApi.contentTasksTaskIdOptionsPost(
-                taskId,
-                payload
-            );
+            const response = await this.managerApi.contentTasksTaskIdOptionsPost(taskId, payload);
             return response.data ?? response;
         } catch (error) {
             console.error(`Ошибка создания варианта задачи ${taskId}:`, error);
@@ -527,25 +457,16 @@ class ContentService {
             );
             return response.data ?? response;
         } catch (error) {
-            console.error(
-                `Ошибка обновления варианта ${optionId} задачи ${taskId}:`,
-                error
-            );
+            console.error(`Ошибка обновления варианта ${optionId} задачи ${taskId}:`, error);
             throw error;
         }
     }
 
     async deleteAnswerOption(taskId: string, optionId: string): Promise<void> {
         try {
-            await this.managerApi.contentTasksTaskIdOptionsOptionIdDelete(
-                optionId,
-                taskId
-            );
+            await this.managerApi.contentTasksTaskIdOptionsOptionIdDelete(optionId, taskId);
         } catch (error) {
-            console.error(
-                `Ошибка удаления варианта ${optionId} задачи ${taskId}:`,
-                error
-            );
+            console.error(`Ошибка удаления варианта ${optionId} задачи ${taskId}:`, error);
             throw error;
         }
     }

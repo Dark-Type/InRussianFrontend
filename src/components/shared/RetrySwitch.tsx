@@ -19,7 +19,7 @@ export const RetrySwitch = ({ className, onError, onStatusChange }: RetrySwitchP
             try {
                 setIsInitialLoading(true);
                 const config = await ConfigurationService.getConfiguration();
-                setIsEnabled(config.retryEnabled);
+                setIsEnabled(config.enabled);
                 onStatusChange?.(config);
             } catch (error) {
                 const errorMessage = 'Ошибка загрузки конфигурации повторов';
@@ -40,7 +40,7 @@ export const RetrySwitch = ({ className, onError, onStatusChange }: RetrySwitchP
             setIsLoading(true);
             const newStatus = !isEnabled;
             const updatedConfig = await ConfigurationService.updateConfiguration({
-                retryEnabled: newStatus,
+                enabled: newStatus,
                 lastUpdated: new Date().toISOString()
             });
             

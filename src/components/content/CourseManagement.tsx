@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, type ReactNode } from "react";
 import { axiosInstance } from "../../instances/axiosInstance";
 import { useContent } from "../../context/content/UseContent.ts";
 import { CreateEditModal } from "./CreateEditModal";
 import TaskEditorModal from "./task-editor/TaskEditorModal.tsx";
-import { taskTypesToRu } from '../content/task-editor/TaskModels';
+import { taskTypesToRu } from './task-editor/TaskModels';
 import type { TaskModel } from "./task-editor/TaskModels";
+import contentService from "../../services/ContentService";
 
 
 // New types for tree structure
@@ -27,7 +28,7 @@ interface ThemeTreeNodeComponentProps {
     handleDeleteTheme: (theme: any) => void; // Add this to handle theme deletion
 }
 
-const ThemeTreeNodeComponent = (props: ThemeTreeNodeComponentProps) => {
+const ThemeTreeNodeComponent: React.FC<ThemeTreeNodeComponentProps> = (props) => {
     const { node, expandedThemes, onThemeClick, openModal, openTaskEditor, taskModels, deleteTaskModel, themeTaskCounts, handleDeleteTask, taskRefreshTrigger, handleDeleteTheme } = props;
     const theme = node.theme;
     const hasChildren = node.children && node.children.length > 0;
@@ -42,10 +43,10 @@ const ThemeTreeNodeComponent = (props: ThemeTreeNodeComponentProps) => {
         if (isExpanded && !hasChildren) {
             console.log(`📋 Loading tasks for display for theme ${theme.name} (${theme.id})`);
             axiosInstance.get(`/content/themes/${theme.id}/tasks`)
-                .then(res => {
-                    setTasks(res.data);
+                .then((res: any) => {
+                    setTasks(res.data as TaskModel[]);
                 })
-                .catch(err => {
+                .catch((err: unknown) => {
                     console.error(`Failed to load tasks for theme ${theme.id}:`, err);
                     setTasks([]);
                 });
@@ -110,7 +111,7 @@ const ThemeTreeNodeComponent = (props: ThemeTreeNodeComponentProps) => {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <button
-                        onClick={e => {
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                             e.stopPropagation();
                             openModal("theme", theme.parentThemeId ?? null, theme, theme.courseId);
                         }}
@@ -118,7 +119,7 @@ const ThemeTreeNodeComponent = (props: ThemeTreeNodeComponentProps) => {
                     >✏️</button>
                     {showCreateTheme && (
                         <button
-                            onClick={e => {
+                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                                 e.stopPropagation();
                                 openModal("theme", theme.id, undefined, theme.courseId);
                             }}
@@ -127,7 +128,7 @@ const ThemeTreeNodeComponent = (props: ThemeTreeNodeComponentProps) => {
                     )}
                     {showCreateTask && (
                         <button
-                            onClick={e => {
+                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                                 e.stopPropagation();
                                 openTaskEditor(theme.id, theme.name);
                             }}
@@ -135,8 +136,8 @@ const ThemeTreeNodeComponent = (props: ThemeTreeNodeComponentProps) => {
                         >+ Создать задачу</button>
                     )}
                     <button
-                        onClick={e => { 
-                            e.stopPropagation(); 
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                            e.stopPropagation();
                             handleDeleteTheme(theme);
                         }}
                         title="Удалить тему"
@@ -224,6 +225,17 @@ export const CoursesManagement = () => {
     const [modalState, setModalState] = useState<{ isOpen: boolean; type: string | null; editItem: any; parentId?: string | null, courseId?: string | null }>({ isOpen: false, type: null, editItem: null, parentId: null, courseId: null });
     const [taskEditorState, setTaskEditorState] = useState<{ isOpen: boolean; themeId: string | null; themeName: string | null; task: any }>({ isOpen: false, themeId: null, themeName: null, task: null });
 
+    // New state: Import / Export / Clone modals
+    const [importModal, setImportModal] = useState<{ isOpen: boolean; targetCourseId?: string; createIfMissing: boolean; addOnly: boolean; file: File | null; error?: string }>(
+        { isOpen: false, targetCourseId: undefined, createIfMissing: true, addOnly: false, file: null, error: undefined }
+    );
+    const [exportModal, setExportModal] = useState<{ isOpen: boolean; courseId?: string; since: string; error?: string }>(
+        { isOpen: false, courseId: undefined, since: "", error: undefined }
+    );
+    const [cloneModal, setCloneModal] = useState<{ isOpen: boolean; sourceCourseId?: string; name: string; language: string; error?: string }>(
+        { isOpen: false, sourceCourseId: undefined, name: "", language: "", error: undefined }
+    );
+
     // Load courses on mount
     useEffect(() => {
         loadCourses();
@@ -234,7 +246,7 @@ export const CoursesManagement = () => {
         const loadAllThemeTreesAndCounts = async () => {
             if (courses.length > 0) {
                 // Load theme trees for all courses
-                for (const course of courses) {
+                for (const course of courses as any[]) {
                     try {
                         await loadThemeTree(course.id, "course");
                     } catch (error) {
@@ -252,9 +264,9 @@ export const CoursesManagement = () => {
         (async () => {
             if (courses.length > 0) {
                 const counts: {[courseId: string]: number} = {};
-                await Promise.all(courses.map(async (course) => {
+                await Promise.all(courses.map(async (course: any) => {
                     try {
-                        const resp = await axiosInstance.get(`/content/stats/course/${course.id}/tasks-count`);
+                        const resp: any = await axiosInstance.get(`/content/stats/course/${course.id}/tasks-count`);
                         // Sum all values in the returned map
                         const total = Object.values(resp.data as Record<string, number>).reduce((acc: number, val) => acc + (typeof val === "number" ? val : 0), 0);
                         counts[course.id] = total;
@@ -300,9 +312,9 @@ export const CoursesManagement = () => {
             await loadCourses();
             // Reload course task counts after course operations
             const counts: {[courseId: string]: number} = {};
-            await Promise.all(courses.map(async (course) => {
+            await Promise.all(courses.map(async (course: any) => {
                 try {
-                    const resp = await axiosInstance.get(`/content/stats/course/${course.id}/tasks-count`);
+                    const resp: any = await axiosInstance.get(`/content/stats/course/${course.id}/tasks-count`);
                     const total = Object.values(resp.data as Record<string, number>).reduce((acc: number, val) => acc + (typeof val === "number" ? val : 0), 0);
                     counts[course.id] = total;
                 } catch {
@@ -352,9 +364,9 @@ export const CoursesManagement = () => {
             await loadCourses();
             // Reload course task counts after deletion
             const counts: {[courseId: string]: number} = {};
-            await Promise.all(courses.map(async (course) => {
+            await Promise.all(courses.map(async (course: any) => {
                 try {
-                    const resp = await axiosInstance.get(`/content/stats/course/${course.id}/tasks-count`);
+                    const resp: any = await axiosInstance.get(`/content/stats/course/${course.id}/tasks-count`);
                     const total = Object.values(resp.data as Record<string, number>).reduce((acc: number, val) => acc + (typeof val === "number" ? val : 0), 0);
                     counts[course.id] = total;
                 } catch {
@@ -369,7 +381,7 @@ export const CoursesManagement = () => {
                 await loadThemeTree(item.courseId, "course");
             }
             // Remove from task counts
-            setThemeTaskCounts(prev => {
+            setThemeTaskCounts((prev: Record<string, number>) => {
                 const newCounts = { ...prev };
                 delete newCounts[item.id];
                 return newCounts;
@@ -389,9 +401,9 @@ export const CoursesManagement = () => {
     };
     const handleCourseClick = (id: string) => setExpandedCourse(expandedCourse === id ? null : id);
     const handleThemeClick = (id: string) => {
-        setExpandedThemes(prev =>
+        setExpandedThemes((prev: string[]) =>
             prev.includes(id)
-                ? prev.filter(tid => tid !== id)
+                ? prev.filter((tid: string) => tid !== id)
                 : [...prev, id]
         );
     };
@@ -417,7 +429,7 @@ export const CoursesManagement = () => {
             };
 
             // Collect all theme IDs from all theme trees
-            Object.values(themeTree).forEach(treeNodes => {
+            Object.values(themeTree).forEach((treeNodes: any) => {
                 if (treeNodes && Array.isArray(treeNodes)) {
                     allThemeIds.push(...collectThemeIds(treeNodes));
                 }
@@ -431,10 +443,10 @@ export const CoursesManagement = () => {
                 // Fetch task count for each theme using the correct endpoint
                 for (const themeId of allThemeIds) {
                     try {
-                        const response = await axiosInstance.get(`/content/stats/theme/${themeId}/tasks-count`);
+                        const response: any = await axiosInstance.get(`/content/stats/theme/${themeId}/tasks-count`);
                         // The response is a Map_String, so we need to sum the values
                         const taskCountMap = response.data as Record<string, number>;
-                        const totalTasks = Object.values(taskCountMap).reduce((sum, count) => sum + (typeof count === 'number' ? count : 0), 0);
+                        const totalTasks = Object.values(taskCountMap).reduce((sum: number, count: number) => sum + (typeof count === 'number' ? count : 0), 0);
                         counts[themeId] = totalTasks;
                         console.log(`Theme ${themeId}: ${totalTasks} tasks`);
                     } catch (error) {
@@ -457,14 +469,14 @@ export const CoursesManagement = () => {
     // Function to refresh task count for a specific theme
     const refreshThemeTaskCount = async (themeId: string) => {
         try {
-            const response = await axiosInstance.get(`/content/stats/theme/${themeId}/tasks-count`);
+            const response: any = await axiosInstance.get(`/content/stats/theme/${themeId}/tasks-count`);
             // The response is a Map_String, so we need to sum the values
             const taskCountMap = response.data as Record<string, number>;
-            const totalTasks = Object.values(taskCountMap).reduce((sum, count) => sum + (typeof count === 'number' ? count : 0), 0);
-            setThemeTaskCounts(prev => ({ ...prev, [themeId]: totalTasks }));
+            const totalTasks = Object.values(taskCountMap).reduce((sum: number, count: number) => sum + (typeof count === 'number' ? count : 0), 0);
+            setThemeTaskCounts((prev: Record<string, number>) => ({ ...prev, [themeId]: totalTasks }));
             console.log(`Refreshed task count for theme ${themeId}: ${totalTasks} tasks`);
         } catch (error) {
-            setThemeTaskCounts(prev => ({ ...prev, [themeId]: 0 }));
+            setThemeTaskCounts((prev: Record<string, number>) => ({ ...prev, [themeId]: 0 }));
             console.error(`Error refreshing task count for theme ${themeId}:`, error);
         }
     };
@@ -476,7 +488,7 @@ export const CoursesManagement = () => {
             await refreshThemeTaskCount(themeId);
             
             // Trigger refresh of task lists by incrementing the refresh trigger
-            setTaskRefreshTrigger(prev => prev + 1);
+            setTaskRefreshTrigger((prev: number) => prev + 1);
         }
     };
 
@@ -500,7 +512,149 @@ export const CoursesManagement = () => {
             return count;
         };
         
-        return countThemes(themeTree[courseId]);
+        return countThemes(themeTree[courseId] as any);
+    };
+
+    // ===== Import / Export / Clone handlers =====
+    const openImport = (targetCourseId?: string) => {
+        setImportModal({
+            isOpen: true,
+            targetCourseId,
+            createIfMissing: !targetCourseId,
+            addOnly: false,
+            file: null,
+            error: undefined,
+        });
+    };
+
+    const submitImport = async () => {
+        try {
+            if (!importModal.file) {
+                setImportModal((prev) => ({ ...prev, error: 'Выберите .json файл' }));
+                return;
+            }
+            const file = importModal.file;
+            const isJson = file.name.toLowerCase().endsWith('.json') || file.type === 'application/json';
+            if (!isJson) {
+                setImportModal((prev) => ({ ...prev, error: 'Разрешены только .json файлы' }));
+                return;
+            }
+            const text = await file.text();
+            let payload: any;
+            try {
+                payload = JSON.parse(text);
+            } catch (e) {
+                setImportModal((prev) => ({ ...prev, error: 'Некорректный JSON' }));
+                return;
+            }
+
+            // Обязателен язык курса в JSON
+            const lang = payload?.course?.language;
+            if (!lang || typeof lang !== 'string' || !lang.trim()) {
+                setImportModal((prev) => ({ ...prev, error: 'В JSON отсутствует course.language (обязательное поле)' }));
+                return;
+            }
+
+            await contentService.importCourse(payload, {
+                targetCourseId: importModal.targetCourseId || undefined,
+                createIfMissing: importModal.createIfMissing,
+                addOnly: importModal.addOnly,
+            });
+
+            // Refresh data
+            await loadCourses();
+            if (importModal.targetCourseId) {
+                await loadThemeTree(importModal.targetCourseId, 'course');
+            }
+
+            setImportModal((prev) => ({ ...prev, isOpen: false }));
+        } catch (e: any) {
+            setImportModal((prev) => ({ ...prev, error: e?.message || 'Ошибка импорта' }));
+        }
+    };
+
+    const openExport = (courseId: string) => {
+        setExportModal({ isOpen: true, courseId, since: '', error: undefined });
+    };
+    const submitExport = async () => {
+        if (!exportModal.courseId) return;
+        try {
+            // Validate and convert since
+            let sinceIso: string | undefined = undefined;
+            if (exportModal.since) {
+                const d = new Date(exportModal.since);
+                if (isNaN(d.getTime())) {
+                    setExportModal((prev: any) => ({ ...prev, error: 'Некорректная дата/время. Используйте контрол выбора даты-времени.' }));
+                    return;
+                }
+                sinceIso = d.toISOString();
+            }
+            const data = await contentService.exportCourse(exportModal.courseId, sinceIso);
+            const course = courses.find((c: any) => c.id === exportModal.courseId);
+            const safeName = (course?.name || exportModal.courseId).replace(/[^a-zA-Z0-9-_]+/g, '_');
+            const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const jsonString = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${safeName}-${stamp}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            setExportModal((prev: any) => ({ ...prev, isOpen: false }));
+        } catch (e: any) {
+            alert(e?.message || 'Ошибка экспорта');
+        }
+    };
+
+    const openClone = (sourceCourseId: string) => {
+        setCloneModal({ isOpen: true, sourceCourseId, name: '', language: '', error: undefined });
+    };
+    const submitClone = async () => {
+        if (!cloneModal.sourceCourseId) return;
+        if (!cloneModal.name) {
+            setCloneModal((prev) => ({ ...prev, error: 'Укажите название нового курса' }));
+            return;
+        }
+        if (!cloneModal.language) {
+            setCloneModal((prev) => ({ ...prev, error: 'Укажите язык' }));
+            return;
+        }
+        try {
+            const created = await contentService.cloneCourseStructure(cloneModal.sourceCourseId, { name: cloneModal.name, language: cloneModal.language });
+            setCloneModal((prev) => ({ ...prev, isOpen: false }));
+            await loadCourses();
+            if (created?.id) {
+                setExpandedCourse(created.id);
+            }
+        } catch (e: any) {
+            setCloneModal((prev) => ({ ...prev, error: e?.message || 'Ошибка клонирования' }));
+        }
+    };
+
+    // Simple inline modal component
+    const Modal = ({ isOpen, title, onClose, children, footer }: { isOpen: boolean; title: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) => {
+        if (!isOpen) return null;
+        return (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                <div style={{ background: 'var(--color-card)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 8, width: 'min(640px, 92vw)', padding: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <h3 style={{ margin: 0 }}>{title}</h3>
+                        <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 18 }}>✖</button>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {children}
+                    </div>
+                    {footer && (
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+                            {footer}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
     };
 
     return (
@@ -516,20 +670,36 @@ export const CoursesManagement = () => {
                     <h2 style={{margin: 0, fontWeight: 700, fontSize: "1.5rem"}}>
                         Управление курсами
                     </h2>
-                    <button
-                        onClick={() => openModal("course")}
-                        style={{
-                            padding: "10px 20px",
-                            background: "var(--color-primary)",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "6px",
-                            cursor: "pointer",
-                            fontWeight: 500,
-                        }}
-                    >
-                        + Создать курс
-                    </button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                            onClick={() => openImport()}
+                            style={{
+                                padding: "10px 16px",
+                                background: "var(--color-border)",
+                                color: "var(--color-text)",
+                                border: "none",
+                                borderRadius: "6px",
+                                cursor: "pointer",
+                                fontWeight: 500,
+                            }}
+                        >
+                            ⬆️ Импорт
+                        </button>
+                        <button
+                            onClick={() => openModal("course")}
+                            style={{
+                                padding: "10px 20px",
+                                background: "var(--color-primary)",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "6px",
+                                cursor: "pointer",
+                                fontWeight: 500,
+                            }}
+                        >
+                            + Создать курс
+                        </button>
+                    </div>
                 </div>
 
                 <div style={{display: "flex", flexDirection: "column", gap: "16px"}}>
@@ -552,7 +722,7 @@ export const CoursesManagement = () => {
                         </div>
                     ) : (
                         <>
-                            {courses.map((course) => (
+                            {courses.map((course: any) => (
                                 <div
                                     key={course.id}
                                     style={{
@@ -608,7 +778,58 @@ export const CoursesManagement = () => {
                                             style={{display: "flex", alignItems: "center", gap: "8px"}}
                                         >
                                             <button
-                                                onClick={(e) => {
+                                                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                                                    e.stopPropagation();
+                                                    openExport(course.id);
+                                                }}
+                                                title="Экспортировать курс"
+                                                style={{
+                                                    padding: "4px 8px",
+                                                    background: "var(--color-border)",
+                                                    border: "none",
+                                                    borderRadius: "4px",
+                                                    cursor: "pointer",
+                                                    fontSize: "0.8rem",
+                                                }}
+                                            >
+                                                ⬇️
+                                            </button>
+                                            <button
+                                                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                                                    e.stopPropagation();
+                                                    openImport(course.id);
+                                                }}
+                                                title="Импортировать в этот курс"
+                                                style={{
+                                                    padding: "4px 8px",
+                                                    background: "var(--color-border)",
+                                                    border: "none",
+                                                    borderRadius: "4px",
+                                                    cursor: "pointer",
+                                                    fontSize: "0.8rem",
+                                                }}
+                                            >
+                                                ⬆️
+                                            </button>
+                                            <button
+                                                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                                                    e.stopPropagation();
+                                                    openClone(course.id);
+                                                }}
+                                                title="Клонировать структуру"
+                                                style={{
+                                                    padding: "4px 8px",
+                                                    background: "var(--color-border)",
+                                                    border: "none",
+                                                    borderRadius: "4px",
+                                                    cursor: "pointer",
+                                                    fontSize: "0.8rem",
+                                                }}
+                                            >
+                                                🧬
+                                            </button>
+                                            <button
+                                                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                                                     e.stopPropagation();
                                                     openModal("course", undefined, course);
                                                 }}
@@ -624,7 +845,7 @@ export const CoursesManagement = () => {
                                                 ✏️
                                             </button>
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); handleDelete("course", course); }}
+                                                onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); handleDelete("course", course); }}
                                                 title="Удалить курс"
                                                 style={{
                                                     padding: "4px 8px",
@@ -745,6 +966,128 @@ export const CoursesManagement = () => {
                         }
                     }}
                 />
+
+                {/* Import Modal */}
+                <Modal
+                    isOpen={importModal.isOpen}
+                    title="Импорт курса"
+                    onClose={() => setImportModal((prev) => ({ ...prev, isOpen: false }))}
+                    footer={(
+                        <>
+                            <button onClick={() => setImportModal((prev) => ({ ...prev, isOpen: false }))} style={{ padding: '8px 12px', background: 'var(--color-border)', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Отмена</button>
+                            <button onClick={submitImport} style={{ padding: '8px 12px', background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Импортировать</button>
+                        </>
+                    )}
+                >
+                    <div>
+                        <label style={{ display: 'block', marginBottom: 6 }}>JSON файл</label>
+                        <input
+                            type="file"
+                            accept=".json,application/json"
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setImportModal((prev) => ({ ...prev, file: e.currentTarget.files?.[0] || null, error: undefined }))}
+                        />
+                        {importModal.error && <div style={{ color: '#f44336', marginTop: 8 }}>{importModal.error}</div>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                        <div style={{ minWidth: 240 }}>
+                            <label style={{ display: 'block', marginBottom: 6 }}>Целевой курс</label>
+                            <select
+                                value={importModal.targetCourseId || ''}
+                                onChange={(e) => setImportModal((prev) => ({ ...prev, targetCourseId: e.target.value || undefined, createIfMissing: e.target.value ? prev.createIfMissing : true }))}
+                                style={{ width: '100%', padding: 8, background: 'var(--color-bg)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 6 }}
+                            >
+                                <option value="">Создать новый курс</option>
+                                {courses.map((c: any) => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 16 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input type="checkbox" checked={importModal.createIfMissing} onChange={(e) => setImportModal((prev) => ({ ...prev, createIfMissing: e.target.checked }))} />
+                            Создавать отсутствующие элементы
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input type="checkbox" checked={importModal.addOnly} onChange={(e) => setImportModal((prev) => ({ ...prev, addOnly: e.target.checked }))} />
+                            Только добавлять (без удаления)
+                        </label>
+                    </div>
+                </Modal>
+
+                {/* Export Modal */}
+                <Modal
+                    isOpen={exportModal.isOpen}
+                    title="Экспорт курса"
+                    onClose={() => setExportModal((prev: any) => ({ ...prev, isOpen: false }))}
+                    footer={(
+                        <>
+                            <button onClick={() => setExportModal((prev: any) => ({ ...prev, isOpen: false }))} style={{ padding: '8px 12px', background: 'var(--color-border)', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Отмена</button>
+                            <button onClick={submitExport} style={{ padding: '8px 12px', background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Экспортировать</button>
+                        </>
+                    )}
+                >
+                    <div style={{ minWidth: 280 }}>
+                        <div style={{ marginBottom: 8, color: 'var(--color-text-secondary)' }}>Курс: {courses.find((c: any) => c.id === exportModal.courseId)?.name || exportModal.courseId}</div>
+                        <label style={{ display: 'block', marginBottom: 6 }}>Изменения с (UTC, опционально)</label>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <input
+                                type="datetime-local"
+                                value={exportModal.since}
+                                onChange={(e) => setExportModal((prev: any) => ({ ...prev, since: e.target.value, error: undefined }))}
+                                style={{ flex: 1, padding: 8, background: 'var(--color-bg)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 6 }}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const now = new Date();
+                                    const tzAdj = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+                                    const localStr = tzAdj.toISOString().slice(0, 16);
+                                    setExportModal((prev: any) => ({ ...prev, since: localStr, error: undefined }));
+                                }}
+                                title="Установить текущее время"
+                                style={{ padding: '6px 10px', background: 'var(--color-border)', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+                            >Сейчас</button>
+                            <button
+                                type="button"
+                                onClick={() => setExportModal((prev: any) => ({ ...prev, since: '', error: undefined }))}
+                                title="Очистить"
+                                style={{ padding: '6px 10px', background: 'var(--color-border)', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+                            >Сброс</button>
+                        </div>
+                        {exportModal.since && (
+                            <div style={{ marginTop: 6, fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
+                                Будет отправлено как: {(() => { try { return new Date(exportModal.since).toISOString(); } catch { return '—'; } })()}
+                            </div>
+                        )}
+                        {exportModal.error && <div style={{ color: '#f44336', marginTop: 8 }}>{exportModal.error}</div>}
+                    </div>
+                </Modal>
+
+                {/* Clone Modal */}
+                <Modal
+                    isOpen={cloneModal.isOpen}
+                    title="Клонировать структуру курса"
+                    onClose={() => setCloneModal((prev) => ({ ...prev, isOpen: false }))}
+                    footer={(
+                        <>
+                            <button onClick={() => setCloneModal((prev) => ({ ...prev, isOpen: false }))} style={{ padding: '8px 12px', background: 'var(--color-border)', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Отмена</button>
+                            <button onClick={submitClone} style={{ padding: '8px 12px', background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Клонировать</button>
+                        </>
+                    )}
+                >
+                    <div style={{ minWidth: 280 }}>
+                        <div style={{ marginBottom: 8, color: 'var(--color-text-secondary)' }}>Источник: {courses.find((c: any) => c.id === cloneModal.sourceCourseId)?.name || cloneModal.sourceCourseId}</div>
+                        <label style={{ display: 'block', marginBottom: 6 }}>Название нового курса</label>
+                        <input
+                            type="text"
+                            value={cloneModal.name}
+                            onChange={(e) => setCloneModal((prev) => ({ ...prev, name: e.target.value }))}
+                            style={{ width: '100%', padding: 8, background: 'var(--color-bg)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 6 }}
+                        />
+                        {cloneModal.error && <div style={{ color: '#f44336', marginTop: 8 }}>{cloneModal.error}</div>}
+                    </div>
+                </Modal>
             </div>
     );
 };

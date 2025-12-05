@@ -1,0 +1,149 @@
+import styles from "../ContentEditor.module.css";
+import {UntranslatableField} from "../UntranslatableField";
+import type {Gap, Sentence} from "../TaskModels";
+
+export function SentencesEditor({
+    sentences,
+    onChange,
+    disabled,
+}: {
+    sentences: Sentence[];
+    onChange: (s: Sentence[]) => void;
+    disabled?: boolean;
+}) {
+    const addSentence = () => onChange([...sentences, {label: "", text: "", gaps: []}]);
+    const removeSentence = (idx: number) => onChange(sentences.filter((_, i) => i !== idx));
+    const setSentenceLabel = (idx: number, label: string) => {
+        onChange(sentences.map((s, i) => (i === idx ? {...s, label} : s)));
+    };
+    const setSentenceText = (idx: number, text: string) => {
+        onChange(sentences.map((s, i) => (i === idx ? {...s, text} : s)));
+    };
+
+    return (
+        <>
+            <div className={styles.header} style={{marginTop: 4}}>
+                <h4 className={styles.title} style={{fontSize: "1rem"}}>
+                    Предложения
+                </h4>
+                {!disabled && (
+                    <button className={styles.actionButton} onClick={addSentence}>
+                        Добавить предложение
+                    </button>
+                )}
+            </div>
+            <div className={styles.list}>
+                {sentences.map((s, i) => (
+                    <div key={i} className={styles.card}>
+                        {!disabled && (
+                            <button className={styles.removeButton} onClick={() => removeSentence(i)}>✕ удалить</button>
+                        )}
+                        <label className={styles.label}>
+                            Заголовок
+                            <UntranslatableField
+                                className={styles.input}
+                                value={s.label}
+                                onChange={(v) => setSentenceLabel(i, v)}
+                                placeholder="Заголовок блока..."
+                                disabled={disabled}
+                            />
+                        </label>
+                        <label className={styles.label}>
+                            Текст
+                            <UntranslatableField
+                                className={styles.textarea}
+                                value={s.text}
+                                onChange={(v) => setSentenceText(i, v)}
+                                placeholder="Текст предложения..."
+                                disabled={disabled}
+                                multiline={true}
+                            />
+                        </label>
+                        <GapsEditor
+                            gaps={s.gaps}
+                            onChange={(g) =>
+                                onChange(sentences.map((it, j) => (j === i ? {...it, gaps: g} : it)))
+                            }
+                            disabled={disabled}
+                        />
+                    </div>
+                ))}
+            </div>
+        </>
+    );
+}
+
+function GapsEditor({
+    gaps,
+    onChange,
+    disabled,
+}: {
+    gaps: Gap[];
+    onChange: (g: Gap[]) => void;
+    disabled?: boolean;
+}) {
+    const addGap = () => onChange([...gaps, {correctWord: "", index: gaps.length}]);
+    const removeGap = (idx: number) => onChange(gaps.filter((_, i) => i !== idx));
+    const updateGap = (idx: number, patch: Partial<Gap>) =>
+        onChange(
+            gaps.map((g, i) => {
+                if (i !== idx) return g;
+                const next = {...g, ...patch};
+                if (typeof next.index === "number" && next.index < 0) next.index = 0;
+                return next;
+            })
+        );
+
+    return (
+        <div>
+            <div className={styles.header} style={{marginTop: 4}}>
+                <h4 className={styles.title} style={{fontSize: "0.95rem"}}>
+                    Пропуски
+                </h4>
+                {!disabled && (
+                    <button className={styles.actionButton} onClick={addGap}>
+                        Добавить пропуск
+                    </button>
+                )}
+            </div>
+            <div className={styles.list}>
+                {gaps.map((g, i) => (
+                    <div key={i} className={styles.card}>
+                        {!disabled && (
+                            <button className={styles.removeButton} onClick={() => removeGap(i)}>✕ удалить</button>
+                        )}
+                        <div className={styles.fieldsColumn}>
+                            <label className={styles.label}>
+                                Правильное слово
+                                <UntranslatableField
+                                    className={styles.input}
+                                    value={g.correctWord}
+                                    onChange={(v) => updateGap(i, {correctWord: v})}
+                                    placeholder="Правильный ответ"
+                                    disabled={disabled}
+                                />
+                            </label>
+                            <label className={styles.label}>
+                                Индекс
+                                <input
+                                    className={styles.input}
+                                    type="number"
+                                    min={0}
+                                    value={g.index}
+                                    onChange={(e) =>
+                                        updateGap(i, {
+                                            index: Math.max(0, Number.isFinite(+e.target.value) ? Number(e.target.value) : 0),
+                                        })
+                                    }
+                                    placeholder="индекс"
+                                    disabled={disabled}
+                                />
+                            </label>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+

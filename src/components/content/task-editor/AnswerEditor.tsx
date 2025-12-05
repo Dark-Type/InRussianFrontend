@@ -6,6 +6,7 @@ import type {
   MatchPair,
 } from "../../../context/content/ContentProvider.tsx";
 import contentService from "../../../services/ContentService";
+import { UntranslatableField } from "./UntranslatableField";
 
 interface AnswerEditorProps {
   taskId: string;
@@ -333,14 +334,13 @@ export const AnswerEditor = ({
                   handleCorrectToggle(option.id, e.target.checked)
                 }
               />
-              <input
-                type="text"
-                value={option.optionText}
-                onChange={(e) => {
+              <UntranslatableField
+                value={option.text}
+                onChange={(v) => {
                   emit({
                     ...localAnswer,
                     options: (localAnswer.options || []).map((o) =>
-                      o.id === option.id ? { ...o, text: e.target.value } : o
+                      o.id === option.id ? { ...o, text: v } : o
                     ),
                   });
                 }}
@@ -394,13 +394,12 @@ export const AnswerEditor = ({
           >
             Правильный ответ
           </label>
-          <input
-            type="text"
+          <UntranslatableField
             value={localAnswer.correctAnswer?.text || ""}
-            onChange={(e) =>
+            onChange={(v) =>
               emit({
                 ...localAnswer,
-                correctAnswer: { text: e.target.value } as any,
+                correctAnswer: { text: v } as any,
               })
             }
             style={{
@@ -450,11 +449,10 @@ export const AnswerEditor = ({
             >
               Слова через запятую
             </label>
-            <input
-              type="text"
+            <UntranslatableField
               value={(localAnswer.options || []).map((o) => o.text).join(", ")}
-              onChange={(e) =>
-                updateOrderWords(e.target.value.split(",").map((w) => w.trim()))
+              onChange={(v) =>
+                updateOrderWords(v.split(",").map((w) => w.trim()))
               }
               placeholder="Введите слова через запятую"
               style={{
@@ -526,11 +524,10 @@ export const AnswerEditor = ({
             >
               Слова через запятую
             </label>
-            <input
-              type="text"
+            <UntranslatableField
               value={(localAnswer.options || []).map((o) => o.text).join(", ")}
-              onChange={(e) => {
-                const words = e.target.value.split(",").map((w) => w.trim());
+              onChange={(v) => {
+                const words = v.split(",").map((w) => w.trim());
                 emit({
                   ...localAnswer,
                   options: words.map((word, index) => ({
@@ -633,11 +630,10 @@ export const AnswerEditor = ({
                 >
                   Левая часть
                 </label>
-                <input
-                  type="text"
+                <UntranslatableField
                   value={pair.leftItem.content}
-                  onChange={(e) =>
-                    updateMatchPair(pair.id, "left", e.target.value)
+                  onChange={(v) =>
+                    updateMatchPair(pair.id, "left", v)
                   }
                   placeholder="Левая часть пары"
                   style={{
@@ -660,11 +656,10 @@ export const AnswerEditor = ({
                 >
                   Правая часть
                 </label>
-                <input
-                  type="text"
+                <UntranslatableField
                   value={pair.rightItem.content}
-                  onChange={(e) =>
-                    updateMatchPair(pair.id, "right", e.target.value)
+                  onChange={(v) =>
+                    updateMatchPair(pair.id, "right", v)
                   }
                   placeholder="Правая часть пары"
                   style={{

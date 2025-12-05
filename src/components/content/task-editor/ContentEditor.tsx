@@ -5,6 +5,7 @@ import type {
 } from "../../../context/content/ContentProvider.tsx";
 import { mediaService } from "../../../services/MediaService.ts";
 import styles from "./ContentEditor.module.css";
+import {UntranslatableField} from "./UntranslatableField.tsx";
 
 interface ContentEditorProps {
   contents: TaskContent[];
@@ -233,14 +234,14 @@ export const ContentEditor = ({
             </button>
 
             {content.contentType === "TEXT" ? (
-              <textarea
+              <UntranslatableField
                 value={content.text || ""}
-                onChange={(e) =>
-                  updateContent(content.id as string, { text: e.target.value })
+                onChange={(v) =>
+                  updateContent(content.id as string, { text: v })
                 }
                 placeholder="Введите текст..."
-                rows={3}
                 className={styles.textarea}
+                multiline={true}
               />
             ) : (
               <div className={styles.mediaBlock}>
@@ -286,14 +287,14 @@ export const ContentEditor = ({
                 >
                   Описание
                 </label>
-                <input
-                  type="text"
+                <UntranslatableField
                   value={content.description || ""}
-                  onChange={(e) =>
-                    updateContent(content.id as string, { description: e.target.value })
+                  onChange={(v) =>
+                    updateContent(content.id as string, { description: v })
                   }
                   placeholder="Описание контента"
                   className={styles.input}
+                  multiline={false}
                 />
               </div>
               <div>
@@ -302,16 +303,16 @@ export const ContentEditor = ({
                 >
                   Транскрипция
                 </label>
-                <input
-                  type="text"
+                <UntranslatableField
                   value={content.transcription || ""}
-                  onChange={(e) =>
+                  onChange={(v) =>
                     updateContent(content.id as string, {
-                      transcription: e.target.value,
+                      transcription: v,
                     })
                   }
                   placeholder="Транскрипция"
                   className={styles.input}
+                  multiline={false}
                 />
               </div>
               <div>
@@ -320,14 +321,14 @@ export const ContentEditor = ({
                 >
                   Перевод
                 </label>
-                <input
-                  type="text"
+                <UntranslatableField
                   value={content.translation || ""}
-                  onChange={(e) =>
-                    updateContent(content.id as string, { translation: e.target.value })
+                  onChange={(v) =>
+                    updateContent(content.id as string, { translation: v })
                   }
                   placeholder="Перевод"
                   className={styles.input}
+                  multiline={false}
                 />
               </div>
             </div>

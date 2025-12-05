@@ -294,3 +294,25 @@
 .taskTypeLabel {
   display: none; /* hidden due to very small button size; tooltip (title) still available */
 }
+
+/* Compact grid for Construct Sentence words */
+.wordsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.wordCard {
+  padding: 10px; /* a bit more compact than default .card (16px) */
+}
+
+/* Make remove button sit tighter inside compact cards */
+.wordCard .removeButton {
+  top: 8px;
+  right: 8px;
+  padding: 2px 6px;
+}
+
+/* Slightly denser form controls in compact cards */
+.wordCard .label { margin-bottom: 2px; }
+.wordCard .input { padding: 6px 8px; }
