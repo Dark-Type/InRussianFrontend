@@ -5,6 +5,7 @@ import {
   CreateUserProfileRequestPeriodSpentEnum,
   CreateUserProfileRequestGenderEnum,
 } from '../../api';
+import type { CustomStaffRegisterRequest } from '../../api/custom-types';
 import { authApi } from '../../instances/axiosInstance';
 
 interface UserCreateModalProps {
@@ -207,21 +208,29 @@ export const UserCreateModal: React.FC<UserCreateModalProps> = ({ isOpen, onClos
         }
       } else {
         // Staff registration path
-        const { data } = await authApi.authStaffRegisterPost({
-          // @ts-ignore - role enum compatibility
-          email, password, phone, role, systemLanguage: UserSystemLanguageEnum.Russian
+        const body: CustomStaffRegisterRequest = {
+          email,
+          password,
+          phone,
+          // @ts-ignore
+          role: role,
+          name,
+          surname,
+          patronymic: patronymic || undefined,
+          // @ts-ignore
+          systemLanguage: UserSystemLanguageEnum.Russian
+        };
+
+        const resp = await fetch(`${baseURL}/auth/staff/register`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
         });
-        try {
-          await fetch(`${baseURL}/profiles/staff`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${data.accessToken}`,
-            },
-            body: JSON.stringify({ name, surname, patronymic })
-          });
-        } catch (profileErr) {
-          console.error('Staff profile creation failed', profileErr);
+
+        if (!resp.ok) {
+          throw new Error(`Staff registration failed: ${resp.status} ${await resp.text()}`);
         }
       }
 
@@ -336,13 +345,19 @@ export const UserCreateModal: React.FC<UserCreateModalProps> = ({ isOpen, onClos
                           {languageSkills.map((skill, idx) => (
                             <div key={idx} style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                               <div style={{ display: 'flex', gap: 8 }}>
-                                <input type="text" placeholder="Язык" value={skill.language} onChange={e => setLanguageSkills(ls => ls.map((s,i)=> i===idx? {...s, language: e.target.value}: s))} style={fieldStyle} />
+                                <input type="text" placeholder="Язык" value={skill.language} onChange={e => {
+                                    const val = e.target.value;
+                                    setLanguageSkills(ls => ls.map((s,i)=> i===idx? {...s, language: val}: s));
+                                }} style={fieldStyle} />
                                 <button type="button" onClick={() => setLanguageSkills(ls => ls.filter((_,i)=>i!==idx))} style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #dc3545', background: 'var(--color-card)', color: '#dc3545', cursor: 'pointer' }}>✕</button>
                               </div>
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 12 }}>
                                 {(['understands','speaks','reads','writes'] as const).map(flag => (
                                   <label key={flag} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                                    <input type="checkbox" checked={(skill as any)[flag]} onChange={e => setLanguageSkills(ls => ls.map((s,i)=> i===idx? {...s, [flag]: e.target.checked}: s))} />
+                                    <input type="checkbox" checked={(skill as any)[flag]} onChange={e => {
+                                        const checked = e.target.checked;
+                                        setLanguageSkills(ls => ls.map((s,i)=> i===idx? {...s, [flag]: checked}: s));
+                                    }} />
                                     <span>{flag === 'understands' ? 'Понимает' : flag === 'speaks' ? 'Говорит' : flag === 'reads' ? 'Читает' : 'Пишет'}</span>
                                   </label>
                                 ))}

@@ -144,7 +144,7 @@ const Filters = React.memo(({ selectedStatuses, selectedRoles, toggleStatus, tog
 export const UserList = ({ searchTerm, onEditUser, excludedUserId }: UserListProps) => {
     const [allUsers, setAllUsers] = useState<UserWithProfile[]>([]);
     const [loading, setLoading] = useState(false);
-    const [page, setPage] = useState(0);
+    const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
     const [searchLoading, setSearchLoading] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -161,14 +161,14 @@ export const UserList = ({ searchTerm, onEditUser, excludedUserId }: UserListPro
         setSelectedStatuses(prev => 
             prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
         );
-        setPage(0);
+        setPage(1);
     }, []);
 
     const toggleRole = useCallback((role: UserRoleEnum) => {
         setSelectedRoles(prev => 
             prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
         );
-        setPage(0);
+        setPage(1);
     }, []);
 
     const enrichUsersWithProfiles = useCallback(async (userList: User[]): Promise<UserWithProfile[]> => {
@@ -227,14 +227,14 @@ export const UserList = ({ searchTerm, onEditUser, excludedUserId }: UserListPro
 
     const searchUsers = useCallback(async (search: string) => {
         if (!search.trim()) {
-            setPage(0);
+            setPage(1);
             setHasMore(true);
             setSearchLoading(false);
             return;
         }
         setSearchLoading(true);
         try {
-            const response = await AdminService.getUsers(0, 200);
+            const response = await AdminService.getUsers(1, 200);
             let users = (response.data || []).filter(user => String(user.id) !== String(excludedUserId));
             const enrichedUsers = await enrichUsersWithProfiles(users);
             setAllUsers(enrichedUsers);
@@ -258,7 +258,7 @@ export const UserList = ({ searchTerm, onEditUser, excludedUserId }: UserListPro
                 searchUsers(searchTerm);
             } else {
                 setAllUsers([]);
-                setPage(0);
+                setPage(1);
                 setHasMore(true);
             }
         }, 300);
@@ -369,11 +369,11 @@ export const UserList = ({ searchTerm, onEditUser, excludedUserId }: UserListPro
                 onCreated={() => {
                     // Refresh list: reset state and reload first page
                     setAllUsers([]);
-                    setPage(0);
+                    setPage(1);
                     setHasMore(true);
                     setShowCreateModal(false);
                     // proactively load first page
-                    loadUsers(0);
+                    loadUsers(1);
                 }}
             />
         </div>

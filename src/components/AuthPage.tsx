@@ -63,7 +63,7 @@ export const AuthPage = () => {
 
         try {
             if (mode === "login") {
-                await login(email, password);
+                const roleAfter = await login(email, password);
                 // Decode status directly from freshly stored token to avoid race with state update
                 const token = localStorage.getItem('accessToken');
                 let status: string | undefined;
@@ -78,7 +78,7 @@ export const AuthPage = () => {
                         } catch { /* ignore */ }
                     }
                 }
-                const roleAfter = (user?.role) as UserRoleEnum | undefined; // may still be stale, fallback using role from decoded payload if backend adds one
+                
                 if (status && status !== 'ACTIVE') {
                     navigate('/status-error', { state: { status } });
                     return;

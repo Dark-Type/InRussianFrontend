@@ -13,6 +13,18 @@ import {
 import {ProfileContext} from "./ProfileContext.ts";
 import {profileApi} from "../../instances/profileApiInstance";
 import {mediaService} from "../../services/MediaService.ts";
+import {axiosInstance} from "../../instances/axiosInstance";
+
+export interface UpdateUserBaseProfileRequest {
+    phone?: string;
+    role?: string;
+    systemLanguage?: string;
+    avatarId?: string;
+    surname?: string;
+    name?: string;
+    patronymic?: string;
+    status?: string;
+}
 
 type ProfileProviderProps = {
     children: ReactNode;
@@ -29,6 +41,8 @@ export type ProfileContextType = {
     updateUserProfileById: (id: string, data: UpdateUserProfileRequest) => Promise<UserProfileResponse>;
     createUserProfile: (data: CreateUserProfileRequest) => Promise<UserProfileResponse>;
     updateUserProfile: (data: UpdateUserProfileRequest) => Promise<UserProfileResponse>;
+
+    updateUserBaseProfile: (userId: string, data: UpdateUserBaseProfileRequest) => Promise<void>;
 
     addUserLanguageSkill: (data: UserLanguageSkillRequest) => Promise<string>;
 
@@ -95,6 +109,10 @@ export function ProfileProvider({children}: ProfileProviderProps) {
         return data;
     };
 
+    const updateUserBaseProfile = async (userId: string, req: UpdateUserBaseProfileRequest) => {
+        await axiosInstance.put(`/profiles/user/base?targetUserId=${userId}`, req);
+    };
+
     const addUserLanguageSkill = async (req: UserLanguageSkillRequest) => {
         const {data} = await profileApi.profilesUserLanguageSkillsPost(req);
         return data;
@@ -153,6 +171,7 @@ export function ProfileProvider({children}: ProfileProviderProps) {
                 updateUserProfileById,
                 createUserProfile,
                 updateUserProfile,
+                updateUserBaseProfile,
                 addUserLanguageSkill,
                 uploadAvatar,
                 getAvatarUrl,

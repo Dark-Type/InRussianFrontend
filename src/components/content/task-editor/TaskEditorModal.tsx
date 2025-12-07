@@ -183,9 +183,9 @@ export default function TaskEditorModal({
                 return (
                     body.task.length === 0 ||
                     body.task.some((sentence) => !sentence.text || !sentence.text.trim()) ||
-                    body.task.some((sentence) => sentence.gaps.some((gap) => !gap.correctWord || gap.index < 0)) ||
+                    body.task.some((sentence) => sentence.gaps.some((gap) => !gap.correctWord || gap.indexWord < 0)) ||
                     body.task.some((sentence) => {
-                        const idxs = sentence.gaps.map((gap) => gap.index);
+                        const idxs = sentence.gaps.map((gap) => gap.indexWord);
                         return new Set(idxs).size !== idxs.length;
                     })
                 );

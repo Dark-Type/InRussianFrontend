@@ -137,7 +137,8 @@ export interface ContentContextType {
     description?: string,
     authorUrl?: string,
     language?: string,
-    isPublished?: boolean
+    isPublished?: boolean,
+    posterId?: string | null
   ) => Promise<void>;
   createSection: (
     courseId: string,
@@ -157,7 +158,11 @@ export interface ContentContextType {
   updateCourse: (
     id: string,
     name: string,
-    description?: string
+    description?: string,
+    authorUrl?: string,
+    language?: string,
+    isPublished?: boolean,
+    posterId?: string | null
   ) => Promise<void>;
   updateSection: (
     id: string,
@@ -340,7 +345,8 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
     description?: string,
     authorUrl?: string,
     language?: string,
-    isPublished?: boolean
+    isPublished?: boolean,
+    posterId?: string | null
   ) => {
     try {
       const defaultAuthorUrl =
@@ -354,6 +360,7 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
         authorUrl: defaultAuthorUrl,
         language: language || "RUSSIAN",
         isPublished: isPublished ?? false,
+        coursePoster: posterId ?? null,
       };
       const newCourse = await contentService.createCourse(courseData);
       setCourses((prev) => [...prev, newCourse]);
@@ -419,14 +426,20 @@ export const ContentProvider: React.FC<{ children: ReactNode }> = ({
   const updateCourse = async (
     id: string,
     name: string,
-    description?: string
+    description?: string,
+    authorUrl?: string,
+    language?: string,
+    isPublished?: boolean,
+    posterId?: string | null
   ) => {
     try {
       const courseData: UpdateCourseRequest = { 
         name, 
         description,
-        // Additional fields from UpdateCourseRequest can be added here if needed:
-        // authorUrl, language, coursePoster, isPublished
+        authorUrl,
+        language,
+        isPublished,
+        coursePoster: posterId
       };
       const apiCourse = await contentService.updateCourse(id, courseData);
 

@@ -1,6 +1,7 @@
 import React from "react";
 import styles from "../ContentEditor.module.css";
 import {UntranslatableField} from "../UntranslatableField";
+import {FileInput} from "./FileInput";
 import type {ConstructSentenceModel} from "../TaskModels";
 import {asDataUrl, fileToBase64, getMediaUrlById, isBareBase64, isDataUrl} from "../mediaUtils";
 
@@ -63,17 +64,21 @@ export function ConstructSentenceEditor({value, onChange, disabled}: {
                 )}
             </div>
             <div className={styles.card}>
-                <label className={styles.label}>
-                    Аудио (опц.)
-                    <input
-                        className={styles.input}
-                        type="file"
-                        accept="audio/*"
-                        onChange={(e) => setAudio(e.target.files?.[0] ?? null)}
-                        disabled={disabled}
-                    />
-                </label>
-                {audioPreview && <audio className={styles.audio} controls src={audioPreview}/>}            </div>
+                <FileInput
+                    label="Аудио (опц.)"
+                    value={value.audio}
+                    accept="audio/*"
+                    onChange={(f) => setAudio(f)}
+                    disabled={disabled}
+                />
+                {audioPreview ? (
+                    <audio className={styles.audio} controls src={audioPreview}/>
+                ) : value.audio ? (
+                    <div className={styles.label} style={{marginTop: 8}}>
+                        Аудио загружено (id: {value.audio})
+                    </div>
+                ) : null}
+            </div>
             <div className={styles.wordsGrid}>
                 {value.variants.map((word, i) => (
                     <div key={i} className={`${styles.card} ${styles.wordCard}`}>

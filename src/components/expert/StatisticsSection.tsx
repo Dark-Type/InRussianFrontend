@@ -210,7 +210,7 @@ export const StatisticsSection = () => {
     setError(null);
     const fetchAll = async () => {
       try {
-        const res = await ExpertService.getAllStudents(0, 100000); // large size to get everything
+        const res = await ExpertService.getAllStudents(1, 200); // large size to get everything
         if (cancelled) return;
         setAllStudents(res || []);
       } catch (e) {

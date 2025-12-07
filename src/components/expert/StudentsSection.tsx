@@ -41,7 +41,7 @@ export const StudentsSection = () => {
   const [students, setStudents] = useState<StudentWithProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(
@@ -121,17 +121,17 @@ export const StudentsSection = () => {
   const searchStudents = useCallback(
     async (search: string) => {
       if (!search.trim()) {
-        setPage(0);
+        setPage(1);
         setTotalLoaded(0);
         setHasMore(true);
-        loadStudents(0, true);
+        loadStudents(1, true);
         return;
       }
 
       setSearchLoading(true);
       try {
         const studentsWithProfiles =
-          await expertService.getStudentsWithProfiles(0, 200);
+          await expertService.getStudentsWithProfiles(1, 200);
 
         const filtered = studentsWithProfiles.filter(
           (student) =>
@@ -273,7 +273,7 @@ export const StudentsSection = () => {
   }, [students, selectedCategories]);
 
   useEffect(() => {
-    loadStudents(0, true);
+    loadStudents(1, true);
   }, []);
 
   useEffect(() => {
@@ -281,10 +281,10 @@ export const StudentsSection = () => {
       if (searchTerm) {
         searchStudents(searchTerm);
       } else {
-        setPage(0);
+        setPage(1);
         setTotalLoaded(0);
         setHasMore(true);
-        loadStudents(0, true);
+        loadStudents(1, true);
       }
     }, 300);
 
@@ -292,7 +292,7 @@ export const StudentsSection = () => {
   }, [searchTerm]);
 
   useEffect(() => {
-    if (!searchTerm && page > 0) {
+    if (!searchTerm && page > 1) {
       loadStudents(page);
     }
   }, [page, searchTerm]);

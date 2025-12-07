@@ -19,7 +19,7 @@ export type Pair<A, B> = [A, B];
 
 export interface Gap {
     correctWord: string;
-    index: number; // internal; maps to backend indexWord
+    indexWord: number; // internal; maps to backend indexWord
 }
 
 type TaskBodyWithType = Extract<TaskBody, { type: string }>;

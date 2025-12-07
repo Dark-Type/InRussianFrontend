@@ -5,6 +5,8 @@ import {
   type StaffProfile,
   type User,
   type UserSystemLanguageEnum,
+  UserRoleEnum,
+  UserStatusEnum,
 } from "../../api";
 import { resolveAvatarUrl } from "../../utils/avatarResolver";
 import { AdminService } from "../../services/AdminService.ts";
@@ -24,7 +26,7 @@ export const ProfilePopover = ({
 }: ProfilePopoverProps) => {
   const {
     getStaffProfileById,
-    updateStaffProfileById,
+    updateUserBaseProfile,
     uploadAvatar,
     getAvatarIdByUserId,
   } = useProfile();
@@ -37,12 +39,14 @@ export const ProfilePopover = ({
     patronymic: "",
   });
   const [userForm, setUserForm] = useState<
-    Pick<User, "email" | "phone" | "systemLanguage" | "avatarId">
+    Pick<User, "email" | "phone" | "systemLanguage" | "avatarId" | "role" | "status">
   >({
     email: "",
     phone: "",
     systemLanguage: "RUSSIAN" as UserSystemLanguageEnum,
     avatarId: "",
+    role: UserRoleEnum.Student,
+    status: UserStatusEnum.Active,
   });
   const [avatarPreview, setAvatarPreview] = useState<string>(
     avatarUrl || "/public/assets/images/default-avatar.svg"
@@ -71,6 +75,8 @@ export const ProfilePopover = ({
           phone: res.data.phone,
           systemLanguage: "RUSSIAN",
           avatarId: "",
+          role: res.data.role || UserRoleEnum.Student,
+          status: res.data.status || UserStatusEnum.Active,
         });
       })
       .catch((error) => {
@@ -80,6 +86,8 @@ export const ProfilePopover = ({
           phone: "",
           systemLanguage: "RUSSIAN",
           avatarId: "",
+          role: UserRoleEnum.Student,
+          status: UserStatusEnum.Active,
         });
       });
 
@@ -143,13 +151,15 @@ export const ProfilePopover = ({
     }
 
     if (userId) {
-      await updateStaffProfileById(userId, {
+      await updateUserBaseProfile(userId, {
         name: staffForm.name,
         surname: staffForm.surname,
         patronymic: staffForm.patronymic,
         phone: userForm.phone,
         systemLanguage: userForm.systemLanguage,
         avatarId,
+        role: userForm.role,
+        status: userForm.status,
       });
     }
 

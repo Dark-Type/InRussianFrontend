@@ -82,14 +82,14 @@ function GapsEditor({
     onChange: (g: Gap[]) => void;
     disabled?: boolean;
 }) {
-    const addGap = () => onChange([...gaps, {correctWord: "", index: gaps.length}]);
+    const addGap = () => onChange([...gaps, {correctWord: "", indexWord: gaps.length}]);
     const removeGap = (idx: number) => onChange(gaps.filter((_, i) => i !== idx));
     const updateGap = (idx: number, patch: Partial<Gap>) =>
         onChange(
             gaps.map((g, i) => {
                 if (i !== idx) return g;
                 const next = {...g, ...patch};
-                if (typeof next.index === "number" && next.index < 0) next.index = 0;
+                if (typeof next.indexWord === "number" && next.indexWord < 0) next.indexWord = 0;
                 return next;
             })
         );
@@ -129,10 +129,10 @@ function GapsEditor({
                                     className={styles.input}
                                     type="number"
                                     min={0}
-                                    value={g.index}
+                                    value={g.indexWord}
                                     onChange={(e) =>
                                         updateGap(i, {
-                                            index: Math.max(0, Number.isFinite(+e.target.value) ? Number(e.target.value) : 0),
+                                            indexWord: Math.max(0, Number.isFinite(+e.target.value) ? Number(e.target.value) : 0),
                                         })
                                     }
                                     placeholder="индекс"

@@ -1,6 +1,7 @@
 import React from "react";
 import styles from "../ContentEditor.module.css";
 import {UntranslatableField} from "../UntranslatableField";
+import {FileInput} from "./FileInput";
 import type {ImageAndSelectModel} from "../TaskModels";
 import {asDataUrl, fileToBase64, getMediaUrlById, isBareBase64, isDataUrl} from "../mediaUtils";
 
@@ -128,16 +129,13 @@ export function ImageAndSelectEditor({
                                 </div>
                             )}
                         </div>
-                        <label className={styles.label}>
-                            Изображение
-                            <input
-                                className={styles.input}
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => setImage(i, e.target.files?.[0] ?? null)}
-                                disabled={disabled}
-                            />
-                        </label>
+                        <FileInput
+                            label="Изображение"
+                            value={block.image}
+                            accept="image/*"
+                            onChange={(f) => setImage(i, f)}
+                            disabled={disabled}
+                        />
                     </div>
                 ))}
             </div>

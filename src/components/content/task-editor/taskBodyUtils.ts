@@ -120,6 +120,17 @@ export function toInternalTaskBody(wire: WireTaskBody): TaskBody {
             return {type: "AudioTask", variant: wire.variant.map((p) => [p.first, p.second])};
         case "ImageTask":
             return {type: "ImageTask", variant: wire.variant.map((p) => [p.first, p.second])};
+        case "TextInputTask":
+            return {
+                type: "TextInputTask",
+                task: (wire as any).task.map((s: any) => ({
+                    ...s,
+                    gaps: (s.gaps || []).map((g: any) => ({
+                        ...g,
+                        indexWord: g.indexWord ?? g.index ?? 0,
+                    })),
+                })),
+            } as TaskBody;
         case "TextInputWithVariantTask":
             return {
                 type: "TextInputWithVariantTask",

@@ -29,7 +29,7 @@ export const mediaService = {
     },
 
     async getMediaById(mediaId: string): Promise<Blob> {
-        const resp = await axiosInstance.get(`/media/${mediaId}`, {
+        const resp = await axiosInstance.get(`/media/id/${mediaId}`, {
             responseType: "blob",
         });
         return resp.data as Blob;

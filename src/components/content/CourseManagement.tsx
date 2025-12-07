@@ -294,19 +294,35 @@ export const CoursesManagement = () => {
     const closeModal = () => {
         setModalState({ isOpen: false, type: null, editItem: null, parentId: null, courseId: null });
     };
-    const handleModalSave = async (data: { name: string; description?: string; position?: number }) => {
+    const handleModalSave = async (data: { 
+        name: string; 
+        description?: string; 
+        position?: number;
+        authorUrl?: string;
+        language?: string;
+        posterId?: string | null;
+        isPublished?: boolean;
+    }) => {
         if (modalState.type === "course") {
             // Use correct argument signature for updateCourse and createCourse
             if (modalState.editItem) {
                 await updateCourse(
                     modalState.editItem.id,
                     data.name,
-                    data.description
+                    data.description,
+                    data.authorUrl,
+                    data.language,
+                    data.isPublished,
+                    data.posterId
                 );
             } else {
                 await createCourse(
                     data.name,
-                    data.description
+                    data.description,
+                    data.authorUrl,
+                    data.language,
+                    data.isPublished,
+                    data.posterId
                 );
             }
             await loadCourses();
@@ -574,9 +590,13 @@ export const CoursesManagement = () => {
     };
 
     const openExport = (courseId: string) => {
-        setExportModal({ isOpen: true, courseId, since: '', error: undefined });
+        const now = new Date();
+        const tzAdj = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+        const localStr = tzAdj.toISOString().slice(0, 16);
+        setExportModal({ isOpen: true, courseId, since: localStr, error: undefined });
     };
     const submitExport = async () => {
+        console.log("Exporting course:", exportModal.courseId, "Since:", exportModal.since);
         if (!exportModal.courseId) return;
         try {
             // Validate and convert since
@@ -588,6 +608,9 @@ export const CoursesManagement = () => {
                     return;
                 }
                 sinceIso = d.toISOString();
+                console.log("ISO Date:", sinceIso);
+            } else {
+                console.log("No date selected, exporting full course");
             }
             const data = await contentService.exportCourse(exportModal.courseId, sinceIso);
             const course = courses.find((c: any) => c.id === exportModal.courseId);
@@ -610,7 +633,7 @@ export const CoursesManagement = () => {
     };
 
     const openClone = (sourceCourseId: string) => {
-        setCloneModal({ isOpen: true, sourceCourseId, name: '', language: '', error: undefined });
+        setCloneModal({ isOpen: true, sourceCourseId, name: '', language: 'RUSSIAN', error: undefined });
     };
     const submitClone = async () => {
         if (!cloneModal.sourceCourseId) return;
@@ -623,7 +646,7 @@ export const CoursesManagement = () => {
             return;
         }
         try {
-            const created = await contentService.cloneCourseStructure(cloneModal.sourceCourseId, { name: cloneModal.name, language: cloneModal.language });
+            const created = await contentService.cloneCourseStructure(cloneModal.sourceCourseId, { newCourseName: cloneModal.name, newLanguage: cloneModal.language });
             setCloneModal((prev) => ({ ...prev, isOpen: false }));
             await loadCourses();
             if (created?.id) {
@@ -984,7 +1007,10 @@ export const CoursesManagement = () => {
                         <input
                             type="file"
                             accept=".json,application/json"
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setImportModal((prev) => ({ ...prev, file: e.currentTarget.files?.[0] || null, error: undefined }))}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                const file = e.target.files?.[0] || null;
+                                setImportModal((prev) => ({ ...prev, file, error: undefined }));
+                            }}
                         />
                         {importModal.error && <div style={{ color: '#f44336', marginTop: 8 }}>{importModal.error}</div>}
                     </div>
@@ -993,7 +1019,10 @@ export const CoursesManagement = () => {
                             <label style={{ display: 'block', marginBottom: 6 }}>Целевой курс</label>
                             <select
                                 value={importModal.targetCourseId || ''}
-                                onChange={(e) => setImportModal((prev) => ({ ...prev, targetCourseId: e.target.value || undefined, createIfMissing: e.target.value ? prev.createIfMissing : true }))}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setImportModal((prev) => ({ ...prev, targetCourseId: val || undefined, createIfMissing: val ? prev.createIfMissing : true }));
+                                }}
                                 style={{ width: '100%', padding: 8, background: 'var(--color-bg)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 6 }}
                             >
                                 <option value="">Создать новый курс</option>
@@ -1005,11 +1034,17 @@ export const CoursesManagement = () => {
                     </div>
                     <div style={{ display: 'flex', gap: 16 }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <input type="checkbox" checked={importModal.createIfMissing} onChange={(e) => setImportModal((prev) => ({ ...prev, createIfMissing: e.target.checked }))} />
+                            <input type="checkbox" checked={importModal.createIfMissing} onChange={(e) => {
+                                const checked = e.target.checked;
+                                setImportModal((prev) => ({ ...prev, createIfMissing: checked }));
+                            }} />
                             Создавать отсутствующие элементы
                         </label>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <input type="checkbox" checked={importModal.addOnly} onChange={(e) => setImportModal((prev) => ({ ...prev, addOnly: e.target.checked }))} />
+                            <input type="checkbox" checked={importModal.addOnly} onChange={(e) => {
+                                const checked = e.target.checked;
+                                setImportModal((prev) => ({ ...prev, addOnly: checked }));
+                            }} />
                             Только добавлять (без удаления)
                         </label>
                     </div>
@@ -1033,8 +1068,17 @@ export const CoursesManagement = () => {
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                             <input
                                 type="datetime-local"
-                                value={exportModal.since}
-                                onChange={(e) => setExportModal((prev: any) => ({ ...prev, since: e.target.value, error: undefined }))}
+                                value={exportModal.since || ""}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    console.log("Date input changed:", val);
+                                    setExportModal((prev: any) => ({ ...prev, since: val, error: undefined }));
+                                }}
+                                onBlur={(e) => {
+                                    const val = e.target.value;
+                                    console.log("Date input blur:", val);
+                                    setExportModal((prev: any) => ({ ...prev, since: val, error: undefined }));
+                                }}
                                 style={{ flex: 1, padding: 8, background: 'var(--color-bg)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 6 }}
                             />
                             <button
@@ -1082,9 +1126,28 @@ export const CoursesManagement = () => {
                         <input
                             type="text"
                             value={cloneModal.name}
-                            onChange={(e) => setCloneModal((prev) => ({ ...prev, name: e.target.value }))}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setCloneModal((prev) => ({ ...prev, name: val }));
+                            }}
                             style={{ width: '100%', padding: 8, background: 'var(--color-bg)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 6 }}
                         />
+                        <label style={{ display: 'block', marginTop: 12, marginBottom: 6 }}>Язык</label>
+                        <select
+                            value={cloneModal.language || "RUSSIAN"}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setCloneModal((prev) => ({ ...prev, language: val }));
+                            }}
+                            style={{ width: '100%', padding: 8, background: 'var(--color-bg)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 6 }}
+                        >
+                            <option value="RUSSIAN">Русский</option>
+                            <option value="UZBEK">Узбекский</option>
+                            <option value="CHINESE">Китайский</option>
+                            <option value="HINDI">Хинди</option>
+                            <option value="TAJIK">Таджикский</option>
+                            <option value="ENGLISH">Английский</option>
+                        </select>
                         {cloneModal.error && <div style={{ color: '#f44336', marginTop: 8 }}>{cloneModal.error}</div>}
                     </div>
                 </Modal>

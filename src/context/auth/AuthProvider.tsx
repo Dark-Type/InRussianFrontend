@@ -35,7 +35,7 @@ export type AuthContextType = {
     token: string | null;
     loading: boolean;
     isAuthenticated: boolean;
-    login: (email: string, password: string) => Promise<void>;
+    login: (email: string, password: string) => Promise<UserRoleEnum | undefined>;
     logout: () => void;
     refreshUser: () => Promise<void>;
     registerWithStaffProfile: (
@@ -106,8 +106,8 @@ export function AuthProvider({children}: AuthProviderProps) {
                 role: data.user.role as UserRoleEnum,
                 status: extractStatusFromToken(data.accessToken)
             });
-            // @ts-ignore
-            localStorage.setItem('userId', user.id);
+            localStorage.setItem('userId', data.user.id);
+            return data.user.role as UserRoleEnum;
         } catch (error) {
             console.error("Login failed:", error);
             throw error;

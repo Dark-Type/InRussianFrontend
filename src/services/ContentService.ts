@@ -159,6 +159,7 @@ class ContentService {
     }
 
     async exportCourse(courseId: string, since?: string): Promise<any> {
+        console.log(`[ContentService] Exporting course ${courseId}, since: ${since}`);
         const { data } = await axiosInstance.get(
             `/content/courses/${encodeURIComponent(courseId)}/export`,
             { params: { since }, responseType: "json" }
@@ -168,12 +169,15 @@ class ContentService {
 
     async cloneCourseStructure(
         sourceCourseId: string,
-        options: { language?: string; name?: string }
+        options: { newLanguage: string; newCourseName?: string; copyTasks?: boolean }
     ): Promise<any> {
         const { data } = await axiosInstance.post(
-            `/content/courses/${encodeURIComponent(sourceCourseId)}/clone-structure`,
-            null,
-            { params: { ...options } }
+            `/content/courses/${encodeURIComponent(sourceCourseId)}/clone`,
+            {
+                newLanguage: options.newLanguage,
+                newCourseName: options.newCourseName,
+                copyTasks: options.copyTasks ?? true
+            }
         );
         return data;
     }

@@ -1,6 +1,7 @@
 import React from "react";
 import styles from "../ContentEditor.module.css";
 import {UntranslatableField} from "../UntranslatableField";
+import {FileInput} from "./FileInput";
 import type {ListenAndSelectModel} from "../TaskModels";
 import {asDataUrl, fileToBase64, getMediaUrlById, isBareBase64, isDataUrl} from "../mediaUtils";
 
@@ -128,16 +129,13 @@ export function ListenAndSelectEditor({
                                 </div>
                             )}
                         </div>
-                        <label className={styles.label}>
-                            Аудио
-                            <input
-                                className={styles.input}
-                                type="file"
-                                accept="audio/*"
-                                onChange={(e) => setAudio(i, e.target.files?.[0] ?? null)}
-                                disabled={disabled}
-                            />
-                        </label>
+                        <FileInput
+                            label="Аудио"
+                            value={block.audio}
+                            accept="audio/*"
+                            onChange={(f) => setAudio(i, f)}
+                            disabled={disabled}
+                        />
                     </div>
                 ))}
             </div>

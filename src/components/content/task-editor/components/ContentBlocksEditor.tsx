@@ -1,5 +1,6 @@
 import styles from "../ContentEditor.module.css";
 import {UntranslatableField} from "../UntranslatableField";
+import {FileInput} from "./FileInput";
 import type {ContentItem, ContentKind} from "../TaskModels";
 import {asDataUrl, fileToBase64, isBareBase64, isDataUrl} from "../mediaUtils";
 
@@ -83,16 +84,13 @@ export function ContentBlocksEditor({value, onChange, disabled}: {
                                         disabled={disabled}
                                     />
                                 </label>
-                                <label className={styles.label}>
-                                    Файл изображения
-                                    <input
-                                        className={styles.input}
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) => setFile(i, e.target.files?.[0] ?? null, "image")}
-                                        disabled={disabled}
-                                    />
-                                </label>
+                                <FileInput
+                                    label="Файл изображения"
+                                    value={item.imageUrl}
+                                    accept="image/*"
+                                    onChange={(f) => setFile(i, f, "image")}
+                                    disabled={disabled}
+                                />
                                 <label className={styles.label}>
                                     Подпись
                                     <UntranslatableField
@@ -128,16 +126,13 @@ export function ContentBlocksEditor({value, onChange, disabled}: {
                                         disabled={disabled}
                                     />
                                 </label>
-                                <label className={styles.label}>
-                                    Файл аудио
-                                    <input
-                                        className={styles.input}
-                                        type="file"
-                                        accept="audio/*"
-                                        onChange={(e) => setFile(i, e.target.files?.[0] ?? null, "audio")}
-                                        disabled={disabled}
-                                    />
-                                </label>
+                                <FileInput
+                                    label="Файл аудио"
+                                    value={item.audioUrl}
+                                    accept="audio/*"
+                                    onChange={(f) => setFile(i, f, "audio")}
+                                    disabled={disabled}
+                                />
                                 <label className={styles.label}>
                                     Подпись
                                     <UntranslatableField
