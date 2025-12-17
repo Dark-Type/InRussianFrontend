@@ -8,6 +8,7 @@ import type {User} from "../api";
 import {useProfile} from '../context/profile/UseProfile';
 import {mediaService} from '../services/MediaService';
 import {CommonHeader} from './shared/CommonHeader';
+import {useUserDisplayName} from './shared/useUserDisplayName';
 import {RetrySwitch} from './shared/RetrySwitch';
 
 type Section = 'users' | 'statistics';
@@ -20,26 +21,19 @@ export const AdminPanel = () => {
     const [activeSection, setActiveSection] = useState<Section>('users');
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [profilePopoverOpen, setProfilePopoverOpen] = useState(false);
-    const [avatarUrl, setAvatarUrl] = useState<string>('/public/assets/images/default-avatar.svg');
-    const [displayName, setDisplayName] = useState('Гость');
+    const [avatarUrl, setAvatarUrl] = useState<string>('/assets/images/default-avatar.svg');
+    const displayName = useUserDisplayName();
     const [searchTerm, setSearchTerm] = useState('');
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [configError, setConfigError] = useState<string | null>(null);
 
     const loadUserData = useCallback(async () => {
         if (!user?.id) {
-            setAvatarUrl('/public/assets/images/default-avatar.svg');
-            setDisplayName('Гость');
+            setAvatarUrl('/assets/images/default-avatar.svg');
             return;
         }
 
         try {
-            const profile = await getStaffProfileById(user.id);
-            const fullName = [profile.surname, profile.name, profile.patronymic]
-                .filter(Boolean)
-                .join(' ');
-            setDisplayName(fullName || user.email || 'Пользователь');
-
             const avatarId = await getAvatarIdByUserId(user.id);
             if (avatarId) {
                 const blob = await mediaService.getMediaById(avatarId);
@@ -48,14 +42,13 @@ export const AdminPanel = () => {
             }
         } catch (error) {
             // console.error('Ошибка загрузки данных пользователя:', error);
-            setAvatarUrl('/public/assets/images/default-avatar.svg');
-            setDisplayName(user?.email || 'Пользователь');
+            setAvatarUrl('/assets/images/default-avatar.svg');
         }
-    }, [user, getAvatarIdByUserId, getStaffProfileById]);
+    }, [user, getAvatarIdByUserId]);
 
     const reloadAvatar = useCallback(async () => {
         if (!user?.id) {
-            setAvatarUrl('/public/assets/images/default-avatar.svg');
+            setAvatarUrl('/assets/images/default-avatar.svg');
             return;
         }
         try {
@@ -66,7 +59,7 @@ export const AdminPanel = () => {
                 setAvatarUrl(objectUrl);
             }
         } catch (error) {
-            setAvatarUrl('/public/assets/images/default-avatar.svg');
+            setAvatarUrl('/assets/images/default-avatar.svg');
             // console.error('Ошибка загрузки аватара:', error);
         }
     }, [user, getAvatarIdByUserId]);

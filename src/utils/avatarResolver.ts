@@ -1,6 +1,6 @@
 import { mediaService } from "../services/MediaService";
 
-const DEFAULT_AVATAR = "/public/assets/images/default-avatar.svg";
+const DEFAULT_AVATAR = "/assets/images/default-avatar.svg";
 
 export async function resolveAvatarUrl(avatarId?: string, fallbackUrl?: string): Promise<string> {
     if (!avatarId) {

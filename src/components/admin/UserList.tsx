@@ -190,7 +190,7 @@ export const UserList = ({ searchTerm, onEditUser, excludedUserId }: UserListPro
                     const blob = await mediaService.getMediaById(avatarId);
                     enrichedUser.avatarUrl = URL.createObjectURL(blob);
                 } else {
-                    enrichedUser.avatarUrl = '/public/assets/images/default-avatar.svg';
+                    enrichedUser.avatarUrl = '/assets/images/default-avatar.svg';
                 }
             } catch {
 

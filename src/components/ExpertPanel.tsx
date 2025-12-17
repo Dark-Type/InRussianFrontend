@@ -5,6 +5,7 @@ import { useExpert } from '../context/expert/UseExpert';
 import { useProfile } from '../context/profile/UseProfile';
 import { mediaService } from '../services/MediaService';
 import { CommonHeader } from "./shared/CommonHeader.tsx";
+import { useUserDisplayName } from './shared/useUserDisplayName';
 import { StudentsSection } from './expert/StudentsSection';
 import { CoursesSection } from './expert/CoursesSection';
 import { StatisticsSection } from './expert/StatisticsSection';
@@ -20,39 +21,33 @@ export const ExpertPanel = () => {
 
     const [activeSection, setActiveSection] = useState<Section>('students');
     const [profilePopoverOpen, setProfilePopoverOpen] = useState(false);
-    const [avatarUrl, setAvatarUrl] = useState<string>('/public/assets/images/default-avatar.svg');
-    const [displayName, setDisplayName] = useState('Гость');
+    const [avatarUrl, setAvatarUrl] = useState<string>('/assets/images/default-avatar.svg');
+    const displayName = useUserDisplayName();
 
     const loadUserData = useCallback(async () => {
         if (!user?.id) {
-            setAvatarUrl('/public/assets/images/default-avatar.svg');
-            setDisplayName('Гость');
+            setAvatarUrl('/assets/images/default-avatar.svg');
             return;
         }
 
         try {
-            const profile = await getStaffProfileById(user.id);
-            const fullName = `${profile.surname} ${profile.name}`.trim();
-            setDisplayName(fullName || user.email || 'Пользователь');
-
             const avatarId = await getAvatarIdByUserId(user.id);
             if (avatarId) {
                 const blob = await mediaService.getMediaById(avatarId);
                 const objectUrl = URL.createObjectURL(blob);
                 setAvatarUrl(objectUrl);
             } else {
-                setAvatarUrl('/public/assets/images/default-avatar.svg');
+                setAvatarUrl('/assets/images/default-avatar.svg');
             }
         } catch (error) {
             console.error('Ошибка загрузки данных пользователя:', error);
-            setAvatarUrl('/public/assets/images/default-avatar.svg');
-            setDisplayName(user.email || 'Пользователь');
+            setAvatarUrl('/assets/images/default-avatar.svg');
         }
-    }, [user, getAvatarIdByUserId, getStaffProfileById]);
+    }, [user, getAvatarIdByUserId]);
 
     const reloadAvatar = useCallback(async () => {
         if (!user?.id) {
-            setAvatarUrl('/public/assets/images/default-avatar.svg');
+            setAvatarUrl('/assets/images/default-avatar.svg');
             return;
         }
         try {
@@ -62,11 +57,11 @@ export const ExpertPanel = () => {
                 const objectUrl = URL.createObjectURL(blob);
                 setAvatarUrl(objectUrl);
             } else {
-                setAvatarUrl('/public/assets/images/default-avatar.svg');
+                setAvatarUrl('/assets/images/default-avatar.svg');
             }
         } catch (error) {
             console.error('Ошибка загрузки аватара:', error);
-            setAvatarUrl('/public/assets/images/default-avatar.svg');
+            setAvatarUrl('/assets/images/default-avatar.svg');
         }
     }, [user?.id, getAvatarIdByUserId]);
 

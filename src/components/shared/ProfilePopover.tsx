@@ -49,7 +49,7 @@ export const ProfilePopover = ({
     status: UserStatusEnum.Active,
   });
   const [avatarPreview, setAvatarPreview] = useState<string>(
-    avatarUrl || "/public/assets/images/default-avatar.svg"
+    avatarUrl || "/assets/images/default-avatar.svg"
   );
   const [avatarFile, setAvatarFile] = useState<File | undefined>(undefined);
 
@@ -60,7 +60,7 @@ export const ProfilePopover = ({
     if (avatarUrl) {
       setAvatarPreview(avatarUrl);
     } else {
-      setAvatarPreview("/public/assets/images/default-avatar.svg");
+      setAvatarPreview("/assets/images/default-avatar.svg");
     }
   }, [avatarUrl]);
 
@@ -107,7 +107,7 @@ export const ProfilePopover = ({
         setUserForm((prev) => ({ ...prev, avatarId }));
         const url = await resolveAvatarUrl(
           avatarId,
-          "/public/assets/images/default-avatar.svg"
+          "/assets/images/default-avatar.svg"
         );
         setAvatarPreview(url);
       });
