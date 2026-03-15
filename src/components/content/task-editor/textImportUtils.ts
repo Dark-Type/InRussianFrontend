@@ -426,10 +426,6 @@ export function getImportHelpText(bodyType: TaskBody["type"]): string {
                 "",
                 "или:",
                 "рабо'та",
-                "",
-                "или формат из документов:",
-                "ра-бо-та - работа",
-                "Ян-варь - январь",
             ].join("\n");
         case "TableTask":
             return [
