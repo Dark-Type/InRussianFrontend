@@ -105,7 +105,7 @@ async function createTaskApi(req: CreateTaskModelRequest): Promise<TaskModel> {
         return resp.data as TaskModel;
     } catch (e: unknown) {
         if (axios.isAxiosError(e) && e.response?.status === 400) {
-            
+
             try {
                 const fallbackArrayReq = {
                     ...req,
@@ -191,14 +191,14 @@ type Props = {
 };
 
 export default function TaskEditorModal({
-    isOpen,
-    onClose,
-    onCreated,
-    onUpdated,
-    themeId,
-    initialTask,
-    readOnly = false,
-}: Props) {
+                                            isOpen,
+                                            onClose,
+                                            onCreated,
+                                            onUpdated,
+                                            themeId,
+                                            initialTask,
+                                            readOnly = false,
+                                        }: Props) {
     const [question, setQuestion] = useState<string | null>("");
     const [position, setPosition] = useState<number | null>(null);
     const [taskTypes, setTaskTypes] = useState<TaskType[]>([]);
@@ -210,6 +210,51 @@ export default function TaskEditorModal({
     const [isImportExpanded, setIsImportExpanded] = useState(true);
 
     const bodyType = body.type;
+
+    // ---- defaults-only helpers (NEW) ----
+    const getDefaultTaskTypesForBody = (bodyType: TaskBody["type"]): TaskType[] => {
+        switch (bodyType) {
+            case "TextConnectTask":
+            case "ConstructSentenceTask":
+            case "TableTask":
+                return ["TASK"];
+
+            case "TextInputTask":
+            case "TextInputWithVariantTask":
+                return ["FILL"];
+
+            case "AudioTask":
+                return ["CONNECT_AUDIO"];
+
+            case "ImageTask":
+                return ["CONNECT_IMAGE"];
+
+            case "ListenAndSelect":
+                return ["LISTEN"];
+
+            case "ImageAndSelect":
+                return ["SELECT"];
+
+            case "SelectWordsTask":
+                return ["MARK"];
+
+            case "SetTheStressTask":
+                return ["SET_THE_STRESS"];
+
+            case "ContentBlocks":
+                return ["CONTENT_BLOCKS"];
+
+            default:
+                return [];
+        }
+    };
+
+    const normalizeTaskTypesForSubmit = (types: TaskType[], bodyType: TaskBody["type"]): TaskType[] => {
+        if (types.length > 0) return types;
+
+        return getDefaultTaskTypesForBody(bodyType);
+    };
+    // ---- end defaults-only helpers ----
 
     React.useEffect(() => {
         if (!isOpen) return;
@@ -240,55 +285,49 @@ export default function TaskEditorModal({
     const handleChangeBodyType = (type: TaskBody["type"]) => {
         if (readOnly) return;
         setImportMessage(null);
+
+        // IMPORTANT: defaults only (do not overwrite user's selection if they already have types)
+        setTaskTypes((prev) => (prev.length ? prev : getDefaultTaskTypesForBody(type)));
+
         switch (type) {
             case "TextConnectTask":
                 setBody({type: "TextConnectTask", variant: [["", ""]]});
-                setTaskTypes((prev) => (prev.length ? prev : ["TASK"]));
                 break;
             case "TextInputTask":
                 setBody({type: "TextInputTask", task: [{label: "", text: "", gaps: []}]});
-                setTaskTypes((prev) => (prev.length ? prev : ["FILL"]));
                 break;
             case "AudioTask":
                 setBody({type: "AudioTask", variant: [["", ""]]});
-                setTaskTypes((prev) => (prev.length ? prev : ["CONNECT_AUDIO"]));
                 break;
             case "ImageTask":
                 setBody({type: "ImageTask", variant: [["", ""]]});
-                setTaskTypes((prev) => (prev.length ? prev : ["CONNECT_IMAGE"]));
                 break;
             case "TextInputWithVariantTask":
                 setBody({type: "TextInputWithVariantTask", task: {label: "", text: "", gaps: []}} as TaskBody);
-                setTaskTypes((prev) => (prev.length ? prev : ["FILL"]));
                 break;
             case "ListenAndSelect":
                 setBody({
                     type: "ListenAndSelect",
                     task: {audioBlocks: [], variants: [["", false], ["", false]]},
                 } as TaskBody);
-                setTaskTypes((prev) => (prev.length ? prev : ["LISTEN"]));
                 break;
             case "ImageAndSelect":
                 setBody({
                     type: "ImageAndSelect",
                     task: {imageBlocks: [], variants: [["", false], ["", false]]},
                 } as TaskBody);
-                setTaskTypes((prev) => (prev.length ? prev : ["SELECT"]));
                 break;
             case "ConstructSentenceTask":
                 setBody({type: "ConstructSentenceTask", task: {audio: null, variants: ["", ""]}} as TaskBody);
-                setTaskTypes((prev) => (prev.length ? prev : ["TASK"]));
                 break;
             case "SelectWordsTask":
                 setBody({
                     type: "SelectWordsTask",
                     task: {audio: "", variants: [["", false], ["", false]]},
                 } as TaskBody);
-                setTaskTypes((prev) => (prev.length ? prev : ["MARK"]));
                 break;
             case "SetTheStressTask":
                 setBody({type: "SetTheStressTask", task: [{word: "", stressIndex: 0}]});
-                setTaskTypes(["SET_THE_STRESS"]);
                 break;
             case "TableTask":
                 setBody({
@@ -300,11 +339,9 @@ export default function TaskEditorModal({
                         ],
                     }],
                 } as TaskBody);
-                setTaskTypes(["TASK"]);
                 break;
             case "ContentBlocks":
                 setBody({type: "ContentBlocks", items: [{text: ""}]});
-                setTaskTypes(["CONTENT_BLOCKS"]);
                 break;
         }
     };
@@ -314,13 +351,6 @@ export default function TaskEditorModal({
         const result = parseImportedTaskText(body.type, importText);
         setBody(result.body);
         setImportMessage(result.message);
-    };
-
-    const getNormalizedTaskTypes = (types: TaskType[], bodyType: TaskBody["type"]): TaskType[] => {
-        if (bodyType === "SetTheStressTask") return ["SET_THE_STRESS"];
-        if (bodyType === "ContentBlocks") return ["CONTENT_BLOCKS"];
-        if (bodyType === "TableTask") return ["TASK"];
-        return types;
     };
 
     const submitDisabled = useMemo(() => {
@@ -414,12 +444,17 @@ export default function TaskEditorModal({
             case "ContentBlocks": {
                 const items = (body as any).items as ContentItem[];
                 if (!items || items.length === 0) return true;
+
+                const hasNonEmpty = (v: unknown) => typeof v === "string" && v.trim().length > 0;
+
                 return items.some((item) => {
-                    const hasImageField = item.imageUrl !== undefined && item.imageUrl !== null;
-                    const hasAudioField = item.audioUrl !== undefined && item.audioUrl !== null;
-                    if (hasImageField) return !item.imageUrl || !item.imageUrl.trim();
-                    if (hasAudioField) return !item.audioUrl || !item.audioUrl.trim();
-                    return !item.text || !item.text.trim();
+                    const ok =
+                        hasNonEmpty(item.text) ||
+                        hasNonEmpty(item.caption) ||
+                        hasNonEmpty(item.imageUrl) ||
+                        hasNonEmpty(item.audioUrl);
+
+                    return !ok;
                 });
             }
             default:
@@ -433,7 +468,10 @@ export default function TaskEditorModal({
         try {
             const bodyWithMediaIds = await uploadTaskBodyMediaIfNeeded(body);
             const wireBody = toWireTaskBody(bodyWithMediaIds);
-            const normalizedTaskTypes = getNormalizedTaskTypes(taskTypes, body.type);
+
+            // CHANGED: defaults-only normalization (no mandatory enforcement)
+            const normalizedTaskTypes = normalizeTaskTypesForSubmit(taskTypes, body.type);
+
             if (initialTask) {
                 const req: UpdateTaskModelRequest = {
                     themeId,

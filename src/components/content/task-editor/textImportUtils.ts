@@ -394,9 +394,6 @@ export function getImportHelpText(bodyType: TaskBody["type"]): string {
             return [
                 "Вариант 1:",
                 "Как вас [зовут]?",
-                "",
-                "Вариант 2:",
-                "Как вас .....? (зовут)",
             ].join("\n");
         case "TextInputWithVariantTask":
             return [

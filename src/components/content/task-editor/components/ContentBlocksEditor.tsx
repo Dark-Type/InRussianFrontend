@@ -5,28 +5,31 @@ import {FileInput} from "./FileInput";
 import type {ContentItem} from "../TaskModels";
 import {asDataUrl, fileToBase64, isBareBase64, isDataUrl} from "../mediaUtils";
 
-type BlockType = "TEXT" | "IMAGE" | "AUDIO";
-
-const getItemType = (item: ContentItem): BlockType => {
-    if (item.imageUrl !== undefined && item.imageUrl !== null) return "IMAGE";
-    if (item.audioUrl !== undefined && item.audioUrl !== null) return "AUDIO";
-    return "TEXT";
-};
-
-export function ContentBlocksEditor({value, onChange, disabled}: {
+export function ContentBlocksEditor({
+                                        value,
+                                        onChange,
+                                        disabled,
+                                    }: {
     value: { items: ContentItem[] };
     onChange: (v: { items: ContentItem[] }) => void;
     disabled?: boolean;
 }) {
     const [dragIndex, setDragIndex] = React.useState<number | null>(null);
 
-    const addItem = (type: BlockType) => {
+    const addItem = (preset: "EMPTY" | "TEXT" | "IMAGE" | "AUDIO" | "IMAGE_WITH_TEXT" | "AUDIO_WITH_TEXT") => {
         const base: ContentItem =
-            type === "TEXT"
+            preset === "TEXT"
                 ? {text: ""}
-                : type === "IMAGE"
+                : preset === "IMAGE"
                     ? {imageUrl: "", caption: ""}
-                    : {audioUrl: "", caption: ""};
+                    : preset === "AUDIO"
+                        ? {audioUrl: "", caption: ""}
+                        : preset === "IMAGE_WITH_TEXT"
+                            ? {text: "", imageUrl: "", caption: ""}
+                            : preset === "AUDIO_WITH_TEXT"
+                                ? {text: "", audioUrl: "", caption: ""}
+                                : {text: ""};
+
         onChange({items: [...value.items, base]});
     };
 
@@ -50,29 +53,58 @@ export function ContentBlocksEditor({value, onChange, disabled}: {
         else patchItem(idx, {audioUrl: base64});
     };
 
+    const clearField = (idx: number, field: keyof ContentItem) => {
+        // keep backend-friendly "null" (explicitly removing field)
+        patchItem(idx, {[field]: null} as any);
+    };
+
+    const hasAnyContent = (item: ContentItem) => {
+        const hasText = !!(item.text && item.text.trim());
+        const hasCaption = !!(item.caption && item.caption.trim());
+        const hasImage = item.imageUrl !== undefined && item.imageUrl !== null && String(item.imageUrl).trim() !== "";
+        const hasAudio = item.audioUrl !== undefined && item.audioUrl !== null && String(item.audioUrl).trim() !== "";
+        return hasText || hasCaption || hasImage || hasAudio;
+    };
+
     return (
         <div>
             <div className={`${styles.header} ${styles.stickyToolbar}`}>
                 <h4 className={styles.title} style={{fontSize: "1rem"}}>
                     Теория (контент блоки)
                 </h4>
+
                 {!disabled && (
                     <div style={{display: "flex", gap: 8, flexWrap: "wrap"}}>
-                        <button className={styles.actionButton} onClick={() => addItem("TEXT")}>
+                        <button className={styles.actionButton} type="button" onClick={() => addItem("TEXT")}>
                             + Текст
                         </button>
-                        <button className={styles.actionButton} onClick={() => addItem("IMAGE")}>
+                        <button className={styles.actionButton} type="button" onClick={() => addItem("IMAGE")}>
                             + Изображение
                         </button>
-                        <button className={styles.actionButton} onClick={() => addItem("AUDIO")}>
+                        <button className={styles.actionButton} type="button" onClick={() => addItem("AUDIO")}>
                             + Аудио
+                        </button>
+                        <button className={styles.actionButton} type="button" onClick={() => addItem("IMAGE_WITH_TEXT")}>
+                            + Изображение + текст
+                        </button>
+                        <button className={styles.actionButton} type="button" onClick={() => addItem("AUDIO_WITH_TEXT")}>
+                            + Аудио + текст
                         </button>
                     </div>
                 )}
             </div>
+
             <div className={styles.list}>
                 {value.items.map((item, i) => {
-                    const itemType = getItemType(item);
+                    const showImagePreview =
+                        item.imageUrl !== undefined &&
+                        item.imageUrl !== null &&
+                        String(item.imageUrl).trim() !== "";
+
+                    const showAudioPreview =
+                        item.audioUrl !== undefined &&
+                        item.audioUrl !== null &&
+                        String(item.audioUrl).trim() !== "";
 
                     return (
                         <div
@@ -105,105 +137,164 @@ export function ContentBlocksEditor({value, onChange, disabled}: {
                                     ....
                                 </div>
                             )}
+
                             {!disabled && (
-                                <button className={styles.removeButton} onClick={() => removeItem(i)}>
+                                <button className={styles.removeButton} type="button" onClick={() => removeItem(i)}>
                                     удалить
                                 </button>
                             )}
-                            {itemType === "TEXT" && (
-                                <div className={styles.fieldsGrid}>
-                                    <label className={styles.label}>
-                                        Текст
-                                        <RichTextEditor
-                                            value={item.text || ""}
-                                            onChange={(v) => patchItem(i, {text: v})}
-                                            disabled={disabled}
-                                        />
-                                    </label>
+
+                            {!hasAnyContent(item) && (
+                                <div className={styles.hint} style={{marginBottom: 10}}>
+                                    Пустой блок — добавьте текст/изображение/аудио ниже.
                                 </div>
                             )}
-                            {itemType === "IMAGE" && (
-                                <div className={styles.fieldsGrid}>
-                                    <label className={styles.label}>
-                                        URL изображения (или загрузите файл)
-                                        <input
-                                            className={styles.input}
-                                            value={item.imageUrl || ""}
-                                            onChange={(e) => patchItem(i, {imageUrl: e.target.value})}
-                                            disabled={disabled}
-                                        />
-                                    </label>
-                                    <FileInput
-                                        label="Файл изображения"
-                                        value={item.imageUrl}
-                                        accept="image/*"
-                                        onChange={(f) => setFile(i, f, "image")}
+
+                            {/* TEXT */}
+                            <div className={styles.fieldsGrid}>
+                                <label className={styles.label}>
+                                    Текст
+                                    <RichTextEditor
+                                        value={item.text || ""}
+                                        onChange={(v) => patchItem(i, {text: v})}
                                         disabled={disabled}
                                     />
-                                    <label className={styles.label}>
-                                        Подпись
-                                        <RichTextEditor
-                                            value={item.caption || ""}
-                                            onChange={(v) => patchItem(i, {caption: v})}
-                                            disabled={disabled}
-                                        />
-                                    </label>
-                                    {item.imageUrl && (
-                                        <div className={styles.mediaBlock}>
-                                            <img
-                                                className={styles.image}
-                                                src={
-                                                    isDataUrl(item.imageUrl) || isBareBase64(item.imageUrl)
-                                                        ? asDataUrl(item.imageUrl, "image/*")
-                                                        : item.imageUrl
-                                                }
-                                                alt=""
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                            {itemType === "AUDIO" && (
-                                <div className={styles.fieldsGrid}>
-                                    <label className={styles.label}>
-                                        URL аудио (или загрузите файл)
-                                        <input
-                                            className={styles.input}
-                                            value={item.audioUrl || ""}
-                                            onChange={(e) => patchItem(i, {audioUrl: e.target.value})}
-                                            disabled={disabled}
-                                        />
-                                    </label>
-                                    <FileInput
-                                        label="Файл аудио"
-                                        value={item.audioUrl}
-                                        accept="audio/*"
-                                        onChange={(f) => setFile(i, f, "audio")}
+                                </label>
+
+                                {!disabled && (
+                                    <div style={{display: "flex", gap: 8, alignItems: "end"}}>
+                                        <button
+                                            className={styles.actionButton}
+                                            type="button"
+                                            onClick={() => clearField(i, "text")}
+                                            disabled={!item.text}
+                                        >
+                                            Очистить текст
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* IMAGE */}
+                            <div className={styles.fieldsGrid} style={{marginTop: 12}}>
+                                <label className={styles.label}>
+                                    URL изображения (или загрузите файл)
+                                    <input
+                                        className={styles.input}
+                                        value={item.imageUrl || ""}
+                                        onChange={(e) => patchItem(i, {imageUrl: e.target.value})}
                                         disabled={disabled}
                                     />
-                                    <label className={styles.label}>
-                                        Подпись
-                                        <RichTextEditor
-                                            value={item.caption || ""}
-                                            onChange={(v) => patchItem(i, {caption: v})}
-                                            disabled={disabled}
+                                </label>
+
+                                <FileInput
+                                    label="Файл изображения"
+                                    value={item.imageUrl}
+                                    accept="image/*"
+                                    onChange={(f) => setFile(i, f, "image")}
+                                    disabled={disabled}
+                                />
+
+                                {!disabled && (
+                                    <div style={{display: "flex", gap: 8, alignItems: "end"}}>
+                                        <button
+                                            className={styles.actionButton}
+                                            type="button"
+                                            onClick={() => clearField(i, "imageUrl")}
+                                            disabled={!item.imageUrl}
+                                        >
+                                            Убрать изображение
+                                        </button>
+                                    </div>
+                                )}
+
+                                {showImagePreview && (
+                                    <div className={styles.mediaBlock}>
+                                        <img
+                                            className={styles.image}
+                                            src={
+                                                isDataUrl(item.imageUrl!) || isBareBase64(item.imageUrl!)
+                                                    ? asDataUrl(item.imageUrl!, "image/*")
+                                                    : (item.imageUrl as string)
+                                            }
+                                            alt=""
                                         />
-                                    </label>
-                                    {item.audioUrl && (
-                                        <div className={styles.mediaBlock}>
-                                            <audio
-                                                className={styles.audio}
-                                                controls
-                                                src={
-                                                    isDataUrl(item.audioUrl) || isBareBase64(item.audioUrl)
-                                                        ? asDataUrl(item.audioUrl, "audio/*")
-                                                        : item.audioUrl || undefined
-                                                }
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* AUDIO */}
+                            <div className={styles.fieldsGrid} style={{marginTop: 12}}>
+                                <label className={styles.label}>
+                                    URL аудио (или загрузите файл)
+                                    <input
+                                        className={styles.input}
+                                        value={item.audioUrl || ""}
+                                        onChange={(e) => patchItem(i, {audioUrl: e.target.value})}
+                                        disabled={disabled}
+                                    />
+                                </label>
+
+                                <FileInput
+                                    label="Файл аудио"
+                                    value={item.audioUrl}
+                                    accept="audio/*"
+                                    onChange={(f) => setFile(i, f, "audio")}
+                                    disabled={disabled}
+                                />
+
+                                {!disabled && (
+                                    <div style={{display: "flex", gap: 8, alignItems: "end"}}>
+                                        <button
+                                            className={styles.actionButton}
+                                            type="button"
+                                            onClick={() => clearField(i, "audioUrl")}
+                                            disabled={!item.audioUrl}
+                                        >
+                                            Убрать аудио
+                                        </button>
+                                    </div>
+                                )}
+
+                                {showAudioPreview && (
+                                    <div className={styles.mediaBlock}>
+                                        <audio
+                                            className={styles.audio}
+                                            controls
+                                            src={
+                                                isDataUrl(item.audioUrl!) || isBareBase64(item.audioUrl!)
+                                                    ? asDataUrl(item.audioUrl!, "audio/*")
+                                                    : (item.audioUrl as string) || undefined
+                                            }
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* CAPTION (shared) */}
+                            <div className={styles.fieldsGrid} style={{marginTop: 12}}>
+                                <label className={styles.label}>
+                                    Подпись (caption)
+                                    <RichTextEditor
+                                        value={item.caption || ""}
+                                        onChange={(v) => patchItem(i, {caption: v})}
+                                        disabled={disabled}
+                                    />
+                                </label>
+
+                                {!disabled && (
+                                    <div style={{display: "flex", gap: 8, alignItems: "end"}}>
+                                        <button
+                                            className={styles.actionButton}
+                                            type="button"
+                                            onClick={() => clearField(i, "caption")}
+                                            disabled={!item.caption}
+                                        >
+                                            Очистить подпись
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     );
                 })}
